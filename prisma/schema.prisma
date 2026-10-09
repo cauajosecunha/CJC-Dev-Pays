@@ -1,0 +1,105 @@
+// Prisma schema para CJC-Dev-Pays
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Application {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  apiKey        String    @unique
+  apiKeyHash    String
+  webhookUrl    String?
+  webhookSecret String
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  payments      Payment[]
+  deliveries    WebhookDelivery[]
+
+  @@map("applications")
+}
+
+model Payment {
+  id                 String    @id @default(cuid())
+  applicationId      String
+  externalReference  String    @unique
+  mpPaymentId        String?   @unique
+  paymentMethod      String    // PIX, CREDIT_CARD, DEBIT_CARD, BOLETO
+  status             String    @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED, REFUNDED, IN_PROCESS
+  statusDetail       String?
+  amount             Float
+  feeAmount          Float?
+  netReceivedAmount  Float?
+  description        String
+  payerEmail         String
+  payerName          String?
+  payerDocument      String?
+  qrCode             String?
+  qrCodeBase64       String?
+  ticketUrl          String?
+  metadata           String?   // JSON customizado
+  callbackUrl        String?   // URL customizada da transação se informada
+  paidAt             DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  application        Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  deliveries         WebhookDelivery[]
+
+  @@map("payments")
+}
+
+model WebhookLog {
+  id                String   @id @default(cuid())
+  topic             String   // payment, merchant_order
+  mpEventId         String?  // data.id
+  signature         String?  // x-signature do MP
+  rawPayload        String   // Payload bruto recebido em JSON
+  isSignatureValid  Boolean  @default(false)
+  processed         Boolean  @default(false)
+  error             String?
+  createdAt         DateTime @default(now())
+
+  @@map("webhook_logs")
+}
+
+model WebhookDelivery {
+  id            String    @id @default(cuid())
+  paymentId     String
+  applicationId String
+  targetUrl     String
+  event         String    // payment.approved, payment.rejected, etc.
+  payload       String    // Payload JSON entregue ao cliente
+  httpStatus    Int?
+  responseBody  String?
+  attempts      Int       @default(1)
+  maxAttempts   Int       @default(5)
+  status        String    @default("PENDING") // PENDING, DELIVERED, FAILED
+  nextRetryAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  payment       Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_deliveries")
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("admin_users")
+}

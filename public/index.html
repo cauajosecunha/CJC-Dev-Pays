@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CJC-Dev-Pays — Central de Pagamentos & Webhooks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand-area">
+        <div class="brand-icon">💳</div>
+        <div>
+          <div class="brand-title">CJC-Dev-Pays</div>
+          <span class="brand-badge">Payment Hub</span>
+        </div>
+      </div>
+
+      <ul class="nav-menu">
+        <li class="nav-item active" data-view="view-dashboard" id="nav-dashboard">
+          <span>📊</span> Visão Geral
+        </li>
+        <li class="nav-item" data-view="view-payments" id="nav-payments">
+          <span>💳</span> Transações
+        </li>
+        <li class="nav-item" data-view="view-applications" id="nav-applications">
+          <span>🏢</span> Aplicações & Chaves
+        </li>
+        <li class="nav-item" data-view="view-webhooks" id="nav-webhooks">
+          <span>🔀</span> Fila de Webhooks
+        </li>
+        <li class="nav-item" data-view="view-simulator" id="nav-simulator">
+          <span>🧪</span> Simulador Sandbox
+        </li>
+        <li class="nav-item" data-view="view-docs" id="nav-docs">
+          <span>📖</span> Integração & SDK
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div class="live-indicator">
+          <div class="pulse-dot"></div>
+          <span id="live-status-text">SSE Conectado</span>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btn-logout">
+          🚪 Sair
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+      <!-- Topbar -->
+      <header class="topbar">
+        <div class="topbar-title-section">
+          <h1 class="topbar-title" id="page-heading">Visão Geral</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary btn-sm" id="btn-refresh" title="Atualizar dados">
+            🔄 Atualizar
+          </button>
+          <button class="btn btn-primary btn-sm" id="btn-quick-pix" title="Criar cobrança rápida">
+            ⚡ Novo Pix
+          </button>
+        </div>
+      </header>
+
+      <!-- Content Container -->
+      <main class="content-container">
+        
+        <!-- ==================== VIEW 1: DASHBOARD ==================== -->
+        <section id="view-dashboard" class="view-section active">
+          <!-- KPI Cards -->
+          <div class="kpi-grid">
+            <div class="kpi-card glass-panel" style="--card-accent: #10b981; --card-color: #10b981;">
+              <div class="kpi-header">
+                <span class="kpi-title">Volume Total Aprovado</span>
+                <div class="kpi-icon">💰</div>
+              </div>
+              <div class="kpi-value" id="kpi-total-volume">R$ 0,00</div>
+              <div class="kpi-subtext">Líquido: <span id="kpi-net-volume">R$ 0,00</span></div>
+            </div>
+
+            <div class="kpi-card glass-panel" style="--card-accent: #06b6d4; --card-color: #06b6d4;">
+              <div class="kpi-header">
+                <span class="kpi-title">Faturamento Hoje</span>
+                <div class="kpi-icon">📈</div>
+              </div>
+              <div class="kpi-value" id="kpi-today-volume">R$ 0,00</div>
+              <div class="kpi-subtext">Neste mês: <span id="kpi-month-volume">R$ 0,00</span></div>
+            </div>
+
+            <div class="kpi-card glass-panel" style="--card-accent: #3b82f6; --card-color: #3b82f6;">
+              <div class="kpi-header">
+                <span class="kpi-title">Taxa de Aprovação</span>
+                <div class="kpi-icon">🎯</div>
+              </div>
+              <div class="kpi-value" id="kpi-approval-rate">100%</div>
+              <div class="kpi-subtext"><span id="kpi-approved-count">0</span> de <span id="kpi-total-count">0</span> transações</div>
+            </div>
+
+            <div class="kpi-card glass-panel" style="--card-accent: #8b5cf6; --card-color: #8b5cf6;">
+              <div class="kpi-header">
+                <span class="kpi-title">Saúde dos Webhooks</span>
+                <div class="kpi-icon">🔀</div>
+              </div>
+              <div class="kpi-value" id="kpi-webhook-health">100%</div>
+              <div class="kpi-subtext"><span id="kpi-webhook-success">0</span> entregues / <span id="kpi-webhook-failed">0</span> falhas</div>
+            </div>
+          </div>
+
+          <!-- Apps Volume Grid -->
+          <div>
+            <div class="section-header">
+              <h2 class="section-title">🏢 Volume por Aplicação do Ecossistema</h2>
+            </div>
+            <div class="kpi-grid" id="apps-volume-container">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
+          <!-- Recent Payments Table -->
+          <div>
+            <div class="section-header">
+              <h2 class="section-title">⚡ Transações Recentes (Feed ao Vivo)</h2>
+              <button class="btn btn-secondary btn-sm" onclick="app.navigate('view-payments')">Ver Todas</button>
+            </div>
+            <div class="table-container glass-panel">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Aplicação</th>
+                    <th>Referência Externa</th>
+                    <th>Método</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-payments-tbody">
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-dim); padding: 30px;">Carregando dados...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== VIEW 2: TRANSAÇÕES ==================== -->
+        <section id="view-payments" class="view-section">
+          <div class="toolbar">
+            <div class="toolbar-filters">
+              <input type="text" id="filter-search" class="form-control" placeholder="Buscar por ref, MP ID, email ou cliente..." style="max-width: 320px;">
+              <select id="filter-app" class="form-control" style="max-width: 180px;">
+                <option value="ALL">Todas as Apps</option>
+              </select>
+              <select id="filter-status" class="form-control" style="max-width: 160px;">
+                <option value="ALL">Todos os Status</option>
+                <option value="APPROVED">Aprovado</option>
+                <option value="PENDING">Pendente</option>
+                <option value="REJECTED">Rejeitado</option>
+                <option value="REFUNDED">Estornado</option>
+              </select>
+              <button class="btn btn-primary btn-sm" id="btn-apply-filters">Filtrar</button>
+            </div>
+          </div>
+
+          <div class="table-container glass-panel">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Criado Em</th>
+                  <th>Aplicação</th>
+                  <th>Referência Externa</th>
+                  <th>ID Mercado Pago</th>
+                  <th>Pagador</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="all-payments-tbody">
+                <!-- Renderizado via JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ==================== VIEW 3: APLICAÇÕES ==================== -->
+        <section id="view-applications" class="view-section">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">Sistemas Conectados</h2>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Gerencie as chaves de API e os endpoints de webhook que recebem o fan-out do Mercado Pago.</p>
+            </div>
+            <button class="btn btn-primary" id="btn-new-app">+ Nova Aplicação</button>
+          </div>
+
+          <div class="kpi-grid" id="applications-cards-container">
+            <!-- Renderizado via JS -->
+          </div>
+        </section>
+
+        <!-- ==================== VIEW 4: WEBHOOKS ==================== -->
+        <section id="view-webhooks" class="view-section">
+          <div class="toolbar">
+            <div class="toolbar-filters">
+              <span style="font-size: 0.9rem; font-weight: 600;">Endpoint Único do Mercado Pago:</span>
+              <code class="code-box" id="mp-webhook-url-box" style="padding: 6px 12px;">http://localhost:3333/api/webhooks/mercadopago</code>
+              <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard(document.getElementById('mp-webhook-url-box').innerText)">📋 Copiar</button>
+            </div>
+            <select id="filter-webhook-status" class="form-control" style="max-width: 160px;">
+              <option value="ALL">Todos os Status</option>
+              <option value="DELIVERED">Entregues</option>
+              <option value="PENDING">Pendentes</option>
+              <option value="FAILED">Falhas</option>
+            </select>
+          </div>
+
+          <div class="table-container glass-panel">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Aplicação</th>
+                  <th>Evento</th>
+                  <th>URL de Destino</th>
+                  <th>Tentativas</th>
+                  <th>Status HTTP</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="webhooks-tbody">
+                <!-- Renderizado via JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ==================== VIEW 5: SIMULADOR SANDBOX ==================== -->
+        <section id="view-simulator" class="view-section">
+          <div class="glass-panel" style="padding: 28px; max-width: 700px; margin: 0 auto; width: 100%;">
+            <div class="section-header" style="margin-bottom: 20px;">
+              <div>
+                <h2 class="section-title">🧪 Sandbox de Pagamentos & Webhook Dispatcher</h2>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Gere cobranças Pix de teste e aprove-as com 1 clique para validar o recebimento no seu sistema PHP.</p>
+              </div>
+            </div>
+
+            <form id="form-simulate-pix">
+              <div class="form-group">
+                <label class="form-label">Aplicação Destino</label>
+                <select id="sim-app-select" class="form-control" required>
+                  <!-- Preenchido via JS -->
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Valor da Cobrança (R$)</label>
+                <input type="number" step="0.01" id="sim-amount" class="form-control" value="49.90" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Descrição</label>
+                <input type="text" id="sim-description" class="form-control" value="Pedido Simulado de Teste #1002" required>
+              </div>
+
+              <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px; margin-top: 8px;">
+                <input type="checkbox" id="sim-auto-approve" style="width: 18px; height: 18px; accent-color: var(--accent-cyan);">
+                <label for="sim-auto-approve" style="font-size: 0.88rem; cursor: pointer;">
+                  Aprovar Imediatamente e Disparar Webhook (Fan-Out)
+                </label>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 14px;">
+                ⚡ Gerar Cobrança Pix
+              </button>
+            </form>
+
+            <!-- Área de Resultado do Pix Simulado -->
+            <div id="sim-result-box" style="display: none; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-subtle);">
+              <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--accent-cyan);">QR Code Pix Gerado:</h3>
+              <div class="qr-preview" id="sim-qr-container"></div>
+              
+              <div class="form-group" style="margin-top: 12px;">
+                <label class="form-label">Código Copia-e-Cola:</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" id="sim-copia-cola" class="form-control" readonly>
+                  <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard(document.getElementById('sim-copia-cola').value)">📋 Copiar</button>
+                </div>
+              </div>
+
+              <div id="sim-approve-action-area" style="margin-top: 16px;">
+                <button class="btn btn-primary" id="btn-sim-manual-approve" style="width: 100%; background: #10b981;">
+                  ✅ Simular Pagamento Concluído pelo Banco (Aprovar & Disparar Webhook)
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== VIEW 6: INTEGRAÇÃO & DOCS ==================== -->
+        <section id="view-docs" class="view-section">
+          <div class="glass-panel" style="padding: 28px; display: flex; flex-direction: column; gap: 20px;">
+            <h2 class="section-title">📖 Guia de Integração para os Sistemas PHP</h2>
+            <p style="color: var(--text-muted); font-size: 0.92rem;">
+              Para que seus projetos (<strong>Sua Loja</strong>, <strong>Seu Salão</strong>, <strong>FaceCraft</strong>) criem pagamentos através do <strong>CJC-Dev-Pays</strong>, basta enviar uma requisição HTTP simples com a chave da aplicação:
+            </p>
+
+            <h3 style="font-size: 1rem; color: var(--accent-cyan); margin-top: 8px;">1. Criar Cobrança Pix em PHP (cURL ou SDK)</h3>
+            <pre class="code-box"><code>$response = file_get_contents('http://localhost:3333/api/v1/payments/pix', false, stream_context_create([
+    'http' => [
+        'method'  => 'POST',
+        'header'  => "Content-Type: application/json\r\n" .
+                     "X-Api-Key: SUA_CHAVE_CJC_LIVE\r\n",
+        'content' => json_encode([
+            'external_reference' => 'SUALOJA-PEDIDO-1002',
+            'amount'             => 49.90,
+            'description'        => 'Pedido #1002 - Lanche X-Burger',
+            'payer'              => [
+                'email'          => 'cliente@email.com',
+                'first_name'     => 'Caua',
+                'identification' => ['type' => 'CPF', 'number' => '12345678909']
+            ]
+        ])
+    ]
+]));
+
+$data = json_decode($response, true);
+$qrCodeBase64 = $data['payment']['qr_code_base64'];
+$copiaCola    = $data['payment']['qr_code'];</code></pre>
+
+            <h3 style="font-size: 1rem; color: var(--accent-cyan); margin-top: 12px;">2. Receber o Webhook Fan-Out no seu Script PHP (`webhook/cjc-pays.php`)</h3>
+            <pre class="code-box"><code>&lt;?php
+$payload = file_get_contents('php://input');
+$signatureHeader = $_SERVER['HTTP_X_CJC_SIGNATURE'] ?? '';
+
+// Extrai timestamp e hash
+parse_str(str_replace(',', '&', $signatureHeader), $sigParts);
+$timestamp = $sigParts['t'] ?? '';
+$receivedHash = $sigParts['v1'] ?? '';
+
+// Valida assinatura HMAC
+$secret = 'SEU_WEBHOOK_SECRET_AQUI';
+$expectedHash = hash_hmac('sha256', "t={$timestamp}&body={$payload}", $secret);
+
+if (!hash_equals($expectedHash, $receivedHash)) {
+    http_response_code(401);
+    die('Assinatura inválida');
+}
+
+$event = json_decode($payload, true);
+if ($event['status'] === 'approved') {
+    $ref = $event['external_reference'];
+    // Atualiza status do pedido no seu banco MySQL para PAGO!
+}
+
+http_response_code(200);
+echo json_encode(['status' => 'received']);</code></pre>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal: Detalhes do Pagamento -->
+  <div class="modal-overlay" id="modal-payment-details">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Detalhes da Transação</h3>
+        <button class="modal-close" onclick="app.closeModal('modal-payment-details')">✕</button>
+      </div>
+      <div class="modal-body" id="modal-payment-body">
+        <!-- Renderizado dinamicamente -->
+      </div>
+      <div class="modal-footer" id="modal-payment-footer">
+        <!-- Ações dinâmicas -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nova Aplicação -->
+  <div class="modal-overlay" id="modal-new-app">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Cadastrar Nova Aplicação</h3>
+        <button class="modal-close" onclick="app.closeModal('modal-new-app')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-create-app">
+          <div class="form-group">
+            <label class="form-label">Nome da Aplicação</label>
+            <input type="text" id="new-app-name" class="form-control" placeholder="Ex: Meu delivery" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Slug Único</label>
+            <input type="text" id="new-app-slug" class="form-control" placeholder="Ex: meu-delivery" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">URL de Webhook (Opcional)</label>
+            <input type="url" id="new-app-webhook" class="form-control" placeholder="https://meusite.com/api/webhook/cjc-pays.php">
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Salvar Aplicação</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
