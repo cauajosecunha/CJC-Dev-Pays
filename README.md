@@ -52,12 +52,32 @@ Criada para solucionar a limitação de **único Webhook por conta/aplicação n
 - Node.js 20+
 - npm ou pnpm
 
-### Instalação
+### Instalação & Desenvolvimento
 ```bash
 npm install
 npx prisma generate
-npx prisma migrate dev
+npx prisma db push
+npm run seed
 npm run dev
+```
+
+### Execução em Produção com PM2
+```bash
+# Compilar projeto
+npm run build
+
+# Iniciar via PM2
+npm run pm2:start
+
+# Monitorar logs
+npm run pm2:logs
+
+# Status dos processos
+npm run pm2:status
+
+# Reiniciar ou Parar
+npm run pm2:restart
+npm run pm2:stop
 ```
 
 ---

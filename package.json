@@ -12,7 +12,12 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "pm2:start": "pm2 start ecosystem.config.json",
+    "pm2:status": "pm2 status",
+    "pm2:logs": "pm2 logs cjc-dev-pays",
+    "pm2:restart": "pm2 restart ecosystem.config.json",
+    "pm2:stop": "pm2 stop ecosystem.config.json"
   },
   "keywords": [
     "mercadopago",

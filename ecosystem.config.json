@@ -1,0 +1,19 @@
+{
+  "apps": [
+    {
+      "name": "cjc-dev-pays",
+      "script": "./dist/server.js",
+      "cwd": "./",
+      "instances": 1,
+      "exec_mode": "fork",
+      "watch": false,
+      "max_memory_restart": "500M",
+      "restart_delay": 3000,
+      "autorestart": true,
+      "env": {
+        "NODE_ENV": "production",
+        "PORT": 4020
+      }
+    }
+  ]
+}
