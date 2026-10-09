@@ -27,11 +27,13 @@ export function sseStreamHandler(req: Request, res: Response): void {
   const onPaymentUpdated = (data: any) => sendEvent('payment:updated', data);
   const onWebhookDelivered = (data: any) => sendEvent('webhook:delivered', data);
   const onWebhookFailed = (data: any) => sendEvent('webhook:failed', data);
+  const onWebhookReceived = (data: any) => sendEvent('webhook:received', data);
 
   appEvents.on(EVENTS.PAYMENT_CREATED, onPaymentCreated);
   appEvents.on(EVENTS.PAYMENT_UPDATED, onPaymentUpdated);
   appEvents.on(EVENTS.WEBHOOK_DELIVERED, onWebhookDelivered);
   appEvents.on(EVENTS.WEBHOOK_FAILED, onWebhookFailed);
+  appEvents.on(EVENTS.WEBHOOK_RECEIVED, onWebhookReceived);
 
   req.on('close', () => {
     clearInterval(keepAliveInterval);
@@ -39,5 +41,6 @@ export function sseStreamHandler(req: Request, res: Response): void {
     appEvents.off(EVENTS.PAYMENT_UPDATED, onPaymentUpdated);
     appEvents.off(EVENTS.WEBHOOK_DELIVERED, onWebhookDelivered);
     appEvents.off(EVENTS.WEBHOOK_FAILED, onWebhookFailed);
+    appEvents.off(EVENTS.WEBHOOK_RECEIVED, onWebhookReceived);
   });
 }

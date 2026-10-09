@@ -286,6 +286,11 @@ class CJCPaysApp {
         if (this.currentView === 'view-webhooks') this.loadWebhooks();
       });
 
+      this.eventSource.addEventListener('webhook:received', (e) => {
+        const data = JSON.parse(e.data);
+        this.showToast(`🔔 Notificação recebida do Mercado Pago! Tópico: ${data.topic} (ID: ${data.dataId})`, 'info');
+      });
+
       this.eventSource.onerror = () => {
         const statusText = document.getElementById('live-status-text');
         if (statusText) statusText.innerText = 'Reconectando...';

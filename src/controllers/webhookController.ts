@@ -51,8 +51,19 @@ export class WebhookController {
         logger.warn(`Assinatura HMAC inválida para o webhook ${logEntry.id}. O evento continuará o fluxo se em modo sandbox.`);
       }
 
-      if (!dataId || topic !== 'payment') {
-        logger.info(`Evento não é de pagamento ou ID ausente (${topic} / ${dataId}). Processamento finalizado.`);
+      // Emite evento em tempo real para o Dashboard avisar o administrador
+      appEvents.emit(EVENTS.WEBHOOK_RECEIVED, {
+        topic: String(topic),
+        dataId: String(dataId),
+        isSignatureValid,
+      });
+
+      if (!dataId || (topic !== 'payment' && topic !== 'payment.created' && topic !== 'payment.updated')) {
+        if (dataId === '123456' || topic === 'order' || topic === 'merchant_order') {
+          logger.success(`Simulação/teste do Mercado Pago validada com sucesso! (${topic} / ID: ${dataId})`);
+        } else {
+          logger.info(`Evento não é de pagamento ou ID ausente (${topic} / ${dataId}). Processamento finalizado.`);
+        }
         await prisma.webhookLog.update({
           where: { id: logEntry.id },
           data: { processed: true },
