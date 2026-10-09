@@ -340,6 +340,8 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
   margin-bottom: 16px;
 }
 
@@ -515,9 +517,12 @@ body {
 }
 
 .form-label {
+  display: block;
   font-size: 0.82rem;
   font-weight: 500;
   color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 2px;
 }
 
 /* Filter Toolbar */
@@ -651,6 +656,7 @@ body {
 
 /* Code Snippet Box */
 .code-box {
+  display: block;
   background: #06090e;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
@@ -792,3 +798,223 @@ body {
   border-top: 1px solid var(--border-subtle);
   padding-top: 16px;
 }
+
+/* ==========================================================================
+   Grade e Cards de Aplicações Conectadas (Totalmente Responsivo)
+   ========================================================================== */
+.apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+.app-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.app-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gradient-brand);
+}
+
+.app-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.app-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-card-title {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  word-break: break-word;
+}
+
+.form-group-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-action-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.input-action-group .form-control,
+.input-action-group .code-box-block {
+  flex: 1 1 auto;
+  min-width: 0; /* IMPEDE overflow no flexbox */
+  width: 100%;
+}
+
+.input-action-group .btn {
+  flex-shrink: 0; /* Impede que os botões sejam esmagados */
+  white-space: nowrap;
+}
+
+.code-box-block {
+  display: block;
+  width: 100%;
+  word-break: break-all;
+  white-space: pre-wrap;
+  background: #06090e;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  color: #38bdf8;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.app-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.app-card-actions .btn {
+  flex: 1 1 170px;
+  min-width: 130px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ==========================================================================
+   Menu Mobile e Overlay Responsivo
+   ========================================================================== */
+.btn-menu-toggle {
+  display: none;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .btn-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 270px;
+    z-index: 1050;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.6);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 1040;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .sidebar-overlay.open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .topbar {
+    padding: 0 16px;
+    height: 60px;
+  }
+
+  .topbar-title {
+    font-size: 1.15rem;
+  }
+
+  .topbar-actions .btn {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .content-container {
+    padding: 16px 12px;
+    gap: 20px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .section-header .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-card {
+    padding: 18px 14px;
+  }
+
+  .app-card-title {
+    font-size: 1.1rem;
+  }
+
+  .input-action-group {
+    flex-wrap: nowrap;
+  }
+
+  .app-card-actions .btn {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}
+

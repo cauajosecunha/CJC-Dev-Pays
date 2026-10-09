@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=1.2">
 </head>
 <body>
   <!-- Tela de Login Administrativo -->
@@ -49,8 +49,11 @@
   </div>
 
   <div id="app-layout">
+    <!-- Overlay Mobile -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="brand-area">
         <div class="brand-icon">💳</div>
         <div>
@@ -96,6 +99,7 @@
       <!-- Topbar -->
       <header class="topbar">
         <div class="topbar-title-section">
+          <button class="btn btn-secondary btn-sm btn-menu-toggle" id="btn-toggle-sidebar" aria-label="Abrir Menu">☰</button>
           <h1 class="topbar-title" id="page-heading">Visão Geral</h1>
         </div>
         <div class="topbar-actions">
@@ -241,7 +245,7 @@
             <button class="btn btn-primary" id="btn-new-app">+ Nova Aplicação</button>
           </div>
 
-          <div class="kpi-grid" id="applications-cards-container">
+          <div class="apps-grid" id="applications-cards-container">
             <!-- Renderizado via JS -->
           </div>
         </section>
@@ -456,6 +460,6 @@ echo json_encode(['status' => 'received']);</code></pre>
   <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=1.2"></script>
 </body>
 </html>

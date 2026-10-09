@@ -91,11 +91,31 @@ class CJCPaysApp {
       }
     });
 
+    // Toggle Menu Mobile
+    const toggleSidebarBtn = document.getElementById('btn-toggle-sidebar');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    if (toggleSidebarBtn && sidebar && sidebarOverlay) {
+      toggleSidebarBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+        sidebarOverlay.classList.toggle('open');
+      });
+      sidebarOverlay.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('open');
+      });
+    }
+
     // Navegação lateral
     document.querySelectorAll('.nav-item').forEach((item) => {
       item.addEventListener('click', () => {
         const view = item.getAttribute('data-view');
         if (view) this.navigate(view);
+        if (window.innerWidth <= 900 && sidebar) {
+          sidebar.classList.remove('open');
+          sidebarOverlay?.classList.remove('open');
+        }
       });
     });
 
@@ -527,40 +547,43 @@ class CJCPaysApp {
       if (!container) return;
 
       container.innerHTML = this.appsCache.map(app => `
-        <div class="kpi-card glass-panel" style="padding: 24px; display: flex; flex-direction: column; gap: 14px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="font-size: 1.15rem; font-weight: 700; color: #ffffff;">${app.name}</h3>
+        <div class="app-card">
+          <div class="app-card-header">
+            <h3 class="app-card-title">${app.name}</h3>
             <span class="badge ${app.isActive ? 'badge-approved' : 'badge-rejected'}">${app.isActive ? 'Ativa' : 'Inativa'}</span>
           </div>
 
           <div style="font-size: 0.85rem; color: var(--text-muted);">
-            Slug: <code style="color: var(--accent-cyan);">${app.slug}</code>
+            Slug: <code style="color: var(--accent-cyan); font-weight: 600;">${app.slug}</code>
           </div>
 
-          <div>
-            <div class="form-label">Chave de API (X-Api-Key):</div>
-            <div style="display: flex; gap: 8px;">
-              <input type="password" value="${app.apiKey}" id="key-input-${app.id}" class="form-control" style="font-size: 0.8rem;" readonly>
-              <button class="btn btn-secondary btn-sm" onclick="app.toggleKeyVisibility('${app.id}')">👁️</button>
-              <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard('${app.apiKey}')">📋</button>
+          <div class="form-group-card">
+            <label class="form-label">Chave de API (X-Api-Key):</label>
+            <div class="input-action-group">
+              <input type="password" value="${app.apiKey}" id="key-input-${app.id}" class="form-control" style="font-size: 0.82rem;" readonly>
+              <button class="btn btn-secondary btn-sm" onclick="app.toggleKeyVisibility('${app.id}')" title="Mostrar/Ocultar Chave">👁️</button>
+              <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard('${app.apiKey}')" title="Copiar Chave">📋</button>
             </div>
           </div>
 
-          <div>
-            <div class="form-label">Endpoint de Webhook (Destino do Fan-Out):</div>
-            <div style="display: flex; gap: 8px;">
-              <input type="text" value="${app.webhookUrl || ''}" id="webhook-input-${app.id}" class="form-control" style="font-size: 0.8rem;" placeholder="https://...">
-              <button class="btn btn-secondary btn-sm" onclick="app.saveAppWebhook('${app.id}')">💾 Salvar</button>
+          <div class="form-group-card">
+            <label class="form-label">Endpoint de Webhook (Destino do Fan-Out):</label>
+            <div class="input-action-group">
+              <input type="text" value="${app.webhookUrl || ''}" id="webhook-input-${app.id}" class="form-control" style="font-size: 0.82rem;" placeholder="https://...">
+              <button class="btn btn-secondary btn-sm" onclick="app.saveAppWebhook('${app.id}')" title="Salvar URL">💾 Salvar</button>
             </div>
           </div>
 
-          <div>
-            <div class="form-label">Segredo HMAC (Assinatura do Webhook):</div>
-            <code class="code-box" style="font-size: 0.78rem;">${app.webhookSecret}</code>
+          <div class="form-group-card">
+            <label class="form-label">Segredo HMAC (Assinatura do Webhook):</label>
+            <div class="input-action-group">
+              <code class="code-box-block">${app.webhookSecret}</code>
+              <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard('${app.webhookSecret}')" title="Copiar Segredo HMAC">📋</button>
+            </div>
           </div>
 
-          <div style="display: flex; gap: 10px; margin-top: 8px;">
-            <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="app.pingAppWebhook('${app.id}')">📡 Testar Ping Webhook</button>
+          <div class="app-card-actions">
+            <button class="btn btn-secondary btn-sm" onclick="app.pingAppWebhook('${app.id}')">📡 Testar Ping Webhook</button>
             <button class="btn btn-secondary btn-sm" onclick="app.regenerateApiKey('${app.id}')">🔄 Nova Chave</button>
           </div>
         </div>
