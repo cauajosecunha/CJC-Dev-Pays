@@ -15,13 +15,74 @@ class CJCPaysApp {
 
   async init() {
     this.bindEvents();
-    await this.ensureAuth();
-    this.setupSSE();
-    this.loadDashboardData();
-    this.loadApplications();
+    if (this.token) {
+      const isValid = await this.validateSession();
+      if (isValid) {
+        this.showAppLayout();
+        this.setupSSE();
+        this.loadDashboardData();
+        this.loadApplications();
+      } else {
+        this.showLoginScreen();
+      }
+    } else {
+      this.showLoginScreen();
+    }
+  }
+
+  showLoginScreen() {
+    const loginScreen = document.getElementById('login-screen');
+    const appLayout = document.getElementById('app-layout');
+    if (loginScreen) loginScreen.style.display = 'flex';
+    if (appLayout) appLayout.style.display = 'none';
+
+    // Limpa alertas e campos anteriores
+    const alertBox = document.getElementById('login-error-alert');
+    if (alertBox) alertBox.style.display = 'none';
+    const userInput = document.getElementById('login-username');
+    if (userInput) {
+      userInput.value = '';
+      userInput.focus();
+    }
+    const passInput = document.getElementById('login-password');
+    if (passInput) passInput.value = '';
+  }
+
+  showAppLayout() {
+    const loginScreen = document.getElementById('login-screen');
+    const appLayout = document.getElementById('app-layout');
+    if (loginScreen) loginScreen.style.display = 'none';
+    if (appLayout) appLayout.style.display = 'flex';
+  }
+
+  async validateSession() {
+    try {
+      const res = await fetch('/api/admin/metrics', { headers: this.getHeaders() });
+      if (res.status === 401) {
+        localStorage.removeItem('cjc_admin_token');
+        this.token = null;
+        return false;
+      }
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   bindEvents() {
+    // Formulário de Login Administrativo
+    document.getElementById('form-login')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleLogin();
+    });
+
+    document.getElementById('btn-toggle-login-pass')?.addEventListener('click', () => {
+      const input = document.getElementById('login-password');
+      if (input) {
+        input.type = input.type === 'password' ? 'text' : 'password';
+      }
+    });
+
     // Navegação lateral
     document.querySelectorAll('.nav-item').forEach((item) => {
       item.addEventListener('click', () => {
@@ -41,9 +102,7 @@ class CJCPaysApp {
     });
 
     document.getElementById('btn-logout')?.addEventListener('click', () => {
-      localStorage.removeItem('cjc_admin_token');
-      this.token = null;
-      location.reload();
+      this.logout();
     });
 
     // Filtros de transações
@@ -81,24 +140,65 @@ class CJCPaysApp {
     });
   }
 
-  async ensureAuth() {
-    if (!this.token) {
-      try {
-        // Autentica automaticamente com as credenciais padrão em ambiente local
-        const res = await fetch('/api/admin/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: 'admin', password: 'admin123' }),
-        });
-        const data = await res.json();
-        if (data.success && data.token) {
-          this.token = data.token;
-          localStorage.setItem('cjc_admin_token', this.token);
+  async handleLogin() {
+    const username = document.getElementById('login-username')?.value.trim();
+    const password = document.getElementById('login-password')?.value;
+    const alertBox = document.getElementById('login-error-alert');
+    const alertText = document.getElementById('login-error-text');
+    const submitBtn = document.getElementById('btn-submit-login');
+
+    if (!username || !password) return;
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Autenticando...';
+    }
+
+    try {
+      const res = await fetch('/api/admin/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.token) {
+        this.token = data.token;
+        localStorage.setItem('cjc_admin_token', this.token);
+        this.showToast(`Bem-vindo, ${data.user.name || data.user.username}!`, 'success');
+        this.showAppLayout();
+        this.setupSSE();
+        this.loadDashboardData();
+        this.loadApplications();
+      } else {
+        if (alertBox && alertText) {
+          alertText.innerText = data.error || 'Usuário ou senha incorretos.';
+          alertBox.style.display = 'flex';
         }
-      } catch (e) {
-        console.error('Falha na autenticação inicial:', e);
+      }
+    } catch (e) {
+      if (alertBox && alertText) {
+        alertText.innerText = 'Erro ao conectar ao servidor.';
+        alertBox.style.display = 'flex';
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = '🔒 Entrar no Painel';
       }
     }
+  }
+
+  logout() {
+    localStorage.removeItem('cjc_admin_token');
+    this.token = null;
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+    this.showToast('Você saiu do painel com sucesso.', 'info');
+    this.showLoginScreen();
   }
 
   getHeaders() {
