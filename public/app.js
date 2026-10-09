@@ -15,6 +15,7 @@ class CJCPaysApp {
 
   async init() {
     this.bindEvents();
+    this.updateDynamicUrls();
     if (this.token) {
       const isValid = await this.validateSession();
       if (isValid) {
@@ -27,6 +28,13 @@ class CJCPaysApp {
       }
     } else {
       this.showLoginScreen();
+    }
+  }
+
+  updateDynamicUrls() {
+    const mpBox = document.getElementById('mp-webhook-url-box');
+    if (mpBox) {
+      mpBox.innerText = `${window.location.origin}/api/webhooks/mercadopago`;
     }
   }
 
