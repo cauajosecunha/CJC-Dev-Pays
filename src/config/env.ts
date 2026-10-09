@@ -2,9 +2,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export const config = {
-  port: parseInt(process.env.PORT || '3333', 10),
+  port: parseInt(process.env.PORT || '4020', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:3333',
+  apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:4020',
   jwtSecret: process.env.JWT_SECRET || 'cjc_dev_pays_super_secret_jwt_token_2026',
   adminUsername: process.env.ADMIN_USERNAME || 'admin',
   adminPassword: process.env.ADMIN_PASSWORD || 'admin123',

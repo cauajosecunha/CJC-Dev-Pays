@@ -213,7 +213,7 @@
           <div class="toolbar">
             <div class="toolbar-filters">
               <span style="font-size: 0.9rem; font-weight: 600;">Endpoint Único do Mercado Pago:</span>
-              <code class="code-box" id="mp-webhook-url-box" style="padding: 6px 12px;">http://localhost:3333/api/webhooks/mercadopago</code>
+              <code class="code-box" id="mp-webhook-url-box" style="padding: 6px 12px;">http://localhost:4020/api/webhooks/mercadopago</code>
               <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard(document.getElementById('mp-webhook-url-box').innerText)">📋 Copiar</button>
             </div>
             <select id="filter-webhook-status" class="form-control" style="max-width: 160px;">
@@ -316,7 +316,7 @@
             </p>
 
             <h3 style="font-size: 1rem; color: var(--accent-cyan); margin-top: 8px;">1. Criar Cobrança Pix em PHP (cURL ou SDK)</h3>
-            <pre class="code-box"><code>$response = file_get_contents('http://localhost:3333/api/v1/payments/pix', false, stream_context_create([
+            <pre class="code-box"><code>$response = file_get_contents('http://localhost:4020/api/v1/payments/pix', false, stream_context_create([
     'http' => [
         'method'  => 'POST',
         'header'  => "Content-Type: application/json\r\n" .
