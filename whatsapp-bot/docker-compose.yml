@@ -1,0 +1,30 @@
+# ==============================================================================
+# ATENÇÃO / AVISO IMPORTANTE:
+# NÃO SUBIR ESTE COMPOSE LOCALMENTE OU EM HOMOLOGAÇÃO!
+# O contêiner cjcdev_whatsapp JÁ ESTÁ RODANDO NO SERVIDOR DE PRODUÇÃO (Porta 3102).
+# A GOWA API está ativa em http://192.168.3.177:3031 com o Device ID configurado.
+# ==============================================================================
+
+services:
+  cjcdev_whatsapp:
+    image: aldinokemal2104/go-whatsapp-web-multidevice
+    container_name: cjcdev_whatsapp
+    restart: always
+    ports:
+      - "3102:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - cjcdev_whatsapp_data:/app/storages
+    command:
+      - rest
+      - --port=3000
+      - --debug=false
+      - '--os=CJC Dev'
+      - --account-validation=false
+      - --webhook=http://192.168.3.177:3003/webhook
+
+volumes:
+  cjcdev_whatsapp_data:
+    name: whatsapp-bot_cjcdev_whatsapp_data
+    external: true

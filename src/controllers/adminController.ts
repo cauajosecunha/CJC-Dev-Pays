@@ -6,6 +6,7 @@ import { prisma } from '../lib/prisma.js';
 import { config } from '../config/env.js';
 import { metricsService } from '../services/metricsService.js';
 import { webhookDispatcher } from '../services/webhookDispatcher.js';
+import { whatsappService } from '../services/whatsappService.js';
 import { mercadoPagoService } from '../services/mercadoPagoService.js';
 import { appEvents, EVENTS } from '../lib/eventEmitter.js';
 import { logger } from '../lib/logger.js';
@@ -211,6 +212,13 @@ export class AdminController {
         application: updated.application,
         eventName: 'payment.refunded',
       });
+
+      whatsappService.sendRefundedPayment(
+        updated,
+        updated.application.name,
+        updated.application.slug,
+        'Estornado manualmente pelo Painel Administrativo'
+      ).catch((err: any) => logger.warn(`[AdminController] Erro ao notificar WhatsApp estorno: ${err?.message || err}`));
 
       res.json({ success: true, payment: updated });
     } catch (error) {

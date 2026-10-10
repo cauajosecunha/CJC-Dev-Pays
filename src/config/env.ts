@@ -28,4 +28,11 @@ export const config = {
   // Webhooks
   webhookMaxRetries: parseInt(process.env.WEBHOOK_MAX_RETRIES || '5', 10),
   webhookRetryIntervalSeconds: parseInt(process.env.WEBHOOK_RETRY_INTERVAL_SECONDS || '60', 10),
+
+  // WhatsApp Notifier (GOWA API)
+  gowaApiUrl: process.env.GOWA_API_URL || 'http://192.168.3.177:3031',
+  gowaDeviceId: process.env.GOWA_DEVICE_ID || '5d6a4868-c62e-410a-9e42-1b84fc6e5b49',
+  whatsappGroupJid: process.env.WHATSAPP_GROUP_JID || '120363430697662911@g.us',
+  whatsappNotificationsEnabled: process.env.WHATSAPP_NOTIFICATIONS_ENABLED !== 'false',
 };
+

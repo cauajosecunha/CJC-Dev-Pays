@@ -1,0 +1,19 @@
+{
+  "name": "cjc-dev-pays-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "Notificador de transações aprovadas e estornadas no WhatsApp via GOWA API para o CJC-Dev-Pays",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "test:notify": "node src/broadcaster.js",
+    "test:approved": "node src/broadcaster.js approved",
+    "test:refund": "node src/broadcaster.js refund"
+  },
+  "author": "Cauã José Cunha",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.0",
+    "express": "^4.18.0"
+  }
+}

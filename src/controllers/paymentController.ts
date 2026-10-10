@@ -6,6 +6,7 @@ import { mercadoPagoService } from '../services/mercadoPagoService.js';
 import { appEvents, EVENTS } from '../lib/eventEmitter.js';
 import { logger } from '../lib/logger.js';
 import { webhookDispatcher } from '../services/webhookDispatcher.js';
+import { whatsappService } from '../services/whatsappService.js';
 import { config } from '../config/env.js';
 
 const createPixSchema = z.object({
@@ -234,6 +235,8 @@ export class PaymentController {
           application: app,
           eventName: 'payment.approved',
         });
+        whatsappService.sendApprovedPayment(payment, app.name, app.slug)
+          .catch((err: any) => logger.warn(`[PaymentController] Erro ao notificar WhatsApp aprovado: ${err?.message || err}`));
       }
 
       res.status(201).json({
@@ -379,6 +382,9 @@ export class PaymentController {
         application: app,
         eventName: 'payment.refunded',
       });
+
+      whatsappService.sendRefundedPayment(updated, app.name, app.slug, 'Estornado via API do CJC-Dev-Pays')
+        .catch((err: any) => logger.warn(`[PaymentController] Erro ao notificar WhatsApp estorno: ${err?.message || err}`));
 
       res.json({
         success: true,

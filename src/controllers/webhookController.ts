@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { mercadoPagoService } from '../services/mercadoPagoService.js';
 import { webhookDispatcher } from '../services/webhookDispatcher.js';
+import { whatsappService } from '../services/whatsappService.js';
 import { logger } from '../lib/logger.js';
 import { appEvents, EVENTS } from '../lib/eventEmitter.js';
 
@@ -106,6 +107,10 @@ export class WebhookController {
       }
 
       const isNewlyApproved = payment.status !== 'APPROVED' && mpStatus === 'APPROVED';
+      const isNewlyRefunded =
+        payment.status !== 'REFUNDED' &&
+        payment.status !== 'CHARGED_BACK' &&
+        (mpStatus === 'REFUNDED' || mpStatus === 'CHARGED_BACK');
 
       // Atualiza pagamento no banco de dados
       const updatedPayment = await prisma.payment.update({
@@ -144,10 +149,27 @@ export class WebhookController {
         application: updatedPayment.application,
         eventName: isNewlyApproved ? 'payment.approved' : `payment.${mpStatus.toLowerCase()}`,
       });
+
+      // Notificação no WhatsApp da equipe via GOWA API
+      if (isNewlyApproved) {
+        whatsappService.sendApprovedPayment(
+          updatedPayment,
+          updatedPayment.application.name,
+          updatedPayment.application.slug
+        ).catch((err: any) => logger.warn(`[WebhookController] Erro ao notificar WhatsApp aprovado: ${err?.message || err}`));
+      } else if (isNewlyRefunded) {
+        whatsappService.sendRefundedPayment(
+          updatedPayment,
+          updatedPayment.application.name,
+          updatedPayment.application.slug,
+          statusDetail || `Atualizado para ${mpStatus} no Mercado Pago`
+        ).catch((err: any) => logger.warn(`[WebhookController] Erro ao notificar WhatsApp estorno: ${err?.message || err}`));
+      }
     } catch (error: any) {
       logger.error('Erro no processamento do webhook do Mercado Pago:', error);
     }
   }
 }
+
 
 export const webhookController = new WebhookController();
