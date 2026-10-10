@@ -9,8 +9,9 @@ $baseUrl = 'https://pays.cjcdev.site';
 $client = new CJCPaysClient($apiKey, $baseUrl);
 
 try {
-    // Opção A: Consultar por Referência Externa no padrão contábil {ID_ESTABELECIMENTO}-{TIPO}-{ID_PEDIDO}
-    $externalRef = 'ESTAB002-PEDIDO-12345';
+    // Opção A: Consultar por Referência Externa
+    // A Central aceita tanto a referência do pedido (ex: "PEDIDO-12345") quanto a contábil ("SUA-LOJA-PEDIDO-12345")
+    $externalRef = 'PEDIDO-12345';
     echo "🔎 Consultando pagamento por referência: {$externalRef}...\n";
     $resultByRef = $client->getPaymentByReference($externalRef);
 

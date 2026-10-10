@@ -7,8 +7,9 @@ const client = new CJCPaysClient({
 
 async function main() {
   try {
-    // Opção A: Consultar por Referência Externa no padrão contábil {ID_ESTABELECIMENTO}-{TIPO}-{ID_PEDIDO}
-    const externalRef = 'ESTAB002-PEDIDO-12345';
+    // Opção A: Consultar por Referência Externa
+    // A Central aceita tanto a sua referência direta (ex: "PEDIDO-12345") quanto a contábil ("SUA-LOJA-PEDIDO-12345")
+    const externalRef = 'PEDIDO-12345';
     console.log(`🔎 Consultando pagamento por referência: ${externalRef}...`);
 
     const resRef = await client.getPaymentByReference(externalRef);
