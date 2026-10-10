@@ -3,6 +3,10 @@ import { config } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { webhookDispatcher } from './services/webhookDispatcher.js';
 import { prisma } from './lib/prisma.js';
+import { initDatabase } from './lib/dbInit.js';
+
+// Auto-migração e verificação do banco de dados na inicialização
+await initDatabase();
 
 const server = app.listen(config.port, () => {
   logger.success(`🚀 CJC-Dev-Pays rodando com sucesso na porta ${config.port}!`);
