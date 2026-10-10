@@ -8,6 +8,7 @@ import { metricsService } from '../services/metricsService.js';
 import { webhookDispatcher } from '../services/webhookDispatcher.js';
 import { mercadoPagoService } from '../services/mercadoPagoService.js';
 import { appEvents, EVENTS } from '../lib/eventEmitter.js';
+import { logger } from '../lib/logger.js';
 import axios from 'axios';
 
 export class AdminController {
@@ -327,6 +328,53 @@ export class AdminController {
       res.json({
         success: true,
         message: `Aplicação '${app.name}' excluída com sucesso.`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /api/admin/applications/:id/transactions
+   * POST /api/admin/applications/:id/clear-transactions
+   * Limpa todas as transações (pagamentos) e entregas de webhook de uma aplicação específica
+   */
+  async clearApplicationTransactions(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const app = await prisma.application.findUnique({
+        where: { id },
+        include: {
+          _count: {
+            select: { payments: true, deliveries: true },
+          },
+        },
+      });
+
+      if (!app) {
+        res.status(404).json({ success: false, error: 'Aplicação não encontrada.' });
+        return;
+      }
+
+      // Deleta entregas de webhook vinculadas a esta aplicação
+      const deletedDeliveries = await prisma.webhookDelivery.deleteMany({
+        where: { applicationId: id },
+      });
+
+      // Deleta pagamentos da aplicação
+      const deletedPayments = await prisma.payment.deleteMany({
+        where: { applicationId: id },
+      });
+
+      logger.info(
+        `[Admin] Limpeza de transações da aplicação '${app.name}' (${app.slug}): ${deletedPayments.count} pagamentos e ${deletedDeliveries.count} entregas removidos.`
+      );
+
+      res.json({
+        success: true,
+        deletedPaymentsCount: deletedPayments.count,
+        deletedDeliveriesCount: deletedDeliveries.count,
+        message: `${deletedPayments.count} transação(ões) e ${deletedDeliveries.count} entrega(s) de webhook da aplicação '${app.name}' foram limpas com sucesso.`,
       });
     } catch (error) {
       next(error);

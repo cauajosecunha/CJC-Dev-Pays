@@ -903,6 +903,14 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
             <div class="crud-app-buttons">
               <button 
                 type="button" 
+                class="btn btn-warning btn-sm" 
+                onclick="app.clearApplicationTransactions('${app.id}')"
+                title="Limpar transações de teste desta aplicação"
+              >
+                🧹 Limpar Transações
+              </button>
+              <button 
+                type="button" 
                 class="btn btn-secondary btn-sm" 
                 onclick="app.openEditAppModal('${app.id}')"
               >
@@ -1066,6 +1074,58 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
       }
     } catch (e) {
       this.showToast('Erro ao excluir aplicação.', 'warning');
+    }
+  }
+
+  async clearApplicationTransactions(appId) {
+    const targetApp = this.applicationsCache.find((a) => a.id === appId);
+    const appName = targetApp ? targetApp.name : 'esta aplicação';
+    const paymentsCount = targetApp?._count?.payments || 0;
+    const deliveriesCount = targetApp?._count?.deliveries || 0;
+
+    if (paymentsCount === 0 && deliveriesCount === 0) {
+      this.showToast(`A aplicação "${appName}" não possui transações para limpar.`, 'info');
+      return;
+    }
+
+    const confirmClear = confirm(
+      `Deseja realmente limpar as transações da aplicação "${appName}"?\n\n` +
+      `Serão removidos permanentemente:\n` +
+      `• ${paymentsCount} registro(s) de pagamento\n` +
+      `• ${deliveriesCount} log(s) de entrega de webhook associados\n\n` +
+      `Esta ação é recomendada para limpar testes e NÃO pode ser desfeita.`
+    );
+    if (!confirmClear) return;
+
+    try {
+      const res = await fetch(`/api/admin/applications/${appId}/transactions`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+      });
+
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        // Resposta não JSON (ex: erro de gateway/proxy)
+      }
+
+      if (res.ok && data?.success) {
+        this.showToast(data.message || `Transações de '${appName}' limpas com sucesso!`, 'success');
+        this.loadApplicationsCRUD();
+        this.loadMetrics();
+        if (this.currentView === 'payments-view') {
+          this.loadAllPayments();
+        }
+        if (this.currentView === 'webhooks-view') {
+          this.loadAllWebhooks();
+        }
+      } else {
+        this.showToast(data?.error || `Falha ao limpar transações (HTTP ${res.status}).`, 'warning');
+      }
+    } catch (e) {
+      console.error('Erro ao limpar transações:', e);
+      this.showToast('Erro ao limpar transações da aplicação.', 'warning');
     }
   }
 

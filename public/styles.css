@@ -316,6 +316,18 @@ input:-webkit-autofill:focus {
   color: #fecdd3;
 }
 
+.btn-warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.btn-warning:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fde68a;
+}
+
 .btn-block {
   width: 100%;
 }
@@ -920,6 +932,8 @@ input:-webkit-autofill:focus {
   padding-top: 14px;
   border-top: 1px solid var(--border-subtle);
   margin-top: 4px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .crud-app-counters {
@@ -930,6 +944,7 @@ input:-webkit-autofill:focus {
 .crud-app-buttons {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* ==================== DATA TABLE ==================== */
