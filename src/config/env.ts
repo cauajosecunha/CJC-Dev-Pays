@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+const isSandbox = process.env.MP_SANDBOX === 'true';
+
 export const config = {
   port: parseInt(process.env.PORT || '4020', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -10,10 +12,18 @@ export const config = {
   adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
 
   // Mercado Pago
-  mpAccessToken: process.env.MP_ACCESS_TOKEN || '',
-  mpPublicKey: process.env.MP_PUBLIC_KEY || '',
+  mpSandbox: isSandbox,
+  mpAccessToken: (isSandbox && process.env.MP_TEST_ACCESS_TOKEN)
+    ? process.env.MP_TEST_ACCESS_TOKEN
+    : (process.env.MP_ACCESS_TOKEN || ''),
+  mpPublicKey: (isSandbox && process.env.MP_TEST_PUBLIC_KEY)
+    ? process.env.MP_TEST_PUBLIC_KEY
+    : (process.env.MP_PUBLIC_KEY || ''),
+  mpClientId: process.env.MP_CLIENT_ID || '',
+  mpClientSecret: process.env.MP_CLIENT_SECRET || '',
+  mpTestAccessToken: process.env.MP_TEST_ACCESS_TOKEN || '',
+  mpTestPublicKey: process.env.MP_TEST_PUBLIC_KEY || '',
   mpWebhookSecret: process.env.MP_WEBHOOK_SECRET || '',
-  mpSandbox: process.env.MP_SANDBOX === 'true',
 
   // Webhooks
   webhookMaxRetries: parseInt(process.env.WEBHOOK_MAX_RETRIES || '5', 10),

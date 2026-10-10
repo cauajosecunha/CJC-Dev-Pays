@@ -106,7 +106,11 @@ class MercadoPagoService {
       }
 
       if (input.notificationUrl) {
-        payload.notification_url = input.notificationUrl;
+        if (!input.notificationUrl.includes('localhost') && !input.notificationUrl.includes('127.0.0.1')) {
+          payload.notification_url = input.notificationUrl;
+        } else {
+          payload.notification_url = 'https://pays.cjcdev.site/api/webhooks/mercadopago';
+        }
       }
 
       if (input.metadata) {
@@ -178,7 +182,11 @@ class MercadoPagoService {
       }
 
       if (input.notificationUrl) {
-        payload.notification_url = input.notificationUrl;
+        if (!input.notificationUrl.includes('localhost') && !input.notificationUrl.includes('127.0.0.1')) {
+          payload.notification_url = input.notificationUrl;
+        } else {
+          payload.notification_url = 'https://pays.cjcdev.site/api/webhooks/mercadopago';
+        }
       }
 
       if (input.metadata) {
