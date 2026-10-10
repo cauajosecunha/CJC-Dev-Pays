@@ -55,7 +55,7 @@ export async function initDatabase(): Promise<void> {
           username: defaultUsername,
           passwordHash: defaultHash,
           name: 'Administrador CJC',
-        },
+        } as any,
       });
       logger.success(`Usuário administrador inicial criado (${defaultEmail}).`);
     }
