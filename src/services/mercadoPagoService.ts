@@ -250,10 +250,12 @@ class MercadoPagoService {
     }
 
     try {
+      const idempotencyKey = crypto.randomUUID();
       const payload = amount ? { amount: Number(amount.toFixed(2)) } : {};
       const response = await this.client.post(`/v1/payments/${paymentId}/refunds`, payload, {
         headers: {
           Authorization: `Bearer ${config.mpAccessToken}`,
+          'X-Idempotency-Key': idempotencyKey,
         },
       });
       return response.data;
