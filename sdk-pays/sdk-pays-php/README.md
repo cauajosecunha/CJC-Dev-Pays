@@ -55,14 +55,15 @@ $dados = CJCPaysClient::parseExternalReference($ref);
 ```php
 require_once __DIR__ . '/CJCPaysClient.php';
 
-$client = new CJCPaysClient('cjc_live_SUA_CHAVE_AQUI', 'https://pays.cjcdev.site');
-
-$ref = CJCPaysClient::buildExternalReference('ESTAB002', 'PEDIDO', 12345);
+$client = new CJCPaysClient(
+    $_ENV['CJC_PAYS_API_KEY'] ?? 'cjc_live_SUA_CHAVE',
+    $_ENV['CJC_PAYS_BASE_URL'] ?? 'https://pays.cjcdev.site'
+);
 
 $response = $client->createPix([
-    'external_reference' => $ref,
+    'external_reference' => 'PEDIDO-12345', // A Central prefixa o ID da loja automaticamente!
     'amount' => 49.90,
-    'description' => 'Pedido #12345 - Sua Loja Delivery',
+    'description' => 'Pedido #12345 - Sua Loja',
     'payer' => [
         'email' => 'cliente@exemplo.com',
         'first_name' => 'Cauã',
@@ -73,11 +74,7 @@ $response = $client->createPix([
         ]
     ],
     'metadata' => [
-        'estabelecimento_id'   => 'ESTAB002',
-        'estabelecimento_nome' => 'Sua Loja Delivery',
-        'estabelecimento_tipo' => 'delivery',
-        'pedido_id'            => 12345,
-        'taxa_plataforma_pct'  => 5.0,
+        'pedido_id' => 12345,
     ]
 ]);
 
@@ -111,3 +108,11 @@ try {
     echo json_encode(['error' => $e->getMessage()]);
 }
 ```
+
+---
+
+## 🤖 Prompt Pronto para Enviar à IA da sua Loja
+
+Ao colar esta pasta `sdk-pays-php/` na raiz do projeto da sua loja e copiar o `.env` do painel, basta enviar o seguinte comando para o seu assistente de IA (Antigravity / Cursor / Claude):
+
+> *"Integre o gateway de pagamentos no checkout do meu sistema usando o SDK em `sdk-pays-php/`. Utilize as variáveis `CJC_PAYS_BASE_URL`, `CJC_PAYS_API_KEY` e `CJC_PAYS_WEBHOOK_SECRET` do `.env`. Crie o fluxo de emissão de cobrança Pix exibindo o QR Code/Copia-e-Cola e implemente o endpoint de webhook com validação HMAC via `CJCPaysWebhook::verify` para aprovar os pedidos automaticamente."*

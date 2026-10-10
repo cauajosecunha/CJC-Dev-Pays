@@ -120,3 +120,11 @@ app.post('/api/webhooks/cjc-pays', (req, res) => {
   }
 });
 ```
+
+---
+
+## 🤖 Prompt Pronto para Enviar à IA da sua Loja
+
+Ao colar esta pasta `sdk-pays-node/` na raiz do projeto da sua aplicação e copiar o `.env` do painel, basta enviar o seguinte comando para o seu assistente de IA (Antigravity / Cursor / Claude):
+
+> *"Integre o gateway de pagamentos no checkout do meu sistema usando o SDK em `sdk-pays-node/`. Utilize as variáveis `CJC_PAYS_BASE_URL`, `CJC_PAYS_API_KEY` e `CJC_PAYS_WEBHOOK_SECRET` do `.env`. Crie o fluxo de emissão de cobrança Pix exibindo o QR Code/Copia-e-Cola e implemente a rota de webhook com validação HMAC via `CJCPaysWebhook.verify` para aprovar os pedidos automaticamente."*
