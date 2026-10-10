@@ -11,6 +11,7 @@ Biblioteca PHP enxuta, moderna e **sem dependências externas** (utiliza cURL e 
 | `CJCPaysClient.php` | Classe principal para comunicação com a API (criar Pix, consultar status, estornar). |
 | `CJCPaysWebhook.php` | Validador de assinatura criptográfica HMAC-SHA256 para endpoints receptores de webhook. |
 | `example_create_pix.php` | Exemplo pronto de criação de cobrança Pix com retorno de QR Code e Copia-e-Cola. |
+| `example_create_card.php` | Exemplo pronto de cobrança com Cartão de Crédito (com parcelas) e Cartão de Débito. |
 | `example_check_status.php` | Exemplo pronto de consulta de status de pagamento por ID ou referência externa. |
 | `example_refund.php` | Exemplo pronto para solicitar estorno/reembolso de cobrança. |
 | `example_webhook.php` | Exemplo de endpoint receptor pronto para receber notificações de pagamento aprovado. |
@@ -51,7 +52,7 @@ $dados = CJCPaysClient::parseExternalReference($ref);
 
 ## ⚡ Exemplos Rápidos de Uso
 
-### Gerar Cobrança PIX
+### 1. Gerar Cobrança PIX
 ```php
 require_once __DIR__ . '/CJCPaysClient.php';
 
@@ -85,7 +86,34 @@ echo $response['payment']['qr_code'];
 echo '<img src="data:image/png;base64,' . $response['payment']['qr_code_base64'] . '" />';
 ```
 
-### Receber e Validar Webhook com Segurança
+### 2. Cobrança com Cartão de Crédito ou Débito
+Para pagamentos com cartão, o frontend (via MercadoPago.js / Checkout Bricks) tokeniza o cartão de forma segura no navegador e repassa o token temporário para o seu backend PHP:
+
+```php
+// Cartão de Crédito (com parcelamento) ou Débito ('debvisa', 'debmaster', 'debelo'):
+$responseCard = $client->createCard([
+    'external_reference' => 'PEDIDO-12345',
+    'amount'             => 129.90,
+    'description'        => 'Pedido #12345 - Sua Loja',
+    'token'              => $tokenDoCartao, // Obtido com segurança no checkout frontend
+    'payment_method_id'  => 'visa',         // 'visa', 'master', 'elo', 'amex' ou 'debvisa', 'debmaster'
+    'installments'       => 3,              // Parcelas (1 a 12 para Crédito, 1 para Débito)
+    'payer' => [
+        'email'          => 'cliente@exemplo.com',
+        'identification' => [
+            'type'   => 'CPF',
+            'number' => '12345678909'
+        ]
+    ],
+    'metadata' => [
+        'pedido_id' => 12345,
+    ]
+]);
+
+echo "Status do Cartão: " . $responseCard['payment']['status']; // Ex: APPROVED
+```
+
+### 3. Receber e Validar Webhook com Segurança
 ```php
 require_once __DIR__ . '/CJCPaysWebhook.php';
 
@@ -97,7 +125,7 @@ try {
     $payload = CJCPaysWebhook::verify($rawBody, $signature, $secret);
 
     if ($payload['status'] === 'approved') {
-        // Pagamento aprovado! Libere o pedido no seu banco de dados
+        // Pagamento aprovado via Pix, Crédito ou Débito!
         $pedidoRef = $payload['external_reference'];
     }
 
@@ -115,4 +143,4 @@ try {
 
 Ao colar esta pasta `sdk-pays-php/` na raiz do projeto da sua loja e copiar o `.env` do painel, basta enviar o seguinte comando para o seu assistente de IA (Antigravity / Cursor / Claude):
 
-> *"Integre o gateway de pagamentos no checkout do meu sistema usando o SDK em `sdk-pays-php/`. Utilize as variáveis `CJC_PAYS_BASE_URL`, `CJC_PAYS_API_KEY` e `CJC_PAYS_WEBHOOK_SECRET` do `.env`. Crie o fluxo de emissão de cobrança Pix exibindo o QR Code/Copia-e-Cola e implemente o endpoint de webhook com validação HMAC via `CJCPaysWebhook::verify` para aprovar os pedidos automaticamente."*
+> *"Integre o gateway de pagamentos no checkout do meu sistema usando o SDK em `sdk-pays-php/`. O checkout deve suportar **PIX**, **Cartão de Crédito** (com seleção de parcelas) e **Cartão de Débito**. Utilize as variáveis `CJC_PAYS_BASE_URL`, `CJC_PAYS_API_KEY` e `CJC_PAYS_WEBHOOK_SECRET` do `.env`. Para cartão, utilize o MercadoPago.js no frontend para tokenizar o cartão e chame `CJCPaysClient::createCard` no backend. Implemente o endpoint de webhook com validação HMAC via `CJCPaysWebhook::verify` para confirmar as vendas automaticamente."*

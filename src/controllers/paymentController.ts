@@ -213,7 +213,7 @@ export class PaymentController {
           applicationId: app.id,
           externalReference: finalReference,
           mpPaymentId: mpResult.id,
-          paymentMethod: 'CREDIT_CARD',
+          paymentMethod: validated.payment_method_id.toLowerCase().startsWith('deb') ? 'DEBIT_CARD' : 'CREDIT_CARD',
           status: mpResult.status,
           statusDetail: mpResult.statusDetail,
           amount: mpResult.amount,

@@ -11,6 +11,7 @@ SDK moderno para Node.js (Node 18+) **sem dependências obrigatórias** (utiliza
 | `cjcPaysClient.js` | Classe principal para comunicação com a API (criar Pix, consultar status, estornar). |
 | `cjcPaysWebhook.js` | Validador de assinatura criptográfica HMAC-SHA256 (`X-CJC-Signature`) para webhooks. |
 | `example-create-pix.js` | Exemplo executável de criação de cobrança Pix com retorno de QR Code e Copia-e-Cola. |
+| `example-create-card.js` | Exemplo executável de Cartão de Crédito (com parcelas) e Cartão de Débito. |
 | `example-check-status.js` | Exemplo executável de consulta de status por ID ou referência externa. |
 | `example-refund.js` | Exemplo executável de estorno/cancelamento de pagamento. |
 | `example-webhook-express.js` | Servidor Express completo demonstrando recebimento seguro de webhooks. |
@@ -51,21 +52,19 @@ const dados = CJCPaysClient.parseExternalReference(ref);
 
 ## ⚡ Exemplos Rápidos de Uso
 
-### Gerar Cobrança PIX
+### 1. Gerar Cobrança PIX
 ```javascript
 import { CJCPaysClient } from './cjcPaysClient.js';
 
 const client = new CJCPaysClient({
-  apiKey: 'cjc_live_SUA_CHAVE_AQUI',
-  baseUrl: 'https://pays.cjcdev.site' // Ou http://localhost:4020
+  apiKey: process.env.CJC_PAYS_API_KEY || 'cjc_live_SUA_CHAVE_AQUI',
+  baseUrl: process.env.CJC_PAYS_BASE_URL || 'https://pays.cjcdev.site'
 });
 
-const ref = CJCPaysClient.buildExternalReference('ESTAB002', 'PEDIDO', 12345);
-
 const result = await client.createPix({
-  external_reference: ref,
+  external_reference: 'PEDIDO-12345', // A Central prefixa o ID da loja automaticamente!
   amount: 49.90,
-  description: 'Pedido #12345 - Sua Loja Delivery',
+  description: 'Pedido #12345 - Sua Loja',
   payer: {
     email: 'cliente@exemplo.com',
     first_name: 'Cauã',
@@ -76,11 +75,7 @@ const result = await client.createPix({
     }
   },
   metadata: {
-    estabelecimento_id: 'ESTAB002',
-    estabelecimento_nome: 'Sua Loja Delivery',
-    estabelecimento_tipo: 'delivery',
-    pedido_id: 12345,
-    taxa_plataforma_pct: 5.0
+    pedido_id: 12345
   }
 });
 
@@ -89,7 +84,34 @@ console.log('Copia e Cola:', result.payment.qr_code);
 console.log('QR Code Base64:', result.payment.qr_code_base64);
 ```
 
-### Receber e Validar Webhook no Express
+### 2. Cobrança com Cartão de Crédito ou Débito
+Para cartão, o frontend tokeniza os dados do cartão de forma segura com MercadoPago.js e repassa o token para o backend:
+
+```javascript
+// Cartão de Crédito (com parcelamento) ou Débito ('debvisa', 'debmaster', 'debelo'):
+const resultCard = await client.createCard({
+  external_reference: 'PEDIDO-12345',
+  amount: 129.90,
+  description: 'Pedido #12345 - Sua Loja',
+  token: tokenDoCartao, // Obtido com segurança no checkout frontend
+  payment_method_id: 'visa', // 'visa', 'master', 'elo' ou 'debvisa', 'debmaster'
+  installments: 3,           // Parcelas (1 a 12 para Crédito, 1 para Débito)
+  payer: {
+    email: 'cliente@exemplo.com',
+    identification: {
+      type: 'CPF',
+      number: '12345678909'
+    }
+  },
+  metadata: {
+    pedido_id: 12345
+  }
+});
+
+console.log('Status do Cartão:', resultCard.payment.status); // Ex: APPROVED
+```
+
+### 3. Receber e Validar Webhook no Express
 ```javascript
 import express from 'express';
 import { CJCPaysWebhook } from './cjcPaysWebhook.js';
@@ -106,12 +128,12 @@ app.post('/api/webhooks/cjc-pays', (req, res) => {
     const payload = CJCPaysWebhook.verify({
       rawBody: req.rawBody,
       signatureHeader: req.headers['x-cjc-signature'],
-      secret: 'whsec_SEU_SEGREDO_AQUI'
+      secret: process.env.CJC_PAYS_WEBHOOK_SECRET || 'whsec_SEU_SEGREDO_AQUI'
     });
 
     if (payload.status === 'approved') {
+      // Pagamento aprovado via Pix, Crédito ou Débito!
       console.log('Pagamento Aprovado para:', payload.external_reference);
-      // Libere o pedido aqui
     }
 
     res.status(200).json({ received: true });
@@ -127,4 +149,4 @@ app.post('/api/webhooks/cjc-pays', (req, res) => {
 
 Ao colar esta pasta `sdk-pays-node/` na raiz do projeto da sua aplicação e copiar o `.env` do painel, basta enviar o seguinte comando para o seu assistente de IA (Antigravity / Cursor / Claude):
 
-> *"Integre o gateway de pagamentos no checkout do meu sistema usando o SDK em `sdk-pays-node/`. Utilize as variáveis `CJC_PAYS_BASE_URL`, `CJC_PAYS_API_KEY` e `CJC_PAYS_WEBHOOK_SECRET` do `.env`. Crie o fluxo de emissão de cobrança Pix exibindo o QR Code/Copia-e-Cola e implemente a rota de webhook com validação HMAC via `CJCPaysWebhook.verify` para aprovar os pedidos automaticamente."*
+> *"Integre o gateway de pagamentos no checkout do meu sistema usando o SDK em `sdk-pays-node/`. O checkout deve suportar **PIX**, **Cartão de Crédito** (com seleção de parcelas) e **Cartão de Débito**. Utilize as variáveis `CJC_PAYS_BASE_URL`, `CJC_PAYS_API_KEY` e `CJC_PAYS_WEBHOOK_SECRET` do `.env`. Para cartão, utilize o MercadoPago.js no frontend para tokenizar o cartão e chame `client.createCard` no backend. Implemente a rota de webhook com validação HMAC via `CJCPaysWebhook.verify` para confirmar as vendas automaticamente."*
