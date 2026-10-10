@@ -167,17 +167,21 @@ body {
   color: var(--text-muted);
 }
 
-.input-password-wrapper {
+.input-password-wrapper,
+.password-wrapper {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
-.input-password-wrapper .input-control {
+.input-password-wrapper .input-control,
+.password-wrapper .input-control {
   padding-right: 44px;
 }
 
-.btn-toggle-eye {
+.btn-toggle-eye,
+.btn-toggle-visibility {
   position: absolute;
   right: 10px;
   background: transparent;
@@ -193,7 +197,8 @@ body {
   transition: color 0.15s ease;
 }
 
-.btn-toggle-eye:hover {
+.btn-toggle-eye:hover,
+.btn-toggle-visibility:hover {
   color: var(--text-primary);
 }
 
@@ -827,7 +832,7 @@ body {
 /* ==================== CRUD DE APLICAÇÕES (PAGE 2) ==================== */
 .crud-apps-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
 }
 
@@ -1332,6 +1337,12 @@ code {
 }
 
 /* Responsive adjustments */
+@media (max-width: 992px) {
+  .crud-apps-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .topbar-container {
     padding: 0 16px;

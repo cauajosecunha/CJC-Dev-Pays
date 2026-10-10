@@ -639,6 +639,197 @@ export class AdminController {
       next(error);
     }
   }
+
+  // ==================== CRUD DE ADMINISTRADORES ====================
+
+  /**
+   * GET /api/admin/users
+   */
+  async getAdminUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const users = await prisma.adminUser.findMany({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          username: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      res.json({ success: true, users });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/admin/users
+   */
+  async createAdminUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { name, email, username, password } = req.body;
+
+      if (!name || !email || !password) {
+        res.status(400).json({ success: false, error: 'Nome, e-mail e senha são obrigatórios.' });
+        return;
+      }
+
+      if (password.length < 6) {
+        res.status(400).json({ success: false, error: 'A senha deve conter no mínimo 6 caracteres.' });
+        return;
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      const existingEmail = await prisma.adminUser.findUnique({ where: { email: cleanEmail } });
+      if (existingEmail) {
+        res.status(409).json({ success: false, error: 'Já existe um administrador cadastrado com este e-mail.' });
+        return;
+      }
+
+      const cleanUsername = username?.trim() || null;
+      if (cleanUsername) {
+        const existingUser = await prisma.adminUser.findUnique({ where: { username: cleanUsername } });
+        if (existingUser) {
+          res.status(409).json({ success: false, error: 'Este nome de usuário já está em uso.' });
+          return;
+        }
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const newUser = await prisma.adminUser.create({
+        data: {
+          name: name.trim(),
+          email: cleanEmail,
+          username: cleanUsername,
+          passwordHash,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          username: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      res.status(201).json({ success: true, user: newUser });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /api/admin/users/:id
+   */
+  async updateAdminUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const { name, email, username, password } = req.body;
+
+      const existing = await prisma.adminUser.findUnique({ where: { id } });
+      if (!existing) {
+        res.status(404).json({ success: false, error: 'Administrador não encontrado.' });
+        return;
+      }
+
+      const dataToUpdate: any = {};
+      if (name) dataToUpdate.name = name.trim();
+
+      if (email) {
+        const cleanEmail = email.trim().toLowerCase();
+        if (cleanEmail !== existing.email) {
+          const emailInUse = await prisma.adminUser.findUnique({ where: { email: cleanEmail } });
+          if (emailInUse) {
+            res.status(409).json({ success: false, error: 'Este e-mail já pertence a outro administrador.' });
+            return;
+          }
+          dataToUpdate.email = cleanEmail;
+        }
+      }
+
+      if (username !== undefined) {
+        const cleanUsername = username?.trim() || null;
+        if (cleanUsername && cleanUsername !== existing.username) {
+          const usernameInUse = await prisma.adminUser.findUnique({ where: { username: cleanUsername } });
+          if (usernameInUse) {
+            res.status(409).json({ success: false, error: 'Este nome de usuário já está em uso.' });
+            return;
+          }
+        }
+        dataToUpdate.username = cleanUsername;
+      }
+
+      if (password && password.trim() !== '') {
+        if (password.length < 6) {
+          res.status(400).json({ success: false, error: 'A nova senha deve ter no mínimo 6 caracteres.' });
+          return;
+        }
+        dataToUpdate.passwordHash = await bcrypt.hash(password, 10);
+      }
+
+      dataToUpdate.updatedAt = new Date();
+
+      const updated = await prisma.adminUser.update({
+        where: { id },
+        data: dataToUpdate,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          username: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      res.json({ success: true, user: updated });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /api/admin/users/:id
+   */
+  async deleteAdminUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const currentUserId = (req as any).adminUser?.id;
+
+      const totalUsers = await prisma.adminUser.count();
+      if (totalUsers <= 1) {
+        res.status(400).json({
+          success: false,
+          error: 'Não é possível excluir o único administrador restante do sistema.',
+        });
+        return;
+      }
+
+      if (currentUserId === id) {
+        res.status(400).json({
+          success: false,
+          error: 'Você não pode excluir sua própria conta enquanto estiver conectado a ela.',
+        });
+        return;
+      }
+
+      const existing = await prisma.adminUser.findUnique({ where: { id } });
+      if (!existing) {
+        res.status(404).json({ success: false, error: 'Administrador não encontrado.' });
+        return;
+      }
+
+      await prisma.adminUser.delete({ where: { id } });
+
+      res.json({ success: true, message: 'Administrador removido com sucesso.' });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const adminController = new AdminController();

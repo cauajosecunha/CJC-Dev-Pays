@@ -150,6 +150,7 @@ class CJCPaysApp {
       'payments-view': 'Transações',
       'applications-view': 'Aplicações & Chaves',
       'webhooks-view': 'Fila de Webhooks',
+      'users-view': 'Administradores',
     };
     const tag = document.getElementById('topbar-current-page-tag');
     if (tag) {
@@ -168,6 +169,8 @@ class CJCPaysApp {
     } else if (viewId === 'webhooks-view') {
       this.populateWebhooksAppFilterOptions();
       this.loadAllWebhooks();
+    } else if (viewId === 'users-view') {
+      this.loadAdminUsersCRUD();
     }
   }
 
@@ -205,6 +208,8 @@ class CJCPaysApp {
         this.closeModal('modal-create-app');
         this.closeModal('modal-edit-app');
         this.closeModal('modal-webhook-details');
+        this.closeModal('modal-create-user');
+        this.closeModal('modal-edit-user');
       }
     });
 
@@ -316,6 +321,31 @@ class CJCPaysApp {
     // Modal de Inspeção de Webhook
     document.getElementById('btn-close-webhook-modal')?.addEventListener('click', () => this.closeModal('modal-webhook-details'));
     document.getElementById('btn-modal-close-webhook')?.addEventListener('click', () => this.closeModal('modal-webhook-details'));
+
+    // Modal Criar Administrador
+    document.getElementById('btn-open-create-user')?.addEventListener('click', () => this.openCreateUserModal());
+    document.getElementById('btn-close-create-user-modal')?.addEventListener('click', () => this.closeModal('modal-create-user'));
+    document.getElementById('btn-cancel-create-user')?.addEventListener('click', () => this.closeModal('modal-create-user'));
+    document.getElementById('btn-toggle-new-user-pass')?.addEventListener('click', () => {
+      const pass = document.getElementById('new-user-password');
+      if (pass) pass.type = pass.type === 'password' ? 'text' : 'password';
+    });
+    document.getElementById('form-create-user')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleCreateUser();
+    });
+
+    // Modal Editar Administrador
+    document.getElementById('btn-close-edit-user-modal')?.addEventListener('click', () => this.closeModal('modal-edit-user'));
+    document.getElementById('btn-cancel-edit-user')?.addEventListener('click', () => this.closeModal('modal-edit-user'));
+    document.getElementById('btn-toggle-edit-user-pass')?.addEventListener('click', () => {
+      const pass = document.getElementById('edit-user-password');
+      if (pass) pass.type = pass.type === 'password' ? 'text' : 'password';
+    });
+    document.getElementById('form-edit-user')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleEditUser();
+    });
   }
 
   slugify(text) {
@@ -1529,6 +1559,251 @@ class CJCPaysApp {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+
+  // ==================== CRUD DE ADMINISTRADORES ====================
+  async loadAdminUsersCRUD() {
+    const container = document.getElementById('crud-users-container');
+    if (!container) return;
+
+    try {
+      const res = await fetch('/api/admin/users', { headers: this.getHeaders() });
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        return;
+      }
+
+      const data = await res.json();
+      if (!data.success) {
+        this.showToast(data.error || 'Falha ao listar administradores.', 'warning');
+        return;
+      }
+
+      const users = data.users || [];
+      if (users.length === 0) {
+        container.innerHTML = `
+          <div class="card empty-state" style="padding: 40px; text-align: center; color: var(--text-muted); grid-column: 1 / -1;">
+            <p style="font-size: 1.1rem; margin-bottom: 12px;">Nenhum administrador cadastrado.</p>
+            <button class="btn btn-primary btn-sm" onclick="app.openCreateUserModal()">➕ Cadastrar Administrador</button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = users
+        .map((u) => {
+          const isCurrentUser = this.user && this.user.id === u.id;
+          const initials = (u.name || 'Admin')
+            .split(' ')
+            .map((n) => n[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase();
+
+          const safeUserJson = JSON.stringify(u).replace(/"/g, '&quot;');
+
+          return `
+            <div class="crud-app-card user-card">
+              <div class="crud-app-header">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <div class="avatar" style="width: 44px; height: 44px; font-size: 1rem; flex-shrink: 0;">${initials}</div>
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                      <h3 class="crud-app-title">${this.escapeHtml(u.name)}</h3>
+                      ${isCurrentUser ? '<span class="badge badge-approved">Você (Sessão Ativa)</span>' : ''}
+                    </div>
+                    <div style="font-size: 0.83rem; color: var(--text-secondary); margin-top: 3px;">
+                      ${this.escapeHtml(u.email)}
+                      ${
+                        u.username
+                          ? `<span style="font-family: var(--font-mono); color: var(--accent-cyan); font-size: 0.78rem; margin-left: 6px;">@${this.escapeHtml(u.username)}</span>`
+                          : ''
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="crud-app-actions-bar">
+                <div class="crud-app-counters">
+                  <span>Membro desde: <strong>${this.formatDate(u.createdAt)}</strong></span>
+                </div>
+                <div class="crud-app-buttons">
+                  <button class="btn btn-secondary btn-sm" onclick="app.openEditUserModal(${safeUserJson})">
+                    ✏️ Editar
+                  </button>
+                  <button 
+                    class="btn btn-danger btn-sm" 
+                    onclick="app.deleteUser('${u.id}', '${this.escapeHtml(u.name)}')"
+                    ${isCurrentUser ? 'disabled title="Você não pode excluir sua própria conta conectada"' : ''}
+                  >
+                    🗑️ Excluir
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    } catch (e) {
+      console.error('Erro ao carregar administradores:', e);
+      if (container) {
+        container.innerHTML = `<div class="card empty-state" style="padding: 24px; color: var(--text-muted); grid-column: 1 / -1;">Erro de conexão ao carregar usuários.</div>`;
+      }
+    }
+  }
+
+  openCreateUserModal() {
+    const form = document.getElementById('form-create-user');
+    if (form) form.reset();
+    const passInput = document.getElementById('new-user-password');
+    if (passInput) passInput.type = 'password';
+    this.openModal('modal-create-user');
+  }
+
+  async handleCreateUser() {
+    const name = document.getElementById('new-user-name')?.value.trim();
+    const email = document.getElementById('new-user-email')?.value.trim();
+    const username = document.getElementById('new-user-username')?.value.trim() || undefined;
+    const password = document.getElementById('new-user-password')?.value;
+    const submitBtn = document.getElementById('btn-submit-create-user');
+
+    if (!name || !email || !password) {
+      this.showToast('Por favor, preencha todos os campos obrigatórios.', 'warning');
+      return;
+    }
+
+    if (password.length < 6) {
+      this.showToast('A senha deve conter pelo menos 6 caracteres.', 'warning');
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Salvando...';
+    }
+
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ name, email, username, password }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('✅ Novo administrador cadastrado com sucesso!', 'success');
+        this.closeModal('modal-create-user');
+        this.loadAdminUsersCRUD();
+      } else {
+        this.showToast(data.error || 'Falha ao cadastrar administrador.', 'warning');
+      }
+    } catch (e) {
+      this.showToast('Erro ao conectar com o servidor.', 'warning');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Criar Administrador';
+      }
+    }
+  }
+
+  openEditUserModal(user) {
+    if (!user) return;
+    document.getElementById('edit-user-id').value = user.id;
+    document.getElementById('edit-user-name').value = user.name || '';
+    document.getElementById('edit-user-email').value = user.email || '';
+    document.getElementById('edit-user-username').value = user.username || '';
+    const pass = document.getElementById('edit-user-password');
+    if (pass) {
+      pass.value = '';
+      pass.type = 'password';
+    }
+    this.openModal('modal-edit-user');
+  }
+
+  async handleEditUser() {
+    const id = document.getElementById('edit-user-id')?.value;
+    const name = document.getElementById('edit-user-name')?.value.trim();
+    const email = document.getElementById('edit-user-email')?.value.trim();
+    const username = document.getElementById('edit-user-username')?.value.trim();
+    const password = document.getElementById('edit-user-password')?.value;
+    const submitBtn = document.getElementById('btn-submit-edit-user');
+
+    if (!id || !name || !email) {
+      this.showToast('Nome e e-mail são obrigatórios.', 'warning');
+      return;
+    }
+
+    if (password && password.length < 6) {
+      this.showToast('A nova senha deve ter no mínimo 6 caracteres.', 'warning');
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Salvando...';
+    }
+
+    try {
+      const body = { name, email, username: username || null };
+      if (password) body.password = password;
+
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('✅ Administrador atualizado com sucesso!', 'success');
+        this.closeModal('modal-edit-user');
+
+        // Se o usuário atual editou seu próprio perfil, atualiza na barra superior
+        if (this.user && this.user.id === id) {
+          this.user.name = data.user.name;
+          this.user.email = data.user.email;
+          this.user.username = data.user.username;
+          localStorage.setItem('cjc_admin_user', JSON.stringify(this.user));
+          this.showAppShell();
+        }
+
+        this.loadAdminUsersCRUD();
+      } else {
+        this.showToast(data.error || 'Falha ao atualizar administrador.', 'warning');
+      }
+    } catch (e) {
+      this.showToast('Erro ao atualizar dados do administrador.', 'warning');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Salvar Alterações';
+      }
+    }
+  }
+
+  async deleteUser(userId, userName) {
+    const confirmDelete = confirm(`Deseja realmente remover o administrador "${userName}"?\n\nEsta ação revogará imediatamente o acesso deste usuário ao painel.`);
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('✅ Administrador removido com sucesso!', 'success');
+        this.loadAdminUsersCRUD();
+      } else {
+        this.showToast(data.error || 'Falha ao remover administrador.', 'warning');
+      }
+    } catch (e) {
+      this.showToast('Erro ao solicitar remoção do usuário.', 'warning');
+    }
   }
 }
 

@@ -35,6 +35,12 @@ adminRouter.get('/webhooks/deliveries', (req, res, next) => adminController.getD
 adminRouter.get('/webhooks/deliveries/:id', (req, res, next) => adminController.getDeliveryDetails(req, res, next));
 adminRouter.post('/webhooks/deliveries/:id/retry', (req, res, next) => adminController.retryDelivery(req, res, next));
 
+// Gestão de administradores do sistema (CRUD)
+adminRouter.get('/users', (req, res, next) => adminController.getAdminUsers(req, res, next));
+adminRouter.post('/users', (req, res, next) => adminController.createAdminUser(req, res, next));
+adminRouter.put('/users/:id', (req, res, next) => adminController.updateAdminUser(req, res, next));
+adminRouter.delete('/users/:id', (req, res, next) => adminController.deleteAdminUser(req, res, next));
+
 // Simulador Sandbox para testes
 adminRouter.post('/simulator/simulate-payment', (req, res, next) => adminController.simulatePayment(req, res, next));
 adminRouter.post('/simulator/approve-payment/:id', (req, res, next) => adminController.approveSimulatedPayment(req, res, next));

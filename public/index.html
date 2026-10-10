@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=2.3">
+  <link rel="stylesheet" href="/styles.css?v=2.6">
 </head>
 <body>
 
@@ -108,6 +108,10 @@
         <button class="drawer-nav-item" data-view="webhooks-view" id="nav-item-webhooks">
           <span class="nav-icon">📡</span>
           <span class="nav-text">Fila de Webhooks</span>
+        </button>
+        <button class="drawer-nav-item" data-view="users-view" id="nav-item-users">
+          <span class="nav-icon">👥</span>
+          <span class="nav-text">Administradores</span>
         </button>
       </nav>
 
@@ -504,6 +508,30 @@
           </section>
         </div>
 
+        <!-- ==================== VIEW 5: ADMINISTRADORES ==================== -->
+        <div id="users-view" class="view-panel" style="display: none;">
+          <!-- Header da Página -->
+          <section class="page-header">
+            <div>
+              <h1 class="page-title">Administradores do Sistema</h1>
+              <p class="page-subtitle">Gerencie os usuários autorizados a acessar o painel de controle e configurações.</p>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn btn-primary btn-sm" id="btn-open-create-user">
+                <span>➕</span> Novo Administrador
+              </button>
+            </div>
+          </section>
+
+          <!-- Cards dos Administradores (CRUD) -->
+          <section class="section-block">
+            <div id="crud-users-container" class="crud-apps-grid">
+              <!-- Renderizado dinamicamente via app.js -->
+              <div class="card empty-state">Carregando administradores...</div>
+            </div>
+          </section>
+        </div>
+
       </div>
     </main>
   </div>
@@ -649,9 +677,146 @@
     </div>
   </div>
 
+  <!-- Modal: Cadastrar Novo Administrador -->
+  <div class="modal-backdrop" id="modal-create-user">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Cadastrar Novo Administrador</h3>
+        <button type="button" class="btn-close" id="btn-close-create-user-modal" aria-label="Fechar">✕</button>
+      </div>
+
+      <form id="form-create-user">
+        <div class="modal-body">
+          <div class="field-group">
+            <label class="field-label" for="new-user-name">Nome Completo</label>
+            <input 
+              type="text" 
+              id="new-user-name" 
+              class="input-control" 
+              placeholder="Ex: Cauã Cunha" 
+              required
+            >
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="new-user-email">E-mail de Acesso</label>
+            <input 
+              type="email" 
+              id="new-user-email" 
+              class="input-control" 
+              placeholder="Ex: caua@cjcdev.com" 
+              required
+            >
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="new-user-username">Nome de Usuário (Opcional)</label>
+            <input 
+              type="text" 
+              id="new-user-username" 
+              class="input-control" 
+              placeholder="Ex: cauacunha" 
+              style="font-family: var(--font-mono);"
+            >
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="new-user-password">Senha de Acesso (Mínimo 6 caracteres)</label>
+            <div class="input-password-wrapper">
+              <input 
+                type="password" 
+                id="new-user-password" 
+                class="input-control" 
+                placeholder="••••••••" 
+                minlength="6"
+                required
+              >
+              <button type="button" class="btn-toggle-eye" id="btn-toggle-new-user-pass" aria-label="Mostrar ou ocultar senha">
+                👁️
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-create-user">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-create-user">Criar Administrador</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Administrador -->
+  <div class="modal-backdrop" id="modal-edit-user">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Editar Administrador</h3>
+        <button type="button" class="btn-close" id="btn-close-edit-user-modal" aria-label="Fechar">✕</button>
+      </div>
+
+      <form id="form-edit-user">
+        <input type="hidden" id="edit-user-id">
+
+        <div class="modal-body">
+          <div class="field-group">
+            <label class="field-label" for="edit-user-name">Nome Completo</label>
+            <input 
+              type="text" 
+              id="edit-user-name" 
+              class="input-control" 
+              required
+            >
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="edit-user-email">E-mail de Acesso</label>
+            <input 
+              type="email" 
+              id="edit-user-email" 
+              class="input-control" 
+              required
+            >
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="edit-user-username">Nome de Usuário (Opcional)</label>
+            <input 
+              type="text" 
+              id="edit-user-username" 
+              class="input-control" 
+              style="font-family: var(--font-mono);"
+            >
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="edit-user-password">Nova Senha</label>
+            <div class="input-password-wrapper">
+              <input 
+                type="password" 
+                id="edit-user-password" 
+                class="input-control" 
+                placeholder="Deixe em branco para manter a senha atual" 
+                minlength="6"
+              >
+              <button type="button" class="btn-toggle-eye" id="btn-toggle-edit-user-pass" aria-label="Mostrar ou ocultar senha">
+                👁️
+              </button>
+            </div>
+            <small style="color: var(--text-muted); font-size: 0.74rem;">Preencha somente se desejar alterar a senha deste administrador.</small>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-edit-user">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-edit-user">Salvar Alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div class="toast-stack" id="toast-container" aria-live="polite"></div>
 
-  <script src="/app.js?v=2.3"></script>
+  <script src="/app.js?v=2.5"></script>
 </body>
 </html>
