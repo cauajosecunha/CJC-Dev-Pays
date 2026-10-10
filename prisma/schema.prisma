@@ -95,7 +95,8 @@ model WebhookDelivery {
 
 model AdminUser {
   id           String   @id @default(cuid())
-  username     String   @unique
+  email        String   @default("admin@cjcdev.com") @unique
+  username     String?  @unique
   passwordHash String
   name         String
   createdAt    DateTime @default(now())

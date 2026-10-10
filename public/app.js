@@ -1,74 +1,95 @@
 /**
- * CJC-Dev-Pays — Frontend Application Controller & SSE Realtime Client
+ * CJC-Dev-Pays — Minimalist Client Controller, Drawer Menu, Payments & Applications CRUD
  */
 
 class CJCPaysApp {
   constructor() {
     this.token = localStorage.getItem('cjc_admin_token');
-    this.currentView = 'view-dashboard';
+    this.user = JSON.parse(localStorage.getItem('cjc_admin_user') || 'null');
+    this.currentView = 'dashboard-view';
     this.eventSource = null;
-    this.appsCache = [];
-    this.currentSimulatedPaymentId = null;
+    this.applicationsCache = [];
+
+    // Paginação e filtros da tela de transações
+    this.paymentsPage = 1;
+    this.paymentsTotalPages = 1;
+    this.paymentsLimit = 20;
+    this.paymentsFilters = { search: '', appId: 'ALL', status: 'ALL' };
+
+    // Paginação e filtros da fila de webhooks
+    this.webhooksPage = 1;
+    this.webhooksTotalPages = 1;
+    this.webhooksLimit = 20;
+    this.webhooksFilters = { search: '', appId: 'ALL', status: 'ALL' };
+    this.currentWebhookPayload = '';
 
     this.init();
   }
 
   async init() {
     this.bindEvents();
-    this.updateDynamicUrls();
+
     if (this.token) {
       const isValid = await this.validateSession();
       if (isValid) {
-        this.showAppLayout();
-        this.setupSSE();
-        this.loadDashboardData();
-        this.loadApplications();
+        this.showAppShell();
       } else {
-        this.showLoginScreen();
+        this.showLogin();
       }
     } else {
-      this.showLoginScreen();
+      this.showLogin();
     }
   }
 
-  updateDynamicUrls() {
-    const mpBox = document.getElementById('mp-webhook-url-box');
-    if (mpBox) {
-      mpBox.innerText = `${window.location.origin}/api/webhooks/mercadopago`;
-    }
-  }
+  // ==================== CONTROLE DE TELAS & SESSÃO ====================
+  showLogin() {
+    document.getElementById('login-view').style.display = 'flex';
+    document.getElementById('app-shell').style.display = 'none';
 
-  showLoginScreen() {
-    const loginScreen = document.getElementById('login-screen');
-    const appLayout = document.getElementById('app-layout');
-    if (loginScreen) loginScreen.style.display = 'flex';
-    if (appLayout) appLayout.style.display = 'none';
-
-    // Limpa alertas e campos anteriores
-    const alertBox = document.getElementById('login-error-alert');
+    const alertBox = document.getElementById('login-alert');
     if (alertBox) alertBox.style.display = 'none';
-    const userInput = document.getElementById('login-username');
-    if (userInput) {
-      userInput.value = '';
-      userInput.focus();
+
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
     }
-    const passInput = document.getElementById('login-password');
-    if (passInput) passInput.value = '';
   }
 
-  showAppLayout() {
-    const loginScreen = document.getElementById('login-screen');
-    const appLayout = document.getElementById('app-layout');
-    if (loginScreen) loginScreen.style.display = 'none';
-    if (appLayout) appLayout.style.display = 'flex';
+  showAppShell() {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-shell').style.display = 'flex';
+
+    if (this.user) {
+      const name = this.user.name || this.user.username || 'Administrador';
+      const email = this.user.email || 'admin@cjcdev.com';
+      const initials =
+        name
+          .split(' ')
+          .map((n) => n[0])
+          .slice(0, 2)
+          .join('')
+          .toUpperCase() || 'AD';
+
+      // Atualiza Topbar
+      document.getElementById('user-display-name').innerText = name;
+      document.getElementById('user-display-email').innerText = email;
+      document.getElementById('user-avatar').innerText = initials;
+
+      // Atualiza Drawer
+      document.getElementById('drawer-user-name').innerText = name;
+      document.getElementById('drawer-user-email').innerText = email;
+      document.getElementById('drawer-user-avatar').innerText = initials;
+    }
+
+    this.setupSSE();
+    this.navigate(this.currentView);
   }
 
   async validateSession() {
     try {
       const res = await fetch('/api/admin/metrics', { headers: this.getHeaders() });
       if (res.status === 401) {
-        localStorage.removeItem('cjc_admin_token');
-        this.token = null;
+        this.clearSession();
         return false;
       }
       return res.ok;
@@ -77,105 +98,248 @@ class CJCPaysApp {
     }
   }
 
+  clearSession() {
+    localStorage.removeItem('cjc_admin_token');
+    localStorage.removeItem('cjc_admin_user');
+    this.token = null;
+    this.user = null;
+  }
+
+  logout() {
+    this.clearSession();
+    this.closeDrawer();
+    this.showToast('Sessão encerrada com sucesso.', 'info');
+    this.showLogin();
+  }
+
+  getHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${this.token}`,
+    };
+  }
+
+  // ==================== NAVEGAÇÃO & DRAWER HAMBÚRGUER ====================
+  openDrawer() {
+    document.getElementById('drawer-menu')?.classList.add('open');
+    document.getElementById('drawer-overlay')?.classList.add('active');
+  }
+
+  closeDrawer() {
+    document.getElementById('drawer-menu')?.classList.remove('open');
+    document.getElementById('drawer-overlay')?.classList.remove('active');
+  }
+
+  navigate(viewId) {
+    this.currentView = viewId;
+
+    // Atualiza visibilidade dos painéis
+    document.querySelectorAll('.view-panel').forEach((el) => {
+      el.style.display = el.id === viewId ? 'flex' : 'none';
+      el.classList.toggle('active', el.id === viewId);
+    });
+
+    // Atualiza links do menu lateral
+    document.querySelectorAll('.drawer-nav-item').forEach((item) => {
+      item.classList.toggle('active', item.getAttribute('data-view') === viewId);
+    });
+
+    // Atualiza tag no Topbar
+    const titles = {
+      'dashboard-view': 'Visão Geral',
+      'payments-view': 'Transações',
+      'applications-view': 'Aplicações & Chaves',
+      'webhooks-view': 'Fila de Webhooks',
+    };
+    const tag = document.getElementById('topbar-current-page-tag');
+    if (tag) {
+      tag.innerText = titles[viewId] || 'Central de Pagamentos';
+    }
+
+    this.closeDrawer();
+
+    if (viewId === 'dashboard-view') {
+      this.loadMetrics();
+    } else if (viewId === 'payments-view') {
+      this.populateAppFilterOptions();
+      this.loadAllPayments();
+    } else if (viewId === 'applications-view') {
+      this.loadApplicationsCRUD();
+    } else if (viewId === 'webhooks-view') {
+      this.populateWebhooksAppFilterOptions();
+      this.loadAllWebhooks();
+    }
+  }
+
+  // ==================== BIND DE EVENTOS ====================
   bindEvents() {
-    // Formulário de Login Administrativo
+    // Login
     document.getElementById('form-login')?.addEventListener('submit', (e) => {
       e.preventDefault();
       this.handleLogin();
     });
 
-    document.getElementById('btn-toggle-login-pass')?.addEventListener('click', () => {
-      const input = document.getElementById('login-password');
-      if (input) {
-        input.type = input.type === 'password' ? 'text' : 'password';
+    document.getElementById('btn-toggle-password')?.addEventListener('click', () => {
+      const pass = document.getElementById('login-password');
+      if (pass) pass.type = pass.type === 'password' ? 'text' : 'password';
+    });
+
+    // Menu Hambúrguer e Drawer
+    document.getElementById('btn-toggle-menu')?.addEventListener('click', () => {
+      this.openDrawer();
+    });
+
+    document.getElementById('btn-close-drawer')?.addEventListener('click', () => {
+      this.closeDrawer();
+    });
+
+    document.getElementById('drawer-overlay')?.addEventListener('click', () => {
+      this.closeDrawer();
+    });
+
+    // Tecla ESC fecha modais e drawer
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.closeDrawer();
+        this.closeModal('modal-payment-details');
+        this.closeModal('modal-create-app');
+        this.closeModal('modal-edit-app');
+        this.closeModal('modal-webhook-details');
       }
     });
 
-    // Toggle Menu Mobile
-    const toggleSidebarBtn = document.getElementById('btn-toggle-sidebar');
-    const sidebar = document.getElementById('sidebar');
-    const sidebarOverlay = document.getElementById('sidebar-overlay');
-
-    if (toggleSidebarBtn && sidebar && sidebarOverlay) {
-      toggleSidebarBtn.addEventListener('click', () => {
-        sidebar.classList.toggle('open');
-        sidebarOverlay.classList.toggle('open');
-      });
-      sidebarOverlay.addEventListener('click', () => {
-        sidebar.classList.remove('open');
-        sidebarOverlay.classList.remove('open');
-      });
-    }
-
-    // Navegação lateral
-    document.querySelectorAll('.nav-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        const view = item.getAttribute('data-view');
+    // Navegação nos itens do menu
+    document.querySelectorAll('.drawer-nav-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const view = btn.getAttribute('data-view');
         if (view) this.navigate(view);
-        if (window.innerWidth <= 900 && sidebar) {
-          sidebar.classList.remove('open');
-          sidebarOverlay?.classList.remove('open');
-        }
       });
     });
 
-    // Botões de ação do topo
+    // Logouts
+    document.getElementById('btn-logout')?.addEventListener('click', () => this.logout());
+    document.getElementById('btn-drawer-logout')?.addEventListener('click', () => this.logout());
+
+    // Dashboard refresh
     document.getElementById('btn-refresh')?.addEventListener('click', () => {
-      this.refreshCurrentView();
+      this.loadMetrics();
       this.showToast('Dados atualizados com sucesso!', 'info');
     });
 
-    document.getElementById('btn-quick-pix')?.addEventListener('click', () => {
-      this.navigate('view-simulator');
+    // Eventos da Tela de Transações
+    document.getElementById('btn-refresh-payments')?.addEventListener('click', () => {
+      this.loadAllPayments();
+      this.showToast('Transações atualizadas!', 'info');
     });
 
-    document.getElementById('btn-logout')?.addEventListener('click', () => {
-      this.logout();
-    });
-
-    // Filtros de transações
     document.getElementById('btn-apply-filters')?.addEventListener('click', () => {
-      this.loadPayments();
+      this.applyPaymentsFilters();
     });
 
-    document.getElementById('filter-search')?.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.loadPayments();
+    document.getElementById('btn-clear-filters')?.addEventListener('click', () => {
+      this.clearPaymentsFilters();
     });
 
-    // Filtro de webhooks
-    document.getElementById('filter-webhook-status')?.addEventListener('change', () => {
-      this.loadWebhooks();
+    document.getElementById('filter-search')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this.applyPaymentsFilters();
     });
 
-    // Nova aplicação
-    document.getElementById('btn-new-app')?.addEventListener('click', () => {
-      this.openModal('modal-new-app');
+    document.getElementById('btn-prev-page')?.addEventListener('click', () => {
+      this.prevPaymentsPage();
+    });
+
+    document.getElementById('btn-next-page')?.addEventListener('click', () => {
+      this.nextPaymentsPage();
+    });
+
+    // Modal de Detalhes do Pagamento
+    document.getElementById('btn-close-modal')?.addEventListener('click', () => this.closeModal('modal-payment-details'));
+    document.getElementById('btn-modal-close-action')?.addEventListener('click', () => this.closeModal('modal-payment-details'));
+
+    // Modal Nova Aplicação
+    document.getElementById('btn-open-create-app')?.addEventListener('click', () => {
+      this.openCreateAppModal();
+    });
+    document.getElementById('btn-close-create-modal')?.addEventListener('click', () => this.closeModal('modal-create-app'));
+    document.getElementById('btn-cancel-create-app')?.addEventListener('click', () => this.closeModal('modal-create-app'));
+
+    // Auto-slugify ao digitar o nome da nova aplicação
+    document.getElementById('new-app-name')?.addEventListener('input', (e) => {
+      const slugInput = document.getElementById('new-app-slug');
+      if (slugInput && !slugInput.dataset.manualEdited) {
+        slugInput.value = this.slugify(e.target.value);
+      }
+    });
+    document.getElementById('new-app-slug')?.addEventListener('input', (e) => {
+      e.target.dataset.manualEdited = 'true';
     });
 
     document.getElementById('form-create-app')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      this.createApplication();
+      this.handleCreateApp();
     });
 
-    // Formulário do simulador
-    document.getElementById('form-simulate-pix')?.addEventListener('submit', (e) => {
+    // Modal Editar Aplicação
+    document.getElementById('btn-close-edit-modal')?.addEventListener('click', () => this.closeModal('modal-edit-app'));
+    document.getElementById('btn-cancel-edit-app')?.addEventListener('click', () => this.closeModal('modal-edit-app'));
+    document.getElementById('form-edit-app')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      this.simulatePayment();
+      this.handleEditApp();
     });
 
-    document.getElementById('btn-sim-manual-approve')?.addEventListener('click', () => {
-      this.approveCurrentSimulatedPayment();
+    // Eventos da Fila de Webhooks
+    document.getElementById('btn-refresh-webhooks')?.addEventListener('click', () => {
+      this.loadAllWebhooks();
+      this.showToast('Fila de webhooks atualizada!', 'info');
     });
+
+    document.getElementById('btn-apply-webhooks-filters')?.addEventListener('click', () => {
+      this.applyWebhooksFilters();
+    });
+
+    document.getElementById('btn-clear-webhooks-filters')?.addEventListener('click', () => {
+      this.clearWebhooksFilters();
+    });
+
+    document.getElementById('filter-webhooks-search')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this.applyWebhooksFilters();
+    });
+
+    document.getElementById('btn-prev-webhooks-page')?.addEventListener('click', () => {
+      this.prevWebhooksPage();
+    });
+
+    document.getElementById('btn-next-webhooks-page')?.addEventListener('click', () => {
+      this.nextWebhooksPage();
+    });
+
+    // Modal de Inspeção de Webhook
+    document.getElementById('btn-close-webhook-modal')?.addEventListener('click', () => this.closeModal('modal-webhook-details'));
+    document.getElementById('btn-modal-close-webhook')?.addEventListener('click', () => this.closeModal('modal-webhook-details'));
   }
 
+  slugify(text) {
+    return text
+      .toString()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32);
+  }
+
+  // ==================== LOGIN ====================
   async handleLogin() {
-    const username = document.getElementById('login-username')?.value.trim();
+    const email = document.getElementById('login-email')?.value.trim();
     const password = document.getElementById('login-password')?.value;
-    const alertBox = document.getElementById('login-error-alert');
-    const alertText = document.getElementById('login-error-text');
+    const alertBox = document.getElementById('login-alert');
+    const alertText = document.getElementById('login-alert-text');
     const submitBtn = document.getElementById('btn-submit-login');
 
-    if (!username || !password) return;
+    if (!email || !password) return;
+
+    if (alertBox) alertBox.style.display = 'none';
 
     if (submitBtn) {
       submitBtn.disabled = true;
@@ -186,102 +350,61 @@ class CJCPaysApp {
       const res = await fetch('/api/admin/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
 
       if (data.success && data.token) {
         this.token = data.token;
+        this.user = data.user;
         localStorage.setItem('cjc_admin_token', this.token);
-        this.showToast(`Bem-vindo, ${data.user.name || data.user.username}!`, 'success');
-        this.showAppLayout();
-        this.setupSSE();
-        this.loadDashboardData();
-        this.loadApplications();
+        localStorage.setItem('cjc_admin_user', JSON.stringify(this.user));
+
+        this.showToast(`Bem-vindo, ${data.user.name || data.user.email}!`, 'success');
+        this.showAppShell();
       } else {
         if (alertBox && alertText) {
-          alertText.innerText = data.error || 'Usuário ou senha incorretos.';
+          alertText.innerText = data.error || 'Credenciais inválidas.';
           alertBox.style.display = 'flex';
         }
       }
     } catch (e) {
       if (alertBox && alertText) {
-        alertText.innerText = 'Erro ao conectar ao servidor.';
+        alertText.innerText = 'Falha ao conectar com o servidor.';
         alertBox.style.display = 'flex';
       }
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.innerText = '🔒 Entrar no Painel';
+        submitBtn.innerText = 'Entrar no Dashboard';
       }
     }
   }
 
-  logout() {
-    localStorage.removeItem('cjc_admin_token');
-    this.token = null;
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
-    }
-    this.showToast('Você saiu do painel com sucesso.', 'info');
-    this.showLoginScreen();
-  }
-
-  getHeaders() {
-    return {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${this.token}`,
-    };
-  }
-
-  navigate(viewId) {
-    this.currentView = viewId;
-
-    document.querySelectorAll('.nav-item').forEach((item) => {
-      item.classList.toggle('active', item.getAttribute('data-view') === viewId);
-    });
-
-    document.querySelectorAll('.view-section').forEach((section) => {
-      section.classList.toggle('active', section.id === viewId);
-    });
-
-    const titles = {
-      'view-dashboard': 'Visão Geral',
-      'view-payments': 'Transações',
-      'view-applications': 'Aplicações & Chaves',
-      'view-webhooks': 'Fila de Webhooks',
-      'view-simulator': 'Simulador Sandbox',
-      'view-docs': 'Integração & SDK',
-    };
-    const heading = document.getElementById('page-heading');
-    if (heading) heading.innerText = titles[viewId] || 'Painel de Controle';
-
-    this.refreshCurrentView();
-  }
-
-  refreshCurrentView() {
-    if (this.currentView === 'view-dashboard') this.loadDashboardData();
-    if (this.currentView === 'view-payments') this.loadPayments();
-    if (this.currentView === 'view-applications') this.loadApplications();
-    if (this.currentView === 'view-webhooks') this.loadWebhooks();
-  }
-
+  // ==================== TEMPO REAL (SSE) ====================
   setupSSE() {
     if (!this.token) return;
+    if (this.eventSource) {
+      this.eventSource.close();
+    }
+
     try {
       this.eventSource = new EventSource(`/api/admin/events/stream?token=${this.token}`);
 
+      const badgeText = document.getElementById('sse-status-text');
+      const badge = document.getElementById('sse-badge');
+
       this.eventSource.onopen = () => {
-        const statusText = document.getElementById('live-status-text');
-        if (statusText) statusText.innerText = 'SSE Conectado';
+        if (badgeText) badgeText.innerText = 'Tempo Real Ativo';
+        if (badge) badge.style.opacity = '1';
       };
 
       this.eventSource.addEventListener('payment:created', (e) => {
         const data = JSON.parse(e.data);
         this.showToast(`⚡ Nova cobrança Pix criada: R$ ${data.amount.toFixed(2)} (${data.appName})`, 'info');
-        this.refreshCurrentView();
+        if (this.currentView === 'dashboard-view') this.loadMetrics();
+        if (this.currentView === 'payments-view') this.loadAllPayments();
       });
 
       this.eventSource.addEventListener('payment:updated', (e) => {
@@ -291,45 +414,49 @@ class CJCPaysApp {
         } else {
           this.showToast(`Transação atualizada: ${data.status} (${data.externalReference})`, 'info');
         }
-        this.refreshCurrentView();
+        if (this.currentView === 'dashboard-view') this.loadMetrics();
+        if (this.currentView === 'payments-view') this.loadAllPayments();
       });
 
       this.eventSource.addEventListener('webhook:delivered', (e) => {
         const data = JSON.parse(e.data);
-        this.showToast(`✅ Webhook entregue com sucesso para ${data.targetUrl}`, 'success');
-        if (this.currentView === 'view-webhooks') this.loadWebhooks();
+        this.showToast(`✅ Webhook entregue para ${data.targetUrl}`, 'success');
+        if (this.currentView === 'dashboard-view') this.loadMetrics();
+        if (this.currentView === 'webhooks-view') this.loadAllWebhooks();
       });
 
       this.eventSource.addEventListener('webhook:failed', (e) => {
         const data = JSON.parse(e.data);
-        this.showToast(`⚠️ Falha ao entregar webhook para ${data.targetUrl}`, 'warning');
-        if (this.currentView === 'view-webhooks') this.loadWebhooks();
-      });
-
-      this.eventSource.addEventListener('webhook:received', (e) => {
-        const data = JSON.parse(e.data);
-        this.showToast(`🔔 Notificação recebida do Mercado Pago! Tópico: ${data.topic} (ID: ${data.dataId})`, 'info');
+        this.showToast(`⚠️ Falha na entrega de webhook para ${data.targetUrl}`, 'warning');
+        if (this.currentView === 'webhooks-view') this.loadAllWebhooks();
       });
 
       this.eventSource.onerror = () => {
-        const statusText = document.getElementById('live-status-text');
-        if (statusText) statusText.innerText = 'Reconectando...';
+        if (badgeText) badgeText.innerText = 'Reconectando...';
+        if (badge) badge.style.opacity = '0.7';
       };
-    } catch (e) {
-      console.warn('Erro ao configurar SSE:', e);
+    } catch (err) {
+      console.warn('Erro ao inicializar SSE:', err);
     }
   }
 
-  // ==================== DASHBOARD & METRICS ====================
-  async loadDashboardData() {
+  // ==================== DADOS DO DASHBOARD ====================
+  async loadMetrics() {
     try {
       const res = await fetch('/api/admin/metrics', { headers: this.getHeaders() });
+
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        return;
+      }
+
       const data = await res.json();
       if (!data.success) return;
 
       const { kpis, webhooks, applications, recentPayments } = data;
 
-      // Atualiza KPIs
+      // KPIs
       document.getElementById('kpi-total-volume').innerText = this.formatCurrency(kpis.totalVolume);
       document.getElementById('kpi-net-volume').innerText = this.formatCurrency(kpis.netVolume);
       document.getElementById('kpi-today-volume').innerText = this.formatCurrency(kpis.todayVolume);
@@ -342,42 +469,55 @@ class CJCPaysApp {
       document.getElementById('kpi-webhook-failed').innerText = webhooks.failed;
 
       // Apps Volume Grid
-      const appsContainer = document.getElementById('apps-volume-container');
+      const appsContainer = document.getElementById('apps-container');
       if (appsContainer && applications) {
-        appsContainer.innerHTML = applications
-          .map(
-            (app) => `
-          <div class="kpi-card glass-panel" style="--card-accent: #3b82f6;">
-            <div class="kpi-header">
-              <span class="kpi-title">${app.name}</span>
-              <span class="badge ${app.isActive ? 'badge-approved' : 'badge-rejected'}">${app.isActive ? 'Ativo' : 'Inativo'}</span>
+        if (applications.length === 0) {
+          appsContainer.innerHTML = `<div class="card empty-state" style="padding: 24px; color: var(--text-muted);">Nenhuma aplicação cadastrada.</div>`;
+        } else {
+          appsContainer.innerHTML = applications
+            .map(
+              (app) => `
+            <div class="app-card">
+              <div class="app-card-header">
+                <div>
+                  <div class="app-name">${app.name}</div>
+                  <div class="app-slug">${app.slug}</div>
+                </div>
+                <span class="badge ${app.isActive ? 'badge-approved' : 'badge-rejected'}">
+                  ${app.isActive ? 'Ativa' : 'Inativa'}
+                </span>
+              </div>
+              <div class="app-stats-row">
+                <span class="app-volume-label">${app.approvedCount} pagamentos aprovados (${app.totalPayments} total)</span>
+                <span class="app-volume-value">${this.formatCurrency(app.approvedVolume)}</span>
+              </div>
             </div>
-            <div class="kpi-value">${this.formatCurrency(app.approvedVolume)}</div>
-            <div class="kpi-subtext">${app.approvedCount} pagamentos aprovados (${app.totalPayments} criados)</div>
-          </div>
-        `
-          )
-          .join('');
+          `
+            )
+            .join('');
+        }
       }
 
-      // Feed de Pagamentos Recentes
-      const recentTbody = document.getElementById('recent-payments-tbody');
-      if (recentTbody) {
+      // Transações Recentes
+      const tbody = document.getElementById('payments-tbody');
+      if (tbody) {
         if (!recentPayments || recentPayments.length === 0) {
-          recentTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-dim); padding: 30px;">Nenhum pagamento registrado ainda. Crie uma simulação no Sandbox!</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" class="table-empty-cell">Nenhuma transação registrada no momento.</td></tr>`;
         } else {
-          recentTbody.innerHTML = recentPayments
+          tbody.innerHTML = recentPayments
             .map(
               (p) => `
             <tr>
               <td>${this.formatDate(p.createdAt)}</td>
-              <td><span class="badge badge-app">${p.application.name}</span></td>
+              <td><span class="badge badge-app">${p.application?.name || 'Sistema'}</span></td>
               <td><code>${p.externalReference}</code></td>
-              <td><span style="font-size: 0.82rem; font-weight: 600;">${p.paymentMethod}</span></td>
-              <td style="font-weight: 700; color: #ffffff;">${this.formatCurrency(p.amount)}</td>
+              <td style="font-size: 0.8rem; font-weight: 500;">${p.paymentMethod}</td>
+              <td style="font-weight: 600; color: #ffffff;">${this.formatCurrency(p.amount)}</td>
               <td>${this.renderStatusBadge(p.status)}</td>
-              <td>
-                <button class="btn btn-secondary btn-sm" onclick="app.viewPaymentDetails('${p.id}')">🔍 Detalhes</button>
+              <td style="text-align: right;">
+                <button class="btn btn-secondary btn-sm" onclick="app.viewPaymentDetails('${p.id}')">
+                  Detalhes
+                </button>
               </td>
             </tr>
           `
@@ -386,210 +526,308 @@ class CJCPaysApp {
         }
       }
     } catch (e) {
-      console.error('Erro ao carregar métricas:', e);
+      console.error('Erro ao carregar dados do dashboard:', e);
     }
   }
 
-  // ==================== TRANSAÇÕES ====================
-  async loadPayments() {
+  // ==================== TELA DE TRANSAÇÕES ====================
+  async populateAppFilterOptions() {
+    const filterSelect = document.getElementById('filter-app');
+    if (!filterSelect) return;
+
+    if (!this.applicationsCache || this.applicationsCache.length === 0) {
+      try {
+        const res = await fetch('/api/admin/applications', { headers: this.getHeaders() });
+        const data = await res.json();
+        if (data.success) {
+          this.applicationsCache = data.applications || [];
+        }
+      } catch (e) {
+        console.warn('Erro ao carregar lista de apps para filtro:', e);
+      }
+    }
+
+    const currentVal = filterSelect.value || 'ALL';
+    filterSelect.innerHTML =
+      `<option value="ALL">Todas as Aplicações</option>` +
+      this.applicationsCache.map((app) => `<option value="${app.id}">${app.name}</option>`).join('');
+    filterSelect.value = currentVal;
+  }
+
+  applyPaymentsFilters() {
+    this.paymentsFilters.search = document.getElementById('filter-search')?.value.trim() || '';
+    this.paymentsFilters.appId = document.getElementById('filter-app')?.value || 'ALL';
+    this.paymentsFilters.status = document.getElementById('filter-status')?.value || 'ALL';
+    this.paymentsPage = 1;
+    this.loadAllPayments();
+  }
+
+  clearPaymentsFilters() {
+    const searchInput = document.getElementById('filter-search');
+    const appSelect = document.getElementById('filter-app');
+    const statusSelect = document.getElementById('filter-status');
+
+    if (searchInput) searchInput.value = '';
+    if (appSelect) appSelect.value = 'ALL';
+    if (statusSelect) statusSelect.value = 'ALL';
+
+    this.paymentsFilters = { search: '', appId: 'ALL', status: 'ALL' };
+    this.paymentsPage = 1;
+    this.loadAllPayments();
+  }
+
+  prevPaymentsPage() {
+    if (this.paymentsPage > 1) {
+      this.paymentsPage--;
+      this.loadAllPayments();
+    }
+  }
+
+  nextPaymentsPage() {
+    if (this.paymentsPage < this.paymentsTotalPages) {
+      this.paymentsPage++;
+      this.loadAllPayments();
+    }
+  }
+
+  async loadAllPayments() {
+    const tbody = document.getElementById('all-payments-tbody');
+    const infoEl = document.getElementById('pagination-info');
+    const pageLabel = document.getElementById('pagination-page-label');
+    const prevBtn = document.getElementById('btn-prev-page');
+    const nextBtn = document.getElementById('btn-next-page');
+
+    if (!tbody) return;
+
     try {
-      const search = document.getElementById('filter-search')?.value || '';
-      const appId = document.getElementById('filter-app')?.value || 'ALL';
-      const status = document.getElementById('filter-status')?.value || 'ALL';
+      const { search, appId, status } = this.paymentsFilters;
+      const url = `/api/admin/payments?page=${this.paymentsPage}&limit=${this.paymentsLimit}&search=${encodeURIComponent(search)}&appId=${appId}&status=${status}`;
 
-      const url = `/api/admin/payments?search=${encodeURIComponent(search)}&appId=${appId}&status=${status}`;
       const res = await fetch(url, { headers: this.getHeaders() });
-      const data = await res.json();
-      if (!data.success) return;
-
-      const tbody = document.getElementById('all-payments-tbody');
-      if (!tbody) return;
-
-      if (!data.payments || data.payments.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-dim); padding: 40px;">Nenhuma transação encontrada com os filtros selecionados.</td></tr>`;
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
         return;
       }
 
-      tbody.innerHTML = data.payments
+      const data = await res.json();
+      if (!data.success) {
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty-cell">Erro ao carregar transações.</td></tr>`;
+        return;
+      }
+
+      const { payments, pagination } = data;
+      this.paymentsTotalPages = pagination.totalPages || 1;
+      this.paymentsPage = pagination.page || 1;
+
+      // Renderiza Tabela
+      if (!payments || payments.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty-cell">Nenhuma transação encontrada com os filtros selecionados.</td></tr>`;
+      } else {
+        tbody.innerHTML = payments
+          .map(
+            (p) => `
+          <tr>
+            <td>${this.formatDate(p.createdAt)}</td>
+            <td><span class="badge badge-app">${p.application?.name || 'Sistema'}</span></td>
+            <td><code>${p.externalReference}</code></td>
+            <td><span style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted);">${p.mpPaymentId || '—'}</span></td>
+            <td>
+              <div style="font-weight: 500; color: var(--text-primary); font-size: 0.86rem;">${p.payerName || 'N/A'}</div>
+              <div style="font-size: 0.74rem; color: var(--text-muted);">${p.payerEmail || ''}</div>
+            </td>
+            <td style="font-size: 0.8rem; font-weight: 500;">${p.paymentMethod}</td>
+            <td style="font-weight: 600; color: #ffffff;">${this.formatCurrency(p.amount)}</td>
+            <td>${this.renderStatusBadge(p.status)}</td>
+            <td style="text-align: right;">
+              <button class="btn btn-secondary btn-sm" onclick="app.viewPaymentDetails('${p.id}')">
+                Detalhes
+              </button>
+            </td>
+          </tr>
+        `
+          )
+          .join('');
+      }
+
+      // Atualiza Paginação
+      const total = pagination.total || 0;
+      const start = total === 0 ? 0 : (this.paymentsPage - 1) * this.paymentsLimit + 1;
+      const end = Math.min(this.paymentsPage * this.paymentsLimit, total);
+
+      if (infoEl) infoEl.innerText = `Exibindo ${start} a ${end} de ${total} transações`;
+      if (pageLabel) pageLabel.innerText = `Página ${this.paymentsPage} de ${this.paymentsTotalPages}`;
+      if (prevBtn) prevBtn.disabled = this.paymentsPage <= 1;
+      if (nextBtn) nextBtn.disabled = this.paymentsPage >= this.paymentsTotalPages;
+    } catch (e) {
+      console.error('Erro ao carregar transações:', e);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty-cell">Erro de comunicação com o servidor.</td></tr>`;
+    }
+  }
+
+  // ==================== CRUD DE APLICAÇÕES ====================
+  async loadApplicationsCRUD() {
+    const container = document.getElementById('crud-apps-container');
+    if (!container) return;
+
+    try {
+      const res = await fetch('/api/admin/applications', { headers: this.getHeaders() });
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        return;
+      }
+
+      const data = await res.json();
+      if (!data.success) {
+        this.showToast(data.error || 'Falha ao listar aplicações.', 'warning');
+        return;
+      }
+
+      this.applicationsCache = data.applications || [];
+
+      if (this.applicationsCache.length === 0) {
+        container.innerHTML = `
+          <div class="card empty-state" style="padding: 40px; text-align: center; color: var(--text-muted); grid-column: 1 / -1;">
+            <p style="font-size: 1.1rem; margin-bottom: 12px;">Nenhuma aplicação cadastrada ainda.</p>
+            <button class="btn btn-primary btn-sm" onclick="app.openCreateAppModal()">➕ Criar Primeira Aplicação</button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = this.applicationsCache
         .map(
-          (p) => `
-        <tr>
-          <td>${this.formatDate(p.createdAt)}</td>
-          <td><span class="badge badge-app">${p.application?.name || 'Sistema'}</span></td>
-          <td><code>${p.externalReference}</code></td>
-          <td><span style="color: var(--text-dim); font-size: 0.8rem;">${p.mpPaymentId || 'N/A'}</span></td>
-          <td>${p.payerName || p.payerEmail}</td>
-          <td style="font-weight: 700; color: #ffffff;">${this.formatCurrency(p.amount)}</td>
-          <td>${this.renderStatusBadge(p.status)}</td>
-          <td>
-            <button class="btn btn-secondary btn-sm" onclick="app.viewPaymentDetails('${p.id}')">🔍 Detalhes</button>
-          </td>
-        </tr>
+          (app) => `
+        <div class="crud-app-card" id="app-card-${app.id}">
+          <div class="crud-app-header">
+            <div>
+              <h3 class="crud-app-title">${app.name}</h3>
+              <div style="margin-top: 3px;">
+                <code style="font-size: 0.76rem;">slug: ${app.slug}</code>
+              </div>
+            </div>
+            <span class="badge ${app.isActive ? 'badge-approved' : 'badge-rejected'}">
+              ${app.isActive ? 'Ativa' : 'Inativa'}
+            </span>
+          </div>
+
+          <!-- Chave de API -->
+          <div class="crud-field-box">
+            <span class="crud-field-label">Chave de API (X-Api-Key)</span>
+            <div class="input-action-group">
+              <input 
+                type="password" 
+                id="key-input-${app.id}" 
+                class="input-control" 
+                value="${app.apiKey}" 
+                readonly
+              >
+              <button 
+                type="button" 
+                class="btn btn-secondary btn-sm" 
+                onclick="app.toggleKeyVisibility('${app.id}')" 
+                title="Mostrar/Ocultar Chave"
+              >
+                👁️
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-secondary btn-sm" 
+                onclick="app.copyToClipboard('${app.apiKey}')" 
+                title="Copiar Chave de API"
+              >
+                📋
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-secondary btn-sm" 
+                onclick="app.regenerateApiKey('${app.id}')" 
+                title="Regenerar Chave de API"
+              >
+                🔄
+              </button>
+            </div>
+          </div>
+
+          <!-- Endpoint de Webhook -->
+          <div class="crud-field-box">
+            <span class="crud-field-label">Endpoint de Webhook (Fan-Out)</span>
+            <div class="input-action-group">
+              <input 
+                type="url" 
+                id="webhook-input-${app.id}" 
+                class="input-control" 
+                placeholder="https://meusite.com/webhook.php" 
+                value="${app.webhookUrl || ''}"
+              >
+              <button 
+                type="button" 
+                class="btn btn-secondary btn-sm" 
+                onclick="app.saveInlineWebhook('${app.id}')" 
+                title="Salvar Webhook"
+              >
+                💾
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-secondary btn-sm" 
+                onclick="app.pingWebhook('${app.id}')" 
+                title="Testar Conexão (Ping)"
+              >
+                📡
+              </button>
+            </div>
+          </div>
+
+          <!-- Segredo HMAC -->
+          <div class="crud-field-box">
+            <span class="crud-field-label">Segredo HMAC (X-CJC-Signature)</span>
+            <div class="input-action-group">
+              <div class="code-secret-box" title="${app.webhookSecret}">
+                ${app.webhookSecret}
+              </div>
+              <button 
+                type="button" 
+                class="btn btn-secondary btn-sm" 
+                onclick="app.copyToClipboard('${app.webhookSecret}')" 
+                title="Copiar Segredo HMAC"
+              >
+                📋
+              </button>
+            </div>
+          </div>
+
+          <!-- Rodapé de Ações do Card -->
+          <div class="crud-app-actions-bar">
+            <div class="crud-app-counters">
+              <span>💳 ${app._count?.payments || 0} pagamentos</span> • 
+              <span>🔀 ${app._count?.deliveries || 0} entregas</span>
+            </div>
+            <div class="crud-app-buttons">
+              <button 
+                type="button" 
+                class="btn btn-secondary btn-sm" 
+                onclick="app.openEditAppModal('${app.id}')"
+              >
+                ✏️ Editar
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-danger btn-sm" 
+                onclick="app.deleteApplication('${app.id}')"
+              >
+                🗑️ Excluir
+              </button>
+            </div>
+          </div>
+        </div>
       `
         )
         .join('');
     } catch (e) {
-      console.error('Erro ao carregar pagamentos:', e);
-    }
-  }
-
-  async viewPaymentDetails(paymentId) {
-    try {
-      const res = await fetch(`/api/admin/payments/${paymentId}`, { headers: this.getHeaders() });
-      const data = await res.json();
-      if (!data.success || !data.payment) return;
-
-      const p = data.payment;
-      const modalBody = document.getElementById('modal-payment-body');
-      const modalFooter = document.getElementById('modal-payment-footer');
-
-      modalBody.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <div style="font-size: 0.85rem; color: var(--text-muted);">Referência Externa:</div>
-            <code style="font-size: 1rem; color: var(--accent-cyan); font-weight: 700;">${p.externalReference}</code>
-          </div>
-          <div>${this.renderStatusBadge(p.status)}</div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
-          <div><strong>Aplicação:</strong> ${p.application?.name}</div>
-          <div><strong>Valor Bruto:</strong> ${this.formatCurrency(p.amount)}</div>
-          <div><strong>Taxa Gateway:</strong> ${this.formatCurrency(p.feeAmount || 0)}</div>
-          <div><strong>Valor Líquido:</strong> ${this.formatCurrency(p.netReceivedAmount || p.amount)}</div>
-          <div><strong>Método:</strong> ${p.paymentMethod}</div>
-          <div><strong>ID Mercado Pago:</strong> ${p.mpPaymentId || 'N/A'}</div>
-          <div><strong>Pagador:</strong> ${p.payerName || 'N/A'} (${p.payerEmail})</div>
-          <div><strong>Documento:</strong> ${p.payerDocument || 'N/A'}</div>
-          <div><strong>Criado Em:</strong> ${this.formatDate(p.createdAt)}</div>
-          <div><strong>Pago Em:</strong> ${p.paidAt ? this.formatDate(p.paidAt) : 'Pendente'}</div>
-        </div>
-
-        ${p.qrCodeBase64 ? `
-          <div style="margin-top: 14px; text-align: center;">
-            <div style="font-size: 0.85rem; margin-bottom: 6px;">QR Code Pix:</div>
-            <div class="qr-preview">
-              <img src="data:image/png;base64,${p.qrCodeBase64}" alt="QR Code Pix">
-            </div>
-            <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard('${p.qrCode}')">📋 Copiar Código Pix</button>
-          </div>
-        ` : ''}
-
-        <div style="margin-top: 14px;">
-          <strong>Entregas de Webhook (Fan-Out):</strong>
-          <div style="margin-top: 6px; font-size: 0.82rem; color: var(--text-muted);">
-            ${p.deliveries?.length ? p.deliveries.map(d => `
-              <div style="padding: 8px; border: 1px solid var(--border-subtle); border-radius: 6px; margin-bottom: 6px;">
-                Status: <strong>${d.status}</strong> [HTTP ${d.httpStatus || 'N/A'}] - Tentativas: ${d.attempts}/${d.maxAttempts}
-                <br><span style="color: var(--text-dim);">${d.targetUrl}</span>
-              </div>
-            `).join('') : 'Nenhum webhook disparado para esta transação.'}
-          </div>
-        </div>
-      `;
-
-      modalFooter.innerHTML = `
-        ${p.status === 'APPROVED' ? `
-          <button class="btn btn-danger btn-sm" onclick="app.refundPayment('${p.id}')">💸 Estornar / Reembolsar</button>
-        ` : ''}
-        <button class="btn btn-secondary btn-sm" onclick="app.closeModal('modal-payment-details')">Fechar</button>
-      `;
-
-      this.openModal('modal-payment-details');
-    } catch (e) {
-      console.error('Erro ao abrir detalhes:', e);
-    }
-  }
-
-  async refundPayment(paymentId) {
-    if (!confirm('Tem certeza que deseja solicitar o estorno deste pagamento?')) return;
-    try {
-      const res = await fetch(`/api/admin/payments/${paymentId}/refund`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-      });
-      const data = await res.json();
-      if (data.success) {
-        this.showToast('Pagamento estornado com sucesso!', 'success');
-        this.closeModal('modal-payment-details');
-        this.refreshCurrentView();
-      } else {
-        this.showToast(data.error || 'Falha ao estornar pagamento.', 'warning');
-      }
-    } catch (e) {
-      this.showToast('Erro ao solicitar estorno.', 'warning');
-    }
-  }
-
-  // ==================== APLICAÇÕES ====================
-  async loadApplications() {
-    try {
-      const res = await fetch('/api/admin/applications', { headers: this.getHeaders() });
-      const data = await res.json();
-      if (!data.success) return;
-
-      this.appsCache = data.applications || [];
-
-      // Popula selects de filtros
-      const filterAppSelect = document.getElementById('filter-app');
-      const simAppSelect = document.getElementById('sim-app-select');
-
-      if (filterAppSelect) {
-        filterAppSelect.innerHTML = `<option value="ALL">Todas as Apps</option>` +
-          this.appsCache.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
-      }
-
-      if (simAppSelect) {
-        simAppSelect.innerHTML = this.appsCache.map(a => `<option value="${a.id}">${a.name} (${a.slug})</option>`).join('');
-      }
-
-      const container = document.getElementById('applications-cards-container');
-      if (!container) return;
-
-      container.innerHTML = this.appsCache.map(app => `
-        <div class="app-card">
-          <div class="app-card-header">
-            <h3 class="app-card-title">${app.name}</h3>
-            <span class="badge ${app.isActive ? 'badge-approved' : 'badge-rejected'}">${app.isActive ? 'Ativa' : 'Inativa'}</span>
-          </div>
-
-          <div style="font-size: 0.85rem; color: var(--text-muted);">
-            Slug: <code style="color: var(--accent-cyan); font-weight: 600;">${app.slug}</code>
-          </div>
-
-          <div class="form-group-card">
-            <label class="form-label">Chave de API (X-Api-Key):</label>
-            <div class="input-action-group">
-              <input type="password" value="${app.apiKey}" id="key-input-${app.id}" class="form-control" style="font-size: 0.82rem;" readonly>
-              <button class="btn btn-secondary btn-sm" onclick="app.toggleKeyVisibility('${app.id}')" title="Mostrar/Ocultar Chave">👁️</button>
-              <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard('${app.apiKey}')" title="Copiar Chave">📋</button>
-            </div>
-          </div>
-
-          <div class="form-group-card">
-            <label class="form-label">Endpoint de Webhook (Destino do Fan-Out):</label>
-            <div class="input-action-group">
-              <input type="text" value="${app.webhookUrl || ''}" id="webhook-input-${app.id}" class="form-control" style="font-size: 0.82rem;" placeholder="https://...">
-              <button class="btn btn-secondary btn-sm" onclick="app.saveAppWebhook('${app.id}')" title="Salvar URL">💾 Salvar</button>
-            </div>
-          </div>
-
-          <div class="form-group-card">
-            <label class="form-label">Segredo HMAC (Assinatura do Webhook):</label>
-            <div class="input-action-group">
-              <code class="code-box-block">${app.webhookSecret}</code>
-              <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard('${app.webhookSecret}')" title="Copiar Segredo HMAC">📋</button>
-            </div>
-          </div>
-
-          <div class="app-card-actions">
-            <button class="btn btn-secondary btn-sm" onclick="app.pingAppWebhook('${app.id}')">📡 Testar Ping Webhook</button>
-            <button class="btn btn-secondary btn-sm" onclick="app.regenerateApiKey('${app.id}')">🔄 Nova Chave</button>
-          </div>
-        </div>
-      `).join('');
-    } catch (e) {
-      console.error('Erro ao carregar aplicações:', e);
+      console.error('Erro ao listar aplicações:', e);
+      this.showToast('Erro ao carregar aplicações.', 'warning');
     }
   }
 
@@ -600,18 +838,157 @@ class CJCPaysApp {
     }
   }
 
-  async saveAppWebhook(appId) {
-    const input = document.getElementById(`webhook-input-${appId}`);
-    if (!input) return;
+  openCreateAppModal() {
+    const form = document.getElementById('form-create-app');
+    if (form) form.reset();
+    const slugInput = document.getElementById('new-app-slug');
+    if (slugInput) delete slugInput.dataset.manualEdited;
+
+    document.getElementById('modal-create-app')?.classList.add('active');
+    document.getElementById('new-app-name')?.focus();
+  }
+
+  async handleCreateApp() {
+    const name = document.getElementById('new-app-name')?.value.trim();
+    const slug = document.getElementById('new-app-slug')?.value.trim();
+    const webhookUrl = document.getElementById('new-app-webhook')?.value.trim();
+    const submitBtn = document.getElementById('btn-submit-create-app');
+
+    if (!name || !slug) {
+      this.showToast('Nome e slug são obrigatórios.', 'warning');
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Cadastrando...';
+    }
+
+    try {
+      const res = await fetch('/api/admin/applications', {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ name, slug, webhookUrl: webhookUrl || undefined }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        this.showToast(`Aplicação '${name}' criada com sucesso!`, 'success');
+        this.closeModal('modal-create-app');
+        this.loadApplicationsCRUD();
+      } else {
+        this.showToast(data.error || 'Falha ao criar aplicação.', 'warning');
+      }
+    } catch (e) {
+      this.showToast('Erro ao comunicar com o servidor.', 'warning');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Cadastrar Aplicação';
+      }
+    }
+  }
+
+  openEditAppModal(appId) {
+    const app = this.applicationsCache.find((a) => a.id === appId);
+    if (!app) return;
+
+    document.getElementById('edit-app-id').value = app.id;
+    document.getElementById('edit-app-name').value = app.name;
+    document.getElementById('edit-app-webhook').value = app.webhookUrl || '';
+    document.getElementById('edit-app-active').checked = Boolean(app.isActive);
+
+    document.getElementById('modal-edit-app')?.classList.add('active');
+    document.getElementById('edit-app-name')?.focus();
+  }
+
+  async handleEditApp() {
+    const appId = document.getElementById('edit-app-id')?.value;
+    const name = document.getElementById('edit-app-name')?.value.trim();
+    const webhookUrl = document.getElementById('edit-app-webhook')?.value.trim();
+    const isActive = document.getElementById('edit-app-active')?.checked;
+    const submitBtn = document.getElementById('btn-submit-edit-app');
+
+    if (!appId || !name) return;
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Salvando...';
+    }
+
     try {
       const res = await fetch(`/api/admin/applications/${appId}`, {
         method: 'PUT',
         headers: this.getHeaders(),
-        body: JSON.stringify({ webhookUrl: input.value.trim() }),
+        body: JSON.stringify({
+          name,
+          webhookUrl: webhookUrl || null,
+          isActive,
+        }),
       });
+
+      const data = await res.json();
+
+      if (data.success) {
+        this.showToast('Aplicação atualizada com sucesso!', 'success');
+        this.closeModal('modal-edit-app');
+        this.loadApplicationsCRUD();
+      } else {
+        this.showToast(data.error || 'Falha ao atualizar.', 'warning');
+      }
+    } catch (e) {
+      this.showToast('Erro ao atualizar aplicação.', 'warning');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Salvar Alterações';
+      }
+    }
+  }
+
+  async deleteApplication(appId) {
+    const targetApp = this.applicationsCache.find((a) => a.id === appId);
+    const appName = targetApp ? targetApp.name : 'esta aplicação';
+
+    const confirmDelete = confirm(`Tem certeza que deseja excluir a aplicação "${appName}"?\n\nTodas as chaves e registros associados serão removidos.`);
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch(`/api/admin/applications/${appId}`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        this.showToast(`Aplicação '${appName}' excluída com sucesso!`, 'info');
+        this.loadApplicationsCRUD();
+      } else {
+        this.showToast(data.error || 'Falha ao excluir aplicação.', 'warning');
+      }
+    } catch (e) {
+      this.showToast('Erro ao excluir aplicação.', 'warning');
+    }
+  }
+
+  async saveInlineWebhook(appId) {
+    const input = document.getElementById(`webhook-input-${appId}`);
+    if (!input) return;
+
+    const webhookUrl = input.value.trim();
+
+    try {
+      const res = await fetch(`/api/admin/applications/${appId}`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ webhookUrl: webhookUrl || null }),
+      });
+
       const data = await res.json();
       if (data.success) {
-        this.showToast('URL de Webhook atualizada com sucesso!', 'success');
+        this.showToast('URL de Webhook salva com sucesso!', 'success');
       } else {
         this.showToast(data.error || 'Falha ao salvar URL.', 'warning');
       }
@@ -620,190 +997,195 @@ class CJCPaysApp {
     }
   }
 
-  async pingAppWebhook(appId) {
-    this.showToast('Disparando teste de conectividade...', 'info');
-    try {
-      const res = await fetch(`/api/admin/applications/${appId}/ping`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-      });
-      const data = await res.json();
-      if (data.success) {
-        this.showToast(`✅ ${data.message}`, 'success');
-      } else {
-        this.showToast(`⚠️ ${data.message}`, 'warning');
-      }
-    } catch (e) {
-      this.showToast('Erro ao disparar ping.', 'warning');
-    }
-  }
-
   async regenerateApiKey(appId) {
-    if (!confirm('Deseja realmente gerar uma nova chave de API? A chave anterior deixará de funcionar.')) return;
+    const confirmRegen = confirm('Atenção: Gerar uma nova chave invalidará a chave anterior imediatamente. Deseja continuar?');
+    if (!confirmRegen) return;
+
     try {
       const res = await fetch(`/api/admin/applications/${appId}/regenerate-key`, {
         method: 'POST',
         headers: this.getHeaders(),
       });
+
       const data = await res.json();
       if (data.success) {
-        this.showToast('Nova chave gerada com sucesso!', 'success');
-        this.loadApplications();
+        this.showToast('Nova Chave de API gerada com sucesso!', 'success');
+        this.loadApplicationsCRUD();
+      } else {
+        this.showToast(data.error || 'Falha ao regenerar chave.', 'warning');
       }
     } catch (e) {
       this.showToast('Erro ao regenerar chave.', 'warning');
     }
   }
 
-  async createApplication() {
-    const name = document.getElementById('new-app-name').value.trim();
-    const slug = document.getElementById('new-app-slug').value.trim();
-    const webhookUrl = document.getElementById('new-app-webhook').value.trim();
+  async pingWebhook(appId) {
+    this.showToast('Disparando ping de conectividade...', 'info');
 
     try {
-      const res = await fetch('/api/admin/applications', {
+      const res = await fetch(`/api/admin/applications/${appId}/ping`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({ name, slug, webhookUrl }),
       });
+
       const data = await res.json();
       if (data.success) {
-        this.showToast(`Aplicação '${name}' cadastrada com sucesso!`, 'success');
-        this.closeModal('modal-new-app');
-        document.getElementById('form-create-app').reset();
-        this.loadApplications();
+        this.showToast(`✅ ${data.message}`, 'success');
       } else {
-        this.showToast(data.error || 'Falha ao criar aplicação.', 'warning');
+        this.showToast(`⚠️ ${data.message || 'Endpoint não respondeu com 200.'}`, 'warning');
       }
     } catch (e) {
-      this.showToast('Erro de comunicação.', 'warning');
+      this.showToast('Erro ao testar conectividade do webhook.', 'warning');
     }
   }
 
-  // ==================== WEBHOOKS ====================
-  async loadWebhooks() {
+  // ==================== MODAL DE PAGAMENTO (DETALHES & ESTORNO) ====================
+  async viewPaymentDetails(paymentId) {
     try {
-      const status = document.getElementById('filter-webhook-status')?.value || 'ALL';
-      const res = await fetch(`/api/admin/webhooks/deliveries?status=${status}`, { headers: this.getHeaders() });
+      const res = await fetch(`/api/admin/payments/${paymentId}`, { headers: this.getHeaders() });
       const data = await res.json();
-      if (!data.success) return;
-
-      const tbody = document.getElementById('webhooks-tbody');
-      if (!tbody) return;
-
-      if (!data.deliveries || data.deliveries.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-dim); padding: 40px;">Nenhum disparo de webhook registrado ainda.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = data.deliveries.map(d => `
-        <tr>
-          <td>${this.formatDate(d.createdAt)}</td>
-          <td><span class="badge badge-app">${d.application?.name}</span></td>
-          <td><code>${d.event}</code></td>
-          <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${d.targetUrl}</td>
-          <td>${d.attempts}/${d.maxAttempts}</td>
-          <td><span style="font-weight: 600; color: ${d.httpStatus >= 200 && d.httpStatus < 300 ? '#34d399' : '#fb7185'}">${d.httpStatus || 'Falha'}</span></td>
-          <td><span class="badge ${d.status === 'DELIVERED' ? 'badge-delivered' : 'badge-failed'}">${d.status}</span></td>
-          <td>
-            <button class="btn btn-secondary btn-sm" onclick="app.retryWebhook('${d.id}')">🔄 Reenviar</button>
-          </td>
-        </tr>
-      `).join('');
-    } catch (e) {
-      console.error('Erro ao carregar webhooks:', e);
-    }
-  }
-
-  async retryWebhook(deliveryId) {
-    try {
-      this.showToast('Reenviando webhook...', 'info');
-      const res = await fetch(`/api/admin/webhooks/deliveries/${deliveryId}/retry`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-      });
-      const data = await res.json();
-      if (data.success) {
-        this.showToast('Webhook reenviado com sucesso!', 'success');
-      } else {
-        this.showToast(data.message || 'Falha no reenvio.', 'warning');
-      }
-      this.loadWebhooks();
-    } catch (e) {
-      this.showToast('Erro ao reenviar webhook.', 'warning');
-    }
-  }
-
-  // ==================== SIMULADOR SANDBOX ====================
-  async simulatePayment() {
-    const applicationId = document.getElementById('sim-app-select').value;
-    const amount = parseFloat(document.getElementById('sim-amount').value);
-    const description = document.getElementById('sim-description').value.trim();
-    const autoApprove = document.getElementById('sim-auto-approve').checked;
-
-    try {
-      const res = await fetch('/api/admin/simulator/simulate-payment', {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({ applicationId, amount, description, autoApprove }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        this.showToast(data.error || 'Falha na simulação.', 'warning');
-        return;
-      }
+      if (!data.success || !data.payment) return;
 
       const p = data.payment;
-      this.currentSimulatedPaymentId = p.id;
+      const modalBody = document.getElementById('modal-payment-body');
+      const modalFooter = document.getElementById('modal-payment-footer');
+      if (!modalBody) return;
 
-      // Exibe área de resultado
-      const resultBox = document.getElementById('sim-result-box');
-      const qrContainer = document.getElementById('sim-qr-container');
-      const copiaColaInput = document.getElementById('sim-copia-cola');
-      const approveActionArea = document.getElementById('sim-approve-action-area');
+      modalBody.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
+          <div>
+            <div class="modal-row-label">Referência do Pedido</div>
+            <code style="font-size: 0.95rem; font-weight: 600; color: var(--accent-cyan);">${p.externalReference}</code>
+          </div>
+          <div>${this.renderStatusBadge(p.status)}</div>
+        </div>
 
-      resultBox.style.display = 'block';
-      copiaColaInput.value = p.qrCode || '';
+        <div class="modal-grid">
+          <div>
+            <div class="modal-row-label">Aplicação</div>
+            <div class="modal-row-val">${p.application?.name || 'N/A'}</div>
+          </div>
+          <div>
+            <div class="modal-row-label">Método de Pagamento</div>
+            <div class="modal-row-val">${p.paymentMethod}</div>
+          </div>
+          <div>
+            <div class="modal-row-label">Valor Bruto</div>
+            <div class="modal-row-val" style="color: #ffffff; font-weight: 600;">${this.formatCurrency(p.amount)}</div>
+          </div>
+          <div>
+            <div class="modal-row-label">Valor Líquido</div>
+            <div class="modal-row-val">${this.formatCurrency(p.netReceivedAmount || p.amount)}</div>
+          </div>
+          <div>
+            <div class="modal-row-label">Pagador</div>
+            <div class="modal-row-val">${p.payerName || 'N/A'}</div>
+          </div>
+          <div>
+            <div class="modal-row-label">E-mail do Pagador</div>
+            <div class="modal-row-val">${p.payerEmail || 'N/A'}</div>
+          </div>
+          <div>
+            <div class="modal-row-label">Data de Criação</div>
+            <div class="modal-row-val">${this.formatDate(p.createdAt)}</div>
+          </div>
+          <div>
+            <div class="modal-row-label">ID Mercado Pago</div>
+            <div class="modal-row-val"><code>${p.mpPaymentId || 'N/A'}</code></div>
+          </div>
+        </div>
 
-      if (p.qrCodeBase64) {
-        qrContainer.innerHTML = `<img src="data:image/png;base64,${p.qrCodeBase64}" alt="QR Code Pix Simulado">`;
-      } else {
-        qrContainer.innerHTML = `<div style="color: black; font-weight: 600;">QR Code: ${p.externalReference}</div>`;
+        ${
+          p.qrCodeBase64
+            ? `
+          <div style="text-align: center; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
+            <div class="modal-row-label">QR Code Pix Oficial:</div>
+            <div class="qr-box">
+              <img src="data:image/png;base64,${p.qrCodeBase64}" alt="QR Code Pix">
+            </div>
+            <div style="margin-top: 6px;">
+              <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard('${p.qrCode}')">
+                📋 Copiar Código Pix Copia-e-Cola
+              </button>
+            </div>
+          </div>
+        `
+            : ''
+        }
+
+        ${
+          p.deliveries && p.deliveries.length > 0
+            ? `
+          <div style="padding-top: 12px; border-top: 1px solid var(--border-subtle);">
+            <div class="modal-row-label" style="margin-bottom: 8px;">Entregas de Webhooks Fan-Out:</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              ${p.deliveries
+                .map(
+                  (d) => `
+                <div style="padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.8rem;">
+                  <div style="display: flex; justify-content: space-between;">
+                    <span>Status: <strong>${d.status}</strong> [HTTP ${d.httpStatus || 'N/A'}]</span>
+                    <span>Tentativas: ${d.attempts}/${d.maxAttempts}</span>
+                  </div>
+                  <div style="color: var(--text-muted); font-size: 0.74rem; margin-top: 2px;">${d.targetUrl}</div>
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+          </div>
+        `
+            : ''
+        }
+      `;
+
+      if (modalFooter) {
+        modalFooter.innerHTML = `
+          ${
+            p.status === 'APPROVED'
+              ? `
+            <button type="button" class="btn btn-danger btn-sm" onclick="app.refundPayment('${p.id}')">
+              💸 Estornar Pagamento
+            </button>
+          `
+              : ''
+          }
+          <button type="button" class="btn btn-secondary btn-sm" onclick="app.closeModal('modal-payment-details')">Fechar</button>
+        `;
       }
 
-      if (autoApprove) {
-        approveActionArea.style.display = 'none';
-        this.showToast('Cobrança simulada criada e aprovada! Webhook disparado.', 'success');
-      } else {
-        approveActionArea.style.display = 'block';
-        this.showToast('Cobrança Pix pendente gerada com sucesso!', 'info');
-      }
+      this.openModal('modal-payment-details');
     } catch (e) {
-      this.showToast('Erro ao criar simulação.', 'warning');
+      console.error('Erro ao abrir detalhes:', e);
     }
   }
 
-  async approveCurrentSimulatedPayment() {
-    if (!this.currentSimulatedPaymentId) return;
+  async refundPayment(paymentId) {
+    const confirmRefund = confirm(
+      'Tem certeza que deseja solicitar o estorno deste pagamento?\n\nO valor será estornado e o webhook informando o estorno será disparado à aplicação dona.'
+    );
+    if (!confirmRefund) return;
+
     try {
-      const res = await fetch(`/api/admin/simulator/approve-payment/${this.currentSimulatedPaymentId}`, {
+      const res = await fetch(`/api/admin/payments/${paymentId}/refund`, {
         method: 'POST',
         headers: this.getHeaders(),
       });
+
       const data = await res.json();
       if (data.success) {
-        this.showToast('Pagamento aprovado com sucesso! Webhook disparado para a aplicação cliente.', 'success');
-        document.getElementById('sim-approve-action-area').style.display = 'none';
-        this.refreshCurrentView();
+        this.showToast('Pagamento estornado com sucesso!', 'success');
+        this.closeModal('modal-payment-details');
+        if (this.currentView === 'dashboard-view') this.loadMetrics();
+        if (this.currentView === 'payments-view') this.loadAllPayments();
       } else {
-        this.showToast(data.error || 'Falha ao aprovar pagamento.', 'warning');
+        this.showToast(data.error || 'Falha ao estornar pagamento.', 'warning');
       }
     } catch (e) {
-      this.showToast('Erro ao aprovar simulação.', 'warning');
+      this.showToast('Erro ao solicitar estorno do pagamento.', 'warning');
     }
   }
 
-  // ==================== UTILITÁRIOS ====================
   openModal(id) {
     document.getElementById(id)?.classList.add('active');
   }
@@ -812,12 +1194,20 @@ class CJCPaysApp {
     document.getElementById(id)?.classList.remove('active');
   }
 
+  // ==================== UTILITÁRIOS ====================
+  copyToClipboard(text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      this.showToast('Copiado para a área de transferência!', 'success');
+    });
+  }
+
   showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    toast.className = `toast ${type}`;
     toast.innerHTML = `<span>${message}</span>`;
 
     container.appendChild(toast);
@@ -826,19 +1216,12 @@ class CJCPaysApp {
     }, 4000);
   }
 
-  copyToClipboard(text) {
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-      this.showToast('Copiado para a área de transferência!', 'success');
-    });
-  }
-
   formatCurrency(value) {
     return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
 
   formatDate(dateString) {
-    if (!dateString) return 'N/A';
+    if (!dateString) return '—';
     const date = new Date(dateString);
     return date.toLocaleString('pt-BR', {
       day: '2-digit',
@@ -858,8 +1241,297 @@ class CJCPaysApp {
     };
     return map[status] || `<span class="badge badge-pending">${status}</span>`;
   }
+
+  // ==================== FILA DE WEBHOOKS ====================
+  async populateWebhooksAppFilterOptions() {
+    const filterSelect = document.getElementById('filter-webhooks-app');
+    if (!filterSelect) return;
+
+    if (!this.applicationsCache || this.applicationsCache.length === 0) {
+      try {
+        const res = await fetch('/api/admin/applications', { headers: this.getHeaders() });
+        const data = await res.json();
+        if (data.success) {
+          this.applicationsCache = data.applications || [];
+        }
+      } catch (e) {
+        console.warn('Erro ao carregar lista de apps para filtro de webhooks:', e);
+      }
+    }
+
+    const currentVal = filterSelect.value || 'ALL';
+    filterSelect.innerHTML =
+      `<option value="ALL">Todas as Aplicações</option>` +
+      this.applicationsCache.map((app) => `<option value="${app.id}">${app.name}</option>`).join('');
+    filterSelect.value = currentVal;
+  }
+
+  applyWebhooksFilters() {
+    this.webhooksFilters.search = document.getElementById('filter-webhooks-search')?.value.trim() || '';
+    this.webhooksFilters.appId = document.getElementById('filter-webhooks-app')?.value || 'ALL';
+    this.webhooksFilters.status = document.getElementById('filter-webhooks-status')?.value || 'ALL';
+    this.webhooksPage = 1;
+    this.loadAllWebhooks();
+  }
+
+  clearWebhooksFilters() {
+    const searchInput = document.getElementById('filter-webhooks-search');
+    const appSelect = document.getElementById('filter-webhooks-app');
+    const statusSelect = document.getElementById('filter-webhooks-status');
+
+    if (searchInput) searchInput.value = '';
+    if (appSelect) appSelect.value = 'ALL';
+    if (statusSelect) statusSelect.value = 'ALL';
+
+    this.webhooksFilters = { search: '', appId: 'ALL', status: 'ALL' };
+    this.webhooksPage = 1;
+    this.loadAllWebhooks();
+  }
+
+  prevWebhooksPage() {
+    if (this.webhooksPage > 1) {
+      this.webhooksPage--;
+      this.loadAllWebhooks();
+    }
+  }
+
+  nextWebhooksPage() {
+    if (this.webhooksPage < this.webhooksTotalPages) {
+      this.webhooksPage++;
+      this.loadAllWebhooks();
+    }
+  }
+
+  renderWebhookStatusBadge(status) {
+    if (status === 'DELIVERED') return `<span class="badge badge-delivered">● Entregue</span>`;
+    if (status === 'PENDING') return `<span class="badge badge-pending">⏳ Pendente</span>`;
+    if (status === 'FAILED') return `<span class="badge badge-failed">✕ Falha</span>`;
+    return `<span class="badge">${status}</span>`;
+  }
+
+  renderHttpStatusBadge(status) {
+    if (!status) return `<span class="http-badge http-err">—</span>`;
+    if (status >= 200 && status < 300) return `<span class="http-badge http-2xx">${status}</span>`;
+    if (status >= 400 && status < 500) return `<span class="http-badge http-4xx">${status}</span>`;
+    return `<span class="http-badge http-5xx">${status}</span>`;
+  }
+
+  async loadAllWebhooks() {
+    const tbody = document.getElementById('webhooks-tbody');
+    const infoEl = document.getElementById('webhooks-pagination-info');
+    const pageLabel = document.getElementById('webhooks-pagination-page-label');
+    const prevBtn = document.getElementById('btn-prev-webhooks-page');
+    const nextBtn = document.getElementById('btn-next-webhooks-page');
+
+    if (!tbody) return;
+
+    try {
+      const { search, appId, status } = this.webhooksFilters;
+      const url = `/api/admin/webhooks/deliveries?page=${this.webhooksPage}&limit=${this.webhooksLimit}&search=${encodeURIComponent(search)}&appId=${appId}&status=${status}`;
+
+      const res = await fetch(url, { headers: this.getHeaders() });
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        return;
+      }
+
+      const data = await res.json();
+      if (!data.success) {
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty-cell">Erro ao carregar fila de webhooks.</td></tr>`;
+        return;
+      }
+
+      const { deliveries, pagination } = data;
+      this.webhooksTotalPages = pagination.totalPages || 1;
+      this.webhooksPage = pagination.page || 1;
+
+      // Renderiza Tabela
+      if (!deliveries || deliveries.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="table-empty-cell">Nenhuma entrega de webhook encontrada com os filtros selecionados.</td></tr>`;
+      } else {
+        tbody.innerHTML = deliveries
+          .map(
+            (d) => `
+          <tr>
+            <td>${this.formatDate(d.createdAt)}</td>
+            <td><span class="badge badge-app">${d.application?.name || 'Sistema'}</span></td>
+            <td><code>${d.event}</code></td>
+            <td><code style="font-size: 0.76rem;">${d.payment?.externalReference || '—'}</code></td>
+            <td>
+              <span style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); max-width: 200px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${d.targetUrl}">
+                ${d.targetUrl}
+              </span>
+            </td>
+            <td><span style="font-size: 0.8rem; font-weight: 500; font-family: var(--font-mono);">${d.attempts}/${d.maxAttempts}</span></td>
+            <td>${this.renderHttpStatusBadge(d.httpStatus)}</td>
+            <td>${this.renderWebhookStatusBadge(d.status)}</td>
+            <td style="text-align: right; white-space: nowrap;">
+              <button class="btn btn-secondary btn-sm" onclick="app.viewWebhookDetails('${d.id}')" title="Inspecionar Payload e Resposta">
+                Inspecionar
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="app.retryWebhookDelivery('${d.id}')" title="Forçar reenvio agora">
+                ⚡
+              </button>
+            </td>
+          </tr>
+        `
+          )
+          .join('');
+      }
+
+      // Atualiza Paginação
+      const total = pagination.total || 0;
+      const start = total === 0 ? 0 : (this.webhooksPage - 1) * this.webhooksLimit + 1;
+      const end = Math.min(this.webhooksPage * this.webhooksLimit, total);
+
+      if (infoEl) infoEl.innerText = `Exibindo ${start} a ${end} de ${total} entregas`;
+      if (pageLabel) pageLabel.innerText = `Página ${this.webhooksPage} de ${this.webhooksTotalPages}`;
+      if (prevBtn) prevBtn.disabled = this.webhooksPage <= 1;
+      if (nextBtn) nextBtn.disabled = this.webhooksPage >= this.webhooksTotalPages;
+    } catch (e) {
+      console.error('Erro ao carregar fila de webhooks:', e);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="table-empty-cell">Erro de comunicação com o servidor.</td></tr>`;
+    }
+  }
+
+  // ==================== MODAL DE DETALHES DE WEBHOOK ====================
+  async viewWebhookDetails(deliveryId) {
+    try {
+      const res = await fetch(`/api/admin/webhooks/deliveries/${deliveryId}`, { headers: this.getHeaders() });
+      const data = await res.json();
+      if (!data.success || !data.delivery) return;
+
+      const d = data.delivery;
+      const modalBody = document.getElementById('modal-webhook-body');
+      const modalFooter = document.getElementById('modal-webhook-footer');
+      if (!modalBody) return;
+
+      let formattedPayload = d.payload;
+      try {
+        formattedPayload = JSON.stringify(JSON.parse(d.payload), null, 2);
+      } catch (err) {}
+
+      modalBody.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
+          <div>
+            <div class="modal-row-label">Evento Notificado</div>
+            <code style="font-size: 0.95rem; font-weight: 600; color: var(--accent-cyan);">${d.event}</code>
+          </div>
+          <div>${this.renderWebhookStatusBadge(d.status)}</div>
+        </div>
+
+        <div class="modal-grid">
+          <div>
+            <div class="modal-row-label">Aplicação Destinatária</div>
+            <div class="modal-row-val">${d.application?.name || 'N/A'} (${d.application?.slug || ''})</div>
+          </div>
+          <div>
+            <div class="modal-row-label">Pedido / Referência</div>
+            <div class="modal-row-val"><code>${d.payment?.externalReference || 'N/A'}</code></div>
+          </div>
+          <div>
+            <div class="modal-row-label">Código HTTP Recebido</div>
+            <div class="modal-row-val">${this.renderHttpStatusBadge(d.httpStatus)}</div>
+          </div>
+          <div>
+            <div class="modal-row-label">Tentativas Realizadas</div>
+            <div class="modal-row-val">${d.attempts} de ${d.maxAttempts} máximas</div>
+          </div>
+          <div>
+            <div class="modal-row-label">Data do Primeiro Envio</div>
+            <div class="modal-row-val">${this.formatDate(d.createdAt)}</div>
+          </div>
+          <div>
+            <div class="modal-row-label">Última Atualização</div>
+            <div class="modal-row-val">${this.formatDate(d.updatedAt)}</div>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <div class="modal-row-label">Endpoint de Destino (URL)</div>
+            <div class="modal-row-val"><code style="word-break: break-all;">${d.targetUrl}</code></div>
+          </div>
+          ${
+            d.nextRetryAt
+              ? `
+            <div style="grid-column: 1 / -1;">
+              <div class="modal-row-label">Próxima Tentativa Agendada (Backoff):</div>
+              <div class="modal-row-val" style="color: #fbbf24;">⏰ ${this.formatDate(d.nextRetryAt)}</div>
+            </div>
+          `
+              : ''
+          }
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span class="modal-row-label">Carga Útil Entregue (JSON Payload Assinado):</span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="app.copyToClipboard(app.currentWebhookPayload)">
+              📋 Copiar JSON
+            </button>
+          </div>
+          <pre class="code-box-preview"><code>${this.escapeHtml(formattedPayload)}</code></pre>
+        </div>
+
+        <div>
+          <div class="modal-row-label" style="margin-bottom: 6px;">Resposta do Servidor (Body):</div>
+          <pre class="code-box-preview" style="max-height: 120px;"><code>${this.escapeHtml(d.responseBody || 'Nenhuma resposta retornada.')}</code></pre>
+        </div>
+      `;
+
+      this.currentWebhookPayload = formattedPayload;
+
+      if (modalFooter) {
+        modalFooter.innerHTML = `
+          <button type="button" class="btn btn-primary btn-sm" onclick="app.retryWebhookDelivery('${d.id}', true)">
+            ⚡ Reenviar Agora
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="app.closeModal('modal-webhook-details')">Fechar</button>
+        `;
+      }
+
+      this.openModal('modal-webhook-details');
+    } catch (e) {
+      console.error('Erro ao inspecionar webhook:', e);
+      this.showToast('Erro ao carregar detalhes do webhook.', 'warning');
+    }
+  }
+
+  async retryWebhookDelivery(deliveryId, keepModalOpen = false) {
+    this.showToast('Enviando requisição de reprocessamento...', 'info');
+
+    try {
+      const res = await fetch(`/api/admin/webhooks/deliveries/${deliveryId}/retry`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('✅ Webhook reenviado com sucesso!', 'success');
+      } else {
+        this.showToast(`⚠️ ${data.message || data.error || 'Falha ao reenviar webhook.'}`, 'warning');
+      }
+
+      if (keepModalOpen) {
+        this.viewWebhookDetails(deliveryId);
+      }
+      this.loadAllWebhooks();
+    } catch (e) {
+      this.showToast('Erro ao disparar reenvio do webhook.', 'warning');
+    }
+  }
+
+  escapeHtml(str) {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
 }
 
-// Inicializa a aplicação
+// Inicialização
 const app = new CJCPaysApp();
 window.app = app;

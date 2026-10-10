@@ -16,15 +16,21 @@ export class AdminController {
    */
   async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { username, password } = req.body;
+      const { email, username, password } = req.body;
+      const loginIdentifier = (email || username)?.trim();
 
-      if (!username || !password) {
-        res.status(400).json({ success: false, error: 'Usuário e senha são obrigatórios.' });
+      if (!loginIdentifier || !password) {
+        res.status(400).json({ success: false, error: 'E-mail e senha são obrigatórios.' });
         return;
       }
 
-      const user = await prisma.adminUser.findUnique({
-        where: { username },
+      const user = await prisma.adminUser.findFirst({
+        where: {
+          OR: [
+            { email: loginIdentifier },
+            { username: loginIdentifier },
+          ],
+        },
       });
 
       if (!user) {
@@ -39,7 +45,7 @@ export class AdminController {
       }
 
       const token = jwt.sign(
-        { id: user.id, username: user.username },
+        { id: user.id, username: user.username || user.email, email: user.email },
         config.jwtSecret,
         { expiresIn: '7d' }
       );
@@ -49,6 +55,7 @@ export class AdminController {
         token,
         user: {
           id: user.id,
+          email: user.email,
           username: user.username,
           name: user.name,
         },
@@ -298,6 +305,30 @@ export class AdminController {
   }
 
   /**
+   * DELETE /api/admin/applications/:id
+   */
+  async deleteApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const app = await prisma.application.findUnique({ where: { id } });
+
+      if (!app) {
+        res.status(404).json({ success: false, error: 'Aplicação não encontrada.' });
+        return;
+      }
+
+      await prisma.application.delete({ where: { id } });
+
+      res.json({
+        success: true,
+        message: `Aplicação '${app.name}' excluída com sucesso.`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/admin/applications/:id/regenerate-key
    */
   async regenerateApiKey(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -400,10 +431,23 @@ export class AdminController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
       const status = req.query.status as string;
+      const appId = req.query.appId as string;
+      const search = req.query.search as string;
 
       const where: any = {};
       if (status && status !== 'ALL') {
         where.status = status;
+      }
+      if (appId && appId !== 'ALL') {
+        where.applicationId = appId;
+      }
+      if (search && search.trim() !== '') {
+        where.OR = [
+          { targetUrl: { contains: search } },
+          { event: { contains: search } },
+          { responseBody: { contains: search } },
+          { payment: { externalReference: { contains: search } } },
+        ];
       }
 
       const [total, deliveries] = await Promise.all([
@@ -411,8 +455,8 @@ export class AdminController {
         prisma.webhookDelivery.findMany({
           where,
           include: {
-            application: { select: { name: true, slug: true } },
-            payment: { select: { externalReference: true, amount: true } },
+            application: { select: { id: true, name: true, slug: true } },
+            payment: { select: { id: true, externalReference: true, amount: true, status: true } },
           },
           orderBy: { createdAt: 'desc' },
           skip: (page - 1) * limit,
@@ -425,6 +469,31 @@ export class AdminController {
         deliveries,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/admin/webhooks/deliveries/:id
+   */
+  async getDeliveryDetails(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const delivery = await prisma.webhookDelivery.findUnique({
+        where: { id },
+        include: {
+          application: true,
+          payment: true,
+        },
+      });
+
+      if (!delivery) {
+        res.status(404).json({ success: false, error: 'Registro de entrega não encontrado.' });
+        return;
+      }
+
+      res.json({ success: true, delivery });
     } catch (error) {
       next(error);
     }

@@ -3,467 +3,655 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CJC-Dev-Pays — Central de Pagamentos & Webhooks</title>
+  <title>CJC-Dev-Pays — Central de Pagamentos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=1.3">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css?v=2.3">
 </head>
 <body>
-  <!-- Tela de Login Administrativo -->
-  <div id="login-screen" class="login-wrapper" style="display: none;">
-    <div class="login-card glass-panel">
-      <div class="login-header">
-        <div class="brand-icon" style="margin: 0 auto 16px auto; width: 54px; height: 54px; font-size: 26px;">💳</div>
-        <h1 class="login-title">CJC-Dev-Pays</h1>
-        <p class="login-subtitle">Central de Pagamentos & Webhooks</p>
+
+  <!-- ==================== TELA 1: LOGIN ADMINISTRATIVO ==================== -->
+  <main id="login-view" class="auth-wrapper" style="display: none;">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-badge-icon">💳</div>
+        <h1 class="auth-title">CJC-Dev-Pays</h1>
+        <p class="auth-subtitle">Acesso Administrativo ao Hub de Pagamentos</p>
       </div>
 
-      <form id="form-login">
-        <div id="login-error-alert" class="alert-box" style="display: none; margin-bottom: 14px;">
-          <span>⚠️</span> <span id="login-error-text">Credenciais inválidas</span>
+      <div id="login-alert" class="alert-banner" style="display: none;">
+        <span class="alert-icon">⚠️</span>
+        <span id="login-alert-text">Credenciais inválidas.</span>
+      </div>
+
+      <form id="form-login" class="auth-form" autocomplete="on">
+        <div class="field-group">
+          <label class="field-label" for="login-email">E-mail</label>
+          <input 
+            type="email" 
+            id="login-email" 
+            class="input-control" 
+            placeholder="admin@cjcdev.com" 
+            required 
+            autocomplete="email"
+            value="admin@cjcdev.com"
+          >
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="login-username">Usuário</label>
-          <input type="text" id="login-username" class="form-control" placeholder="Digite seu usuário..." required autocomplete="username">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="login-password">Senha</label>
-          <div style="position: relative;">
-            <input type="password" id="login-password" class="form-control" placeholder="Digite sua senha..." required autocomplete="current-password" style="padding-right: 40px;">
-            <button type="button" id="btn-toggle-login-pass" class="btn-eye" title="Mostrar/Ocultar Senha">👁️</button>
+        <div class="field-group">
+          <label class="field-label" for="login-password">Senha</label>
+          <div class="input-password-wrapper">
+            <input 
+              type="password" 
+              id="login-password" 
+              class="input-control" 
+              placeholder="Digite sua senha..." 
+              required 
+              autocomplete="current-password"
+              value="admin123"
+            >
+            <button type="button" id="btn-toggle-password" class="btn-toggle-eye" title="Mostrar/Ocultar Senha" aria-label="Mostrar Senha">
+              👁️
+            </button>
           </div>
         </div>
 
-        <button type="submit" id="btn-submit-login" class="btn btn-primary" style="width: 100%; margin-top: 8px; padding: 12px; font-size: 0.95rem;">
-          🔒 Entrar no Painel
+        <button type="submit" id="btn-submit-login" class="btn btn-primary btn-block">
+          Entrar no Dashboard
         </button>
       </form>
 
-      <div class="login-footer">
-        <span>CJC Dev • Acesso Restrito</span>
+      <div class="auth-hint-box">
+        <div class="hint-title">Credenciais padrão para acesso:</div>
+        <div class="hint-row">
+          <span>E-mail:</span> <code>admin@cjcdev.com</code>
+        </div>
+        <div class="hint-row">
+          <span>Senha:</span> <code>admin123</code>
+        </div>
       </div>
     </div>
-  </div>
+  </main>
 
-  <div id="app-layout">
-    <!-- Overlay Mobile -->
-    <div id="sidebar-overlay" class="sidebar-overlay"></div>
-
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="brand-area">
-        <div class="brand-icon">💳</div>
-        <div>
-          <div class="brand-title">CJC-Dev-Pays</div>
-          <span class="brand-badge">Payment Hub</span>
+  <!-- ==================== APP SHELL AUTENTICADO ==================== -->
+  <div id="app-shell" class="app-layout" style="display: none;">
+    
+    <!-- Drawer / Menu Hambúrguer -->
+    <div class="drawer-overlay" id="drawer-overlay"></div>
+    <aside class="drawer-menu" id="drawer-menu" aria-label="Menu Principal">
+      <div class="drawer-header">
+        <div class="brand-group">
+          <div class="brand-logo">💳</div>
+          <div>
+            <div class="brand-name">CJC-Dev-Pays</div>
+            <div class="brand-tag">Menu do Sistema</div>
+          </div>
         </div>
+        <button class="btn-close-drawer" id="btn-close-drawer" aria-label="Fechar Menu">✕</button>
       </div>
 
-      <ul class="nav-menu">
-        <li class="nav-item active" data-view="view-dashboard" id="nav-dashboard">
-          <span>📊</span> Visão Geral
-        </li>
-        <li class="nav-item" data-view="view-payments" id="nav-payments">
-          <span>💳</span> Transações
-        </li>
-        <li class="nav-item" data-view="view-applications" id="nav-applications">
-          <span>🏢</span> Aplicações & Chaves
-        </li>
-        <li class="nav-item" data-view="view-webhooks" id="nav-webhooks">
-          <span>🔀</span> Fila de Webhooks
-        </li>
-        <li class="nav-item" data-view="view-simulator" id="nav-simulator">
-          <span>🧪</span> Simulador Sandbox
-        </li>
-        <li class="nav-item" data-view="view-docs" id="nav-docs">
-          <span>📖</span> Integração & SDK
-        </li>
-      </ul>
+      <nav class="drawer-nav">
+        <div class="nav-category">Navegação</div>
+        <button class="drawer-nav-item active" data-view="dashboard-view" id="nav-item-dashboard">
+          <span class="nav-icon">📊</span>
+          <span class="nav-text">Visão Geral</span>
+        </button>
+        <button class="drawer-nav-item" data-view="payments-view" id="nav-item-payments">
+          <span class="nav-icon">💳</span>
+          <span class="nav-text">Transações</span>
+        </button>
+        <button class="drawer-nav-item" data-view="applications-view" id="nav-item-applications">
+          <span class="nav-icon">🏢</span>
+          <span class="nav-text">Aplicações & Chaves</span>
+        </button>
+        <button class="drawer-nav-item" data-view="webhooks-view" id="nav-item-webhooks">
+          <span class="nav-icon">📡</span>
+          <span class="nav-text">Fila de Webhooks</span>
+        </button>
+      </nav>
 
-      <div class="sidebar-footer">
-        <div class="live-indicator">
-          <div class="pulse-dot"></div>
-          <span id="live-status-text">SSE Conectado</span>
+      <div class="drawer-footer">
+        <div class="drawer-user-info">
+          <div class="avatar" id="drawer-user-avatar">AD</div>
+          <div class="profile-info">
+            <span class="user-name" id="drawer-user-name">Administrador</span>
+            <span class="user-email" id="drawer-user-email">admin@cjcdev.com</span>
+          </div>
         </div>
-        <button class="btn btn-secondary btn-sm" id="btn-logout">
-          🚪 Sair
+        <button class="btn btn-secondary btn-block btn-sm" id="btn-drawer-logout" style="margin-top: 12px;">
+          🚪 Sair da Sessão
         </button>
       </div>
     </aside>
 
-    <!-- Main Wrapper -->
-    <div class="main-wrapper">
-      <!-- Topbar -->
-      <header class="topbar">
-        <div class="topbar-title-section">
-          <button class="btn btn-secondary btn-sm btn-menu-toggle" id="btn-toggle-sidebar" aria-label="Abrir Menu">☰</button>
-          <h1 class="topbar-title" id="page-heading">Visão Geral</h1>
-        </div>
-        <div class="topbar-actions">
-          <button class="btn btn-secondary btn-sm" id="btn-refresh" title="Atualizar dados">
-            🔄 Atualizar
+    <!-- Topbar Minimalista -->
+    <header class="topbar">
+      <div class="topbar-container">
+        <div class="topbar-left">
+          <button class="btn-hamburger" id="btn-toggle-menu" aria-label="Abrir Menu Principal" title="Abrir Menu">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
           </button>
-          <button class="btn btn-primary btn-sm" id="btn-quick-pix" title="Criar cobrança rápida">
-            ⚡ Novo Pix
-          </button>
-        </div>
-      </header>
 
-      <!-- Content Container -->
-      <main class="content-container">
-        
+          <div class="brand-group">
+            <div class="brand-logo">💳</div>
+            <div>
+              <div class="brand-name">CJC-Dev-Pays</div>
+              <div class="brand-tag" id="topbar-current-page-tag">Central de Pagamentos</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <div class="sse-status-badge" id="sse-badge">
+            <span class="pulse-indicator"></span>
+            <span id="sse-status-text">Tempo Real Ativo</span>
+          </div>
+
+          <div class="admin-profile">
+            <div class="avatar" id="user-avatar">AD</div>
+            <div class="profile-info">
+              <span class="user-name" id="user-display-name">Administrador</span>
+              <span class="user-email" id="user-display-email">admin@cjcdev.com</span>
+            </div>
+          </div>
+
+          <button class="btn btn-ghost btn-sm" id="btn-logout" title="Sair da sessão">
+            Sair
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Conteúdo Principal Dinâmico -->
+    <main class="main-content">
+      <div class="content-container">
+
         <!-- ==================== VIEW 1: DASHBOARD ==================== -->
-        <section id="view-dashboard" class="view-section active">
-          <!-- KPI Cards -->
-          <div class="kpi-grid">
-            <div class="kpi-card glass-panel" style="--card-accent: #10b981; --card-color: #10b981;">
+        <div id="dashboard-view" class="view-panel active">
+          <!-- Header da Página -->
+          <section class="page-header">
+            <div>
+              <h1 class="page-title">Visão Geral & Faturamento</h1>
+              <p class="page-subtitle">Acompanhamento consolidado de transações Pix, cartões e despachos de webhooks.</p>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-refresh" title="Atualizar dados agora">
+                <span>🔄</span> Atualizar
+              </button>
+            </div>
+          </section>
+
+          <!-- Grade de KPIs Principais -->
+          <section class="kpi-grid">
+            <div class="kpi-card">
               <div class="kpi-header">
-                <span class="kpi-title">Volume Total Aprovado</span>
-                <div class="kpi-icon">💰</div>
+                <span class="kpi-label">Volume Total Aprovado</span>
+                <span class="kpi-icon-pill green">💰</span>
               </div>
               <div class="kpi-value" id="kpi-total-volume">R$ 0,00</div>
-              <div class="kpi-subtext">Líquido: <span id="kpi-net-volume">R$ 0,00</span></div>
+              <div class="kpi-meta">
+                Líquido recebido: <strong id="kpi-net-volume">R$ 0,00</strong>
+              </div>
             </div>
 
-            <div class="kpi-card glass-panel" style="--card-accent: #06b6d4; --card-color: #06b6d4;">
+            <div class="kpi-card">
               <div class="kpi-header">
-                <span class="kpi-title">Faturamento Hoje</span>
-                <div class="kpi-icon">📈</div>
+                <span class="kpi-label">Faturamento Hoje</span>
+                <span class="kpi-icon-pill blue">📈</span>
               </div>
               <div class="kpi-value" id="kpi-today-volume">R$ 0,00</div>
-              <div class="kpi-subtext">Neste mês: <span id="kpi-month-volume">R$ 0,00</span></div>
-            </div>
-
-            <div class="kpi-card glass-panel" style="--card-accent: #3b82f6; --card-color: #3b82f6;">
-              <div class="kpi-header">
-                <span class="kpi-title">Taxa de Aprovação</span>
-                <div class="kpi-icon">🎯</div>
+              <div class="kpi-meta">
+                Acumulado no mês: <strong id="kpi-month-volume">R$ 0,00</strong>
               </div>
-              <div class="kpi-value" id="kpi-approval-rate">100%</div>
-              <div class="kpi-subtext"><span id="kpi-approved-count">0</span> de <span id="kpi-total-count">0</span> transações</div>
             </div>
 
-            <div class="kpi-card glass-panel" style="--card-accent: #8b5cf6; --card-color: #8b5cf6;">
+            <div class="kpi-card">
               <div class="kpi-header">
-                <span class="kpi-title">Saúde dos Webhooks</span>
-                <div class="kpi-icon">🔀</div>
+                <span class="kpi-label">Taxa de Conversão</span>
+                <span class="kpi-icon-pill indigo">🎯</span>
+              </div>
+              <div class="kpi-value" id="kpi-approval-rate">0%</div>
+              <div class="kpi-meta">
+                <span id="kpi-approved-count">0</span> de <span id="kpi-total-count">0</span> transações
+              </div>
+            </div>
+
+            <div class="kpi-card">
+              <div class="kpi-header">
+                <span class="kpi-label">Saúde dos Webhooks</span>
+                <span class="kpi-icon-pill purple">🔀</span>
               </div>
               <div class="kpi-value" id="kpi-webhook-health">100%</div>
-              <div class="kpi-subtext"><span id="kpi-webhook-success">0</span> entregues / <span id="kpi-webhook-failed">0</span> falhas</div>
+              <div class="kpi-meta">
+                <span id="kpi-webhook-success">0</span> entregues / <span id="kpi-webhook-failed">0</span> falhas
+              </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Apps Volume Grid -->
-          <div>
-            <div class="section-header">
-              <h2 class="section-title">🏢 Volume por Aplicação do Ecossistema</h2>
+          <!-- Volume por Aplicação -->
+          <section class="section-block">
+            <div class="section-heading">
+              <h2 class="section-title">Volume por Aplicação do Ecossistema</h2>
+              <span class="section-badge">Multi-Tenant</span>
             </div>
-            <div class="kpi-grid" id="apps-volume-container">
-              <!-- Renderizado via JS -->
+            <div class="apps-grid" id="apps-container">
+              <!-- Renderizado dinamicamente via app.js -->
+              <div class="card empty-state">Carregando aplicações...</div>
             </div>
-          </div>
+          </section>
 
-          <!-- Recent Payments Table -->
-          <div>
-            <div class="section-header">
-              <h2 class="section-title">⚡ Transações Recentes (Feed ao Vivo)</h2>
-              <button class="btn btn-secondary btn-sm" onclick="app.navigate('view-payments')">Ver Todas</button>
+          <!-- Transações Recentes -->
+          <section class="section-block">
+            <div class="section-heading">
+              <div>
+                <h2 class="section-title">Transações Recentes</h2>
+                <span class="section-subtitle">Feed em tempo real via Server-Sent Events</span>
+              </div>
             </div>
-            <div class="table-container glass-panel">
-              <table class="custom-table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Aplicação</th>
-                    <th>Referência Externa</th>
-                    <th>Método</th>
-                    <th>Valor</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="recent-payments-tbody">
-                  <tr>
-                    <td colspan="7" style="text-align: center; color: var(--text-dim); padding: 30px;">Carregando dados...</td>
-                  </tr>
-                </tbody>
-              </table>
+
+            <div class="table-card">
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Data / Hora</th>
+                      <th>Aplicação</th>
+                      <th>Referência</th>
+                      <th>Método</th>
+                      <th>Valor Bruto</th>
+                      <th>Status</th>
+                      <th style="text-align: right;">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="payments-tbody">
+                    <tr>
+                      <td colspan="7" class="table-empty-cell">Carregando transações...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
         <!-- ==================== VIEW 2: TRANSAÇÕES ==================== -->
-        <section id="view-payments" class="view-section">
-          <div class="toolbar">
-            <div class="toolbar-filters">
-              <input type="text" id="filter-search" class="form-control" placeholder="Buscar por ref, MP ID, email ou cliente..." style="max-width: 320px;">
-              <select id="filter-app" class="form-control" style="max-width: 180px;">
-                <option value="ALL">Todas as Apps</option>
-              </select>
-              <select id="filter-status" class="form-control" style="max-width: 160px;">
-                <option value="ALL">Todos os Status</option>
-                <option value="APPROVED">Aprovado</option>
-                <option value="PENDING">Pendente</option>
-                <option value="REJECTED">Rejeitado</option>
-                <option value="REFUNDED">Estornado</option>
-              </select>
-              <button class="btn btn-primary btn-sm" id="btn-apply-filters">Filtrar</button>
+        <div id="payments-view" class="view-panel" style="display: none;">
+          <!-- Header da Página -->
+          <section class="page-header">
+            <div>
+              <h1 class="page-title">Histórico de Transações</h1>
+              <p class="page-subtitle">Acompanhe todas as cobranças Pix, cartões, status de liquidação e estornos.</p>
             </div>
-          </div>
-
-          <div class="table-container glass-panel">
-            <table class="custom-table">
-              <thead>
-                <tr>
-                  <th>Criado Em</th>
-                  <th>Aplicação</th>
-                  <th>Referência Externa</th>
-                  <th>ID Mercado Pago</th>
-                  <th>Pagador</th>
-                  <th>Valor</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="all-payments-tbody">
-                <!-- Renderizado via JS -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- ==================== VIEW 3: APLICAÇÕES ==================== -->
-        <section id="view-applications" class="view-section">
-          <div class="toolbar">
-            <div class="toolbar-filters">
-              <span style="font-size: 0.88rem; color: var(--text-muted);">Credenciais de API e endpoints para Fan-Out de Webhooks</span>
-            </div>
-            <button class="btn btn-primary btn-sm" id="btn-new-app">+ Nova Aplicação</button>
-          </div>
-
-          <div class="apps-grid" id="applications-cards-container">
-            <!-- Renderizado via JS -->
-          </div>
-        </section>
-
-        <!-- ==================== VIEW 4: WEBHOOKS ==================== -->
-        <section id="view-webhooks" class="view-section">
-          <div class="toolbar">
-            <div class="toolbar-filters">
-              <span style="font-size: 0.9rem; font-weight: 600;">Endpoint Único do Mercado Pago:</span>
-              <code class="code-box" id="mp-webhook-url-box" style="padding: 6px 12px;">http://localhost:4020/api/webhooks/mercadopago</code>
-              <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard(document.getElementById('mp-webhook-url-box').innerText)">📋 Copiar</button>
-            </div>
-            <select id="filter-webhook-status" class="form-control" style="max-width: 160px;">
-              <option value="ALL">Todos os Status</option>
-              <option value="DELIVERED">Entregues</option>
-              <option value="PENDING">Pendentes</option>
-              <option value="FAILED">Falhas</option>
-            </select>
-          </div>
-
-          <div class="table-container glass-panel">
-            <table class="custom-table">
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Aplicação</th>
-                  <th>Evento</th>
-                  <th>URL de Destino</th>
-                  <th>Tentativas</th>
-                  <th>Status HTTP</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="webhooks-tbody">
-                <!-- Renderizado via JS -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- ==================== VIEW 5: SIMULADOR SANDBOX ==================== -->
-        <section id="view-simulator" class="view-section">
-          <div class="glass-panel" style="padding: 28px; max-width: 700px; margin: 0 auto; width: 100%;">
-            <div class="section-header" style="margin-bottom: 20px;">
-              <div>
-                <h2 class="section-title">🧪 Sandbox de Pagamentos & Webhook Dispatcher</h2>
-                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Gere cobranças Pix de teste e aprove-as com 1 clique para validar o recebimento no seu sistema PHP.</p>
-              </div>
-            </div>
-
-            <form id="form-simulate-pix">
-              <div class="form-group">
-                <label class="form-label">Aplicação Destino</label>
-                <select id="sim-app-select" class="form-control" required>
-                  <!-- Preenchido via JS -->
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Valor da Cobrança (R$)</label>
-                <input type="number" step="0.01" id="sim-amount" class="form-control" value="49.90" required>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Descrição</label>
-                <input type="text" id="sim-description" class="form-control" value="Pedido Simulado de Teste #1002" required>
-              </div>
-
-              <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px; margin-top: 8px;">
-                <input type="checkbox" id="sim-auto-approve" style="width: 18px; height: 18px; accent-color: var(--accent-cyan);">
-                <label for="sim-auto-approve" style="font-size: 0.88rem; cursor: pointer;">
-                  Aprovar Imediatamente e Disparar Webhook (Fan-Out)
-                </label>
-              </div>
-
-              <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 14px;">
-                ⚡ Gerar Cobrança Pix
+            <div class="page-header-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-refresh-payments" title="Atualizar tabela de transações">
+                <span>🔄</span> Atualizar
               </button>
-            </form>
+            </div>
+          </section>
 
-            <!-- Área de Resultado do Pix Simulado -->
-            <div id="sim-result-box" style="display: none; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-subtle);">
-              <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--accent-cyan);">QR Code Pix Gerado:</h3>
-              <div class="qr-preview" id="sim-qr-container"></div>
-              
-              <div class="form-group" style="margin-top: 12px;">
-                <label class="form-label">Código Copia-e-Cola:</label>
-                <div style="display: flex; gap: 8px;">
-                  <input type="text" id="sim-copia-cola" class="form-control" readonly>
-                  <button class="btn btn-secondary btn-sm" onclick="app.copyToClipboard(document.getElementById('sim-copia-cola').value)">📋 Copiar</button>
+          <!-- Barra de Filtros e Busca -->
+          <section class="filters-card">
+            <div class="filters-grid">
+              <div class="filter-item search-item">
+                <label class="filter-label" for="filter-search">Buscar Transação</label>
+                <div class="search-input-wrapper">
+                  <span class="search-icon">🔍</span>
+                  <input 
+                    type="text" 
+                    id="filter-search" 
+                    class="input-control search-control" 
+                    placeholder="Ref externa, ID Mercado Pago, e-mail ou pagador..."
+                  >
                 </div>
               </div>
 
-              <div id="sim-approve-action-area" style="margin-top: 16px;">
-                <button class="btn btn-primary" id="btn-sim-manual-approve" style="width: 100%; background: #10b981;">
-                  ✅ Simular Pagamento Concluído pelo Banco (Aprovar & Disparar Webhook)
-                </button>
+              <div class="filter-item">
+                <label class="filter-label" for="filter-app">Aplicação</label>
+                <select id="filter-app" class="input-control select-control">
+                  <option value="ALL">Todas as Aplicações</option>
+                  <!-- Populado dinamicamente -->
+                </select>
+              </div>
+
+              <div class="filter-item">
+                <label class="filter-label" for="filter-status">Status</label>
+                <select id="filter-status" class="input-control select-control">
+                  <option value="ALL">Todos os Status</option>
+                  <option value="APPROVED">Aprovado</option>
+                  <option value="PENDING">Pendente</option>
+                  <option value="REJECTED">Rejeitado</option>
+                  <option value="REFUNDED">Estornado</option>
+                </select>
+              </div>
+
+              <div class="filter-actions">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-apply-filters">Filtrar</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-filters">Limpar</button>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- ==================== VIEW 6: INTEGRAÇÃO & DOCS ==================== -->
-        <section id="view-docs" class="view-section">
-          <div class="toolbar">
-            <div class="toolbar-filters">
-              <span style="font-size: 0.88rem; color: var(--text-muted);">Exemplos em PHP para criação de cobranças Pix e validação de Webhooks Fan-Out</span>
+          <!-- Tabela de Transações -->
+          <section class="section-block">
+            <div class="table-card">
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Data / Hora</th>
+                      <th>Aplicação</th>
+                      <th>Referência</th>
+                      <th>ID Mercado Pago</th>
+                      <th>Pagador</th>
+                      <th>Método</th>
+                      <th>Valor</th>
+                      <th>Status</th>
+                      <th style="text-align: right;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="all-payments-tbody">
+                    <tr>
+                      <td colspan="9" class="table-empty-cell">Carregando transações...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Paginação Minimalista -->
+              <div class="pagination-footer">
+                <div class="pagination-info" id="pagination-info">
+                  Exibindo transações...
+                </div>
+                <div class="pagination-controls">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-prev-page" disabled>
+                    ◀ Anterior
+                  </button>
+                  <span class="pagination-page-label" id="pagination-page-label">Página 1 de 1</span>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-next-page" disabled>
+                    Próxima ▶
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
+        </div>
 
-          <div class="glass-panel" style="padding: 28px; display: flex; flex-direction: column; gap: 20px;">
-            <p style="color: var(--text-muted); font-size: 0.92rem;">
-              Para que seus projetos (<strong>Sua Loja</strong>, <strong>Seu Salão</strong>, <strong>FaceCraft</strong>) criem pagamentos através do <strong>CJC-Dev-Pays</strong>, basta enviar uma requisição HTTP simples com a chave da aplicação:
-            </p>
+        <!-- ==================== VIEW 3: CRUD DE APLICAÇÕES ==================== -->
+        <div id="applications-view" class="view-panel" style="display: none;">
+          <!-- Header da Página de Aplicações -->
+          <section class="page-header">
+            <div>
+              <h1 class="page-title">Aplicações & Chaves de Autenticação</h1>
+              <p class="page-subtitle">Gerencie credenciais de API, chaves de autenticação e endpoints de webhook do ecossistema.</p>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn btn-primary btn-sm" id="btn-open-create-app">
+                <span>➕</span> Nova Aplicação
+              </button>
+            </div>
+          </section>
 
-            <h3 style="font-size: 1rem; color: var(--accent-cyan); margin-top: 8px;">1. Criar Cobrança Pix em PHP (cURL ou SDK)</h3>
-            <pre class="code-box"><code>$response = file_get_contents('http://localhost:4020/api/v1/payments/pix', false, stream_context_create([
-    'http' => [
-        'method'  => 'POST',
-        'header'  => "Content-Type: application/json\r\n" .
-                     "X-Api-Key: SUA_CHAVE_CJC_LIVE\r\n",
-        'content' => json_encode([
-            'external_reference' => 'SUALOJA-PEDIDO-1002',
-            'amount'             => 49.90,
-            'description'        => 'Pedido #1002 - Lanche X-Burger',
-            'payer'              => [
-                'email'          => 'cliente@email.com',
-                'first_name'     => 'Caua',
-                'identification' => ['type' => 'CPF', 'number' => '12345678909']
-            ]
-        ])
-    ]
-]));
+          <!-- Cards das Aplicações (CRUD) -->
+          <section class="section-block">
+            <div id="crud-apps-container" class="crud-apps-grid">
+              <!-- Renderizado dinamicamente via app.js -->
+              <div class="card empty-state">Carregando aplicações...</div>
+            </div>
+          </section>
+        </div>
 
-$data = json_decode($response, true);
-$qrCodeBase64 = $data['payment']['qr_code_base64'];
-$copiaCola    = $data['payment']['qr_code'];</code></pre>
+        <!-- ==================== VIEW 4: FILA DE WEBHOOKS ==================== -->
+        <div id="webhooks-view" class="view-panel" style="display: none;">
+          <!-- Header da Página -->
+          <section class="page-header">
+            <div>
+              <h1 class="page-title">Fila & Despacho de Webhooks</h1>
+              <p class="page-subtitle">Acompanhe a retransmissão de eventos (fan-out), retentativas automáticas e latência de entrega.</p>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-refresh-webhooks" title="Atualizar fila de webhooks">
+                <span>🔄</span> Atualizar
+              </button>
+            </div>
+          </section>
 
-            <h3 style="font-size: 1rem; color: var(--accent-cyan); margin-top: 12px;">2. Receber o Webhook Fan-Out no seu Script PHP (`webhook/cjc-pays.php`)</h3>
-            <pre class="code-box"><code>&lt;?php
-$payload = file_get_contents('php://input');
-$signatureHeader = $_SERVER['HTTP_X_CJC_SIGNATURE'] ?? '';
+          <!-- Barra de Filtros e Busca -->
+          <section class="filters-card">
+            <div class="filters-grid">
+              <div class="filter-item search-item">
+                <label class="filter-label" for="filter-webhooks-search">Buscar Entrega</label>
+                <div class="search-input-wrapper">
+                  <span class="search-icon">🔍</span>
+                  <input 
+                    type="text" 
+                    id="filter-webhooks-search" 
+                    class="input-control search-control" 
+                    placeholder="URL alvo, evento, ref do pedido ou resposta..."
+                  >
+                </div>
+              </div>
 
-// Extrai timestamp e hash
-parse_str(str_replace(',', '&', $signatureHeader), $sigParts);
-$timestamp = $sigParts['t'] ?? '';
-$receivedHash = $sigParts['v1'] ?? '';
+              <div class="filter-item">
+                <label class="filter-label" for="filter-webhooks-app">Aplicação</label>
+                <select id="filter-webhooks-app" class="input-control select-control">
+                  <option value="ALL">Todas as Aplicações</option>
+                  <!-- Populado dinamicamente -->
+                </select>
+              </div>
 
-// Valida assinatura HMAC
-$secret = 'SEU_WEBHOOK_SECRET_AQUI';
-$expectedHash = hash_hmac('sha256', "t={$timestamp}&body={$payload}", $secret);
+              <div class="filter-item">
+                <label class="filter-label" for="filter-webhooks-status">Status de Entrega</label>
+                <select id="filter-webhooks-status" class="input-control select-control">
+                  <option value="ALL">Todos os Status</option>
+                  <option value="DELIVERED">Entregue (DELIVERED)</option>
+                  <option value="PENDING">Pendente / Retentando (PENDING)</option>
+                  <option value="FAILED">Falha Definitiva (FAILED)</option>
+                </select>
+              </div>
 
-if (!hash_equals($expectedHash, $receivedHash)) {
-    http_response_code(401);
-    die('Assinatura inválida');
-}
+              <div class="filter-actions">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-apply-webhooks-filters">Filtrar</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-webhooks-filters">Limpar</button>
+              </div>
+            </div>
+          </section>
 
-$event = json_decode($payload, true);
-if ($event['status'] === 'approved') {
-    $ref = $event['external_reference'];
-    // Atualiza status do pedido no seu banco MySQL para PAGO!
-}
+          <!-- Tabela de Entregas -->
+          <section class="section-block">
+            <div class="table-card">
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Data / Hora</th>
+                      <th>Aplicação</th>
+                      <th>Evento</th>
+                      <th>Pedido</th>
+                      <th>URL de Destino</th>
+                      <th>Tentativas</th>
+                      <th>HTTP</th>
+                      <th>Status</th>
+                      <th style="text-align: right;">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="webhooks-tbody">
+                    <tr>
+                      <td colspan="9" class="table-empty-cell">Carregando fila de webhooks...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-http_response_code(200);
-echo json_encode(['status' => 'received']);</code></pre>
-          </div>
-        </section>
+              <!-- Paginação Minimalista -->
+              <div class="pagination-footer">
+                <div class="pagination-info" id="webhooks-pagination-info">
+                  Exibindo entregas...
+                </div>
+                <div class="pagination-controls">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-prev-webhooks-page" disabled>
+                    ◀ Anterior
+                  </button>
+                  <span class="pagination-page-label" id="webhooks-pagination-page-label">Página 1 de 1</span>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-next-webhooks-page" disabled>
+                    Próxima ▶
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
 
-      </main>
-    </div>
+      </div>
+    </main>
   </div>
 
-  <!-- Modal: Detalhes do Pagamento -->
-  <div class="modal-overlay" id="modal-payment-details">
-    <div class="modal-box">
+  <!-- Modal Minimalista: Detalhes da Transação -->
+  <div class="modal-backdrop" id="modal-payment-details">
+    <div class="modal-dialog">
       <div class="modal-header">
         <h3 class="modal-title">Detalhes da Transação</h3>
-        <button class="modal-close" onclick="app.closeModal('modal-payment-details')">✕</button>
+        <button type="button" class="btn-close" id="btn-close-modal" aria-label="Fechar">✕</button>
       </div>
+
       <div class="modal-body" id="modal-payment-body">
-        <!-- Renderizado dinamicamente -->
+        <!-- Preenchido via app.js -->
       </div>
+
       <div class="modal-footer" id="modal-payment-footer">
-        <!-- Ações dinâmicas -->
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-modal-close-action">Fechar</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Nova Aplicação -->
-  <div class="modal-overlay" id="modal-new-app">
-    <div class="modal-box">
+  <!-- Modal: Cadastrar Nova Aplicação -->
+  <div class="modal-backdrop" id="modal-create-app">
+    <div class="modal-dialog">
       <div class="modal-header">
         <h3 class="modal-title">Cadastrar Nova Aplicação</h3>
-        <button class="modal-close" onclick="app.closeModal('modal-new-app')">✕</button>
+        <button type="button" class="btn-close" id="btn-close-create-modal" aria-label="Fechar">✕</button>
       </div>
-      <div class="modal-body">
-        <form id="form-create-app">
-          <div class="form-group">
-            <label class="form-label">Nome da Aplicação</label>
-            <input type="text" id="new-app-name" class="form-control" placeholder="Ex: Meu delivery" required>
+
+      <form id="form-create-app">
+        <div class="modal-body">
+          <div class="field-group">
+            <label class="field-label" for="new-app-name">Nome da Aplicação</label>
+            <input 
+              type="text" 
+              id="new-app-name" 
+              class="input-control" 
+              placeholder="Ex: Minha Loja Delivery" 
+              required
+            >
           </div>
-          <div class="form-group">
-            <label class="form-label">Slug Único</label>
-            <input type="text" id="new-app-slug" class="form-control" placeholder="Ex: meu-delivery" required>
+
+          <div class="field-group">
+            <label class="field-label" for="new-app-slug">Slug Único do Sistema</label>
+            <input 
+              type="text" 
+              id="new-app-slug" 
+              class="input-control" 
+              placeholder="Ex: minha-loja" 
+              required 
+              style="font-family: var(--font-mono);"
+            >
+            <small style="color: var(--text-muted); font-size: 0.74rem;">Identificador utilizado em rotas e prefixos de chaves.</small>
           </div>
-          <div class="form-group">
-            <label class="form-label">URL de Webhook (Opcional)</label>
-            <input type="url" id="new-app-webhook" class="form-control" placeholder="https://meusite.com/api/webhook/cjc-pays.php">
+
+          <div class="field-group">
+            <label class="field-label" for="new-app-webhook">URL de Webhook (Opcional)</label>
+            <input 
+              type="url" 
+              id="new-app-webhook" 
+              class="input-control" 
+              placeholder="https://meusite.com/api/webhook/cjc-pays.php"
+            >
           </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Salvar Aplicação</button>
-        </form>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-create-app">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-create-app">Cadastrar Aplicação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Aplicação -->
+  <div class="modal-backdrop" id="modal-edit-app">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Editar Aplicação</h3>
+        <button type="button" class="btn-close" id="btn-close-edit-modal" aria-label="Fechar">✕</button>
+      </div>
+
+      <form id="form-edit-app">
+        <input type="hidden" id="edit-app-id">
+
+        <div class="modal-body">
+          <div class="field-group">
+            <label class="field-label" for="edit-app-name">Nome da Aplicação</label>
+            <input 
+              type="text" 
+              id="edit-app-name" 
+              class="input-control" 
+              required
+            >
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="edit-app-webhook">URL de Webhook de Destino</label>
+            <input 
+              type="url" 
+              id="edit-app-webhook" 
+              class="input-control" 
+              placeholder="https://..."
+            >
+          </div>
+
+          <div class="field-group" style="flex-direction: row; align-items: center; gap: 10px; margin-top: 6px;">
+            <input 
+              type="checkbox" 
+              id="edit-app-active" 
+              style="width: 18px; height: 18px; accent-color: var(--accent-cyan); cursor: pointer;"
+            >
+            <label for="edit-app-active" style="font-size: 0.86rem; cursor: pointer; color: var(--text-primary);">
+              Aplicação Ativa (pode gerar pagamentos e receber webhooks)
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-edit-app">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-edit-app">Salvar Alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Detalhes e Inspeção da Entrega de Webhook -->
+  <div class="modal-backdrop" id="modal-webhook-details">
+    <div class="modal-dialog modal-dialog-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">Inspeção de Webhook Fan-Out</h3>
+        <button type="button" class="btn-close" id="btn-close-webhook-modal" aria-label="Fechar">✕</button>
+      </div>
+
+      <div class="modal-body" id="modal-webhook-body">
+        <!-- Preenchido dinamicamente via app.js -->
+      </div>
+
+      <div class="modal-footer" id="modal-webhook-footer">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-modal-close-webhook">Fechar</button>
       </div>
     </div>
   </div>
 
   <!-- Toast Container -->
-  <div class="toast-container" id="toast-container"></div>
+  <div class="toast-stack" id="toast-container" aria-live="polite"></div>
 
-  <script src="/app.js?v=1.3"></script>
+  <script src="/app.js?v=2.3"></script>
 </body>
 </html>

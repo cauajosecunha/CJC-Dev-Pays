@@ -26,11 +26,13 @@ adminRouter.post('/payments/:id/refund', (req, res, next) => adminController.ref
 adminRouter.get('/applications', (req, res, next) => adminController.getApplications(req, res, next));
 adminRouter.post('/applications', (req, res, next) => adminController.createApplication(req, res, next));
 adminRouter.put('/applications/:id', (req, res, next) => adminController.updateApplication(req, res, next));
+adminRouter.delete('/applications/:id', (req, res, next) => adminController.deleteApplication(req, res, next));
 adminRouter.post('/applications/:id/regenerate-key', (req, res, next) => adminController.regenerateApiKey(req, res, next));
 adminRouter.post('/applications/:id/ping', (req, res, next) => adminController.pingWebhook(req, res, next));
 
 // Monitor de webhooks e entregas
 adminRouter.get('/webhooks/deliveries', (req, res, next) => adminController.getDeliveries(req, res, next));
+adminRouter.get('/webhooks/deliveries/:id', (req, res, next) => adminController.getDeliveryDetails(req, res, next));
 adminRouter.post('/webhooks/deliveries/:id/retry', (req, res, next) => adminController.retryDelivery(req, res, next));
 
 // Simulador Sandbox para testes
