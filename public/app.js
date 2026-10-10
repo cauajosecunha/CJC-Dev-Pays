@@ -248,12 +248,12 @@ class CJCPaysApp {
     });
 
     const titles = {
-      'view-dashboard': 'Visão Geral & Métricas',
-      'view-payments': 'Transações & Histórico',
-      'view-applications': 'Aplicações Conectadas & Chaves',
-      'view-webhooks': 'Fila de Webhooks (Fan-Out)',
-      'view-simulator': 'Simulador de Cobranças (Sandbox)',
-      'view-docs': 'Guia de Integração para Apps PHP',
+      'view-dashboard': 'Visão Geral',
+      'view-payments': 'Transações',
+      'view-applications': 'Aplicações & Chaves',
+      'view-webhooks': 'Fila de Webhooks',
+      'view-simulator': 'Simulador Sandbox',
+      'view-docs': 'Integração & SDK',
     };
     const heading = document.getElementById('page-heading');
     if (heading) heading.innerText = titles[viewId] || 'Painel de Controle';

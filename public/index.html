@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=1.2">
+  <link rel="stylesheet" href="/styles.css?v=1.3">
 </head>
 <body>
   <!-- Tela de Login Administrativo -->
@@ -237,12 +237,11 @@
 
         <!-- ==================== VIEW 3: APLICAÇÕES ==================== -->
         <section id="view-applications" class="view-section">
-          <div class="section-header">
-            <div>
-              <h2 class="section-title">Sistemas Conectados</h2>
-              <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Gerencie as chaves de API e os endpoints de webhook que recebem o fan-out do Mercado Pago.</p>
+          <div class="toolbar">
+            <div class="toolbar-filters">
+              <span style="font-size: 0.88rem; color: var(--text-muted);">Credenciais de API e endpoints para Fan-Out de Webhooks</span>
             </div>
-            <button class="btn btn-primary" id="btn-new-app">+ Nova Aplicação</button>
+            <button class="btn btn-primary btn-sm" id="btn-new-app">+ Nova Aplicação</button>
           </div>
 
           <div class="apps-grid" id="applications-cards-container">
@@ -351,8 +350,13 @@
 
         <!-- ==================== VIEW 6: INTEGRAÇÃO & DOCS ==================== -->
         <section id="view-docs" class="view-section">
+          <div class="toolbar">
+            <div class="toolbar-filters">
+              <span style="font-size: 0.88rem; color: var(--text-muted);">Exemplos em PHP para criação de cobranças Pix e validação de Webhooks Fan-Out</span>
+            </div>
+          </div>
+
           <div class="glass-panel" style="padding: 28px; display: flex; flex-direction: column; gap: 20px;">
-            <h2 class="section-title">📖 Guia de Integração para os Sistemas PHP</h2>
             <p style="color: var(--text-muted); font-size: 0.92rem;">
               Para que seus projetos (<strong>Sua Loja</strong>, <strong>Seu Salão</strong>, <strong>FaceCraft</strong>) criem pagamentos através do <strong>CJC-Dev-Pays</strong>, basta enviar uma requisição HTTP simples com a chave da aplicação:
             </p>
@@ -460,6 +464,6 @@ echo json_encode(['status' => 'received']);</code></pre>
   <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="/app.js?v=1.2"></script>
+  <script src="/app.js?v=1.3"></script>
 </body>
 </html>
