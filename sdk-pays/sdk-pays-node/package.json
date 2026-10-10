@@ -1,0 +1,17 @@
+{
+  "name": "sdk-pays-node",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "SDK oficial Node.js para integração com o hub de pagamentos CJC-Dev-Pays",
+  "main": "cjcPaysClient.js",
+  "scripts": {
+    "test:pix": "node example-create-pix.js",
+    "test:status": "node example-check-status.js",
+    "test:webhook": "node example-webhook-express.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "author": "CJC Dev <cauajosecunha@gmail.com>",
+  "license": "MIT"
+}

@@ -56,24 +56,34 @@ export class PaymentController {
     try {
       const validated = createPixSchema.parse(req.body);
       const app = req.application!;
+      const estabId = app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-');
+
+      // Garante automaticamente o padrão contábil {ID_ESTABELECIMENTO}-{REF}
+      let finalReference = validated.external_reference;
+      if (!finalReference.toUpperCase().startsWith(`${estabId}-`)) {
+        finalReference = `${estabId}-${finalReference}`;
+      }
 
       // Verifica se a referência externa já existe
       const existing = await prisma.payment.findUnique({
-        where: { externalReference: validated.external_reference },
+        where: { externalReference: finalReference },
       });
 
       if (existing) {
         res.status(409).json({
           success: false,
-          error: `Já existe um pagamento registrado com a referência '${validated.external_reference}'.`,
+          error: `Já existe um pagamento registrado com a referência '${finalReference}'.`,
           payment_id: existing.id,
           status: existing.status,
         });
         return;
       }
 
-      // Prepara metadata injetando identificadores do CJC-Dev-Pays
+      // Prepara metadata injetando identificadores do estabelecimento e do CJC-Dev-Pays
       const combinedMetadata = {
+        estabelecimento_id: estabId,
+        estabelecimento_nome: app.name,
+        estabelecimento_tipo: app.slug,
         ...(validated.metadata || {}),
         cjc_app_id: app.id,
         cjc_app_slug: app.slug,
@@ -85,7 +95,7 @@ export class PaymentController {
       const mpResult = await mercadoPagoService.createPix({
         amount: validated.amount,
         description: validated.description,
-        externalReference: validated.external_reference,
+        externalReference: finalReference,
         payer: {
           email: validated.payer.email,
           firstName: validated.payer.first_name,
@@ -100,7 +110,7 @@ export class PaymentController {
       const payment = await prisma.payment.create({
         data: {
           applicationId: app.id,
-          externalReference: validated.external_reference,
+          externalReference: finalReference,
           mpPaymentId: mpResult.id,
           paymentMethod: 'PIX',
           status: mpResult.status,
@@ -154,20 +164,30 @@ export class PaymentController {
     try {
       const validated = createCardSchema.parse(req.body);
       const app = req.application!;
+      const estabId = app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-');
+
+      // Garante automaticamente o padrão contábil {ID_ESTABELECIMENTO}-{REF}
+      let finalReference = validated.external_reference;
+      if (!finalReference.toUpperCase().startsWith(`${estabId}-`)) {
+        finalReference = `${estabId}-${finalReference}`;
+      }
 
       const existing = await prisma.payment.findUnique({
-        where: { externalReference: validated.external_reference },
+        where: { externalReference: finalReference },
       });
 
       if (existing) {
         res.status(409).json({
           success: false,
-          error: `Já existe um pagamento com a referência '${validated.external_reference}'.`,
+          error: `Já existe um pagamento com a referência '${finalReference}'.`,
         });
         return;
       }
 
       const combinedMetadata = {
+        estabelecimento_id: estabId,
+        estabelecimento_nome: app.name,
+        estabelecimento_tipo: app.slug,
         ...(validated.metadata || {}),
         cjc_app_id: app.id,
         cjc_app_slug: app.slug,
@@ -178,7 +198,7 @@ export class PaymentController {
       const mpResult = await mercadoPagoService.createCardPayment({
         amount: validated.amount,
         description: validated.description,
-        externalReference: validated.external_reference,
+        externalReference: finalReference,
         token: validated.token,
         paymentMethodId: validated.payment_method_id,
         installments: validated.installments,
@@ -191,7 +211,7 @@ export class PaymentController {
       const payment = await prisma.payment.create({
         data: {
           applicationId: app.id,
-          externalReference: validated.external_reference,
+          externalReference: finalReference,
           mpPaymentId: mpResult.id,
           paymentMethod: 'CREDIT_CARD',
           status: mpResult.status,
@@ -279,9 +299,16 @@ export class PaymentController {
     try {
       const reference = String(req.params.reference);
       const app = req.application!;
+      const estabId = app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-');
 
       const payment = await prisma.payment.findFirst({
-        where: { externalReference: reference, applicationId: app.id },
+        where: {
+          applicationId: app.id,
+          OR: [
+            { externalReference: reference },
+            { externalReference: `${estabId}-${reference}` },
+          ],
+        },
       });
 
       if (!payment) {

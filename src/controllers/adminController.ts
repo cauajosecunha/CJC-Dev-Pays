@@ -222,7 +222,7 @@ export class AdminController {
    */
   async getApplications(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const applications = await prisma.application.findMany({
+      const apps = await prisma.application.findMany({
         include: {
           _count: {
             select: { payments: true, deliveries: true },
@@ -230,6 +230,11 @@ export class AdminController {
         },
         orderBy: { name: 'asc' },
       });
+
+      const applications = apps.map((app) => ({
+        ...app,
+        establishmentId: app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-'),
+      }));
 
       res.json({ success: true, applications });
     } catch (error) {

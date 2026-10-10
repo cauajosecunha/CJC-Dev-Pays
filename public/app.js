@@ -46,6 +46,18 @@ class CJCPaysApp {
     document.getElementById('login-view').style.display = 'flex';
     document.getElementById('app-shell').style.display = 'none';
 
+    const emailInput = document.getElementById('login-email');
+    const passwordInput = document.getElementById('login-password');
+    if (emailInput) emailInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+
+    setTimeout(() => {
+      const email = document.getElementById('login-email');
+      const pass = document.getElementById('login-password');
+      if (email) email.value = '';
+      if (pass) pass.value = '';
+    }, 50);
+
     const alertBox = document.getElementById('login-alert');
     if (alertBox) alertBox.style.display = 'none';
 
@@ -268,15 +280,25 @@ class CJCPaysApp {
     document.getElementById('btn-close-create-modal')?.addEventListener('click', () => this.closeModal('modal-create-app'));
     document.getElementById('btn-cancel-create-app')?.addEventListener('click', () => this.closeModal('modal-create-app'));
 
-    // Auto-slugify ao digitar o nome da nova aplicação
+    // Auto-slugify e preview do ID do Estabelecimento ao digitar o nome da nova aplicação
+    const updateEstabPreview = (slug) => {
+      const preview = document.getElementById('new-app-estab-preview');
+      if (preview) {
+        preview.textContent = (slug || 'MINHA-LOJA').toUpperCase().replace(/[^A-Z0-9]/g, '-');
+      }
+    };
+
     document.getElementById('new-app-name')?.addEventListener('input', (e) => {
       const slugInput = document.getElementById('new-app-slug');
       if (slugInput && !slugInput.dataset.manualEdited) {
-        slugInput.value = this.slugify(e.target.value);
+        const slug = this.slugify(e.target.value);
+        slugInput.value = slug;
+        updateEstabPreview(slug);
       }
     });
     document.getElementById('new-app-slug')?.addEventListener('input', (e) => {
       e.target.dataset.manualEdited = 'true';
+      updateEstabPreview(e.target.value);
     });
 
     document.getElementById('form-create-app')?.addEventListener('submit', (e) => {
@@ -828,6 +850,50 @@ class CJCPaysApp {
             </div>
           </div>
 
+          <!-- ID do Estabelecimento (Automático) -->
+          <div class="crud-field-box">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="crud-field-label">ID do Estabelecimento Contábil</span>
+              <span style="font-size: 0.7rem; color: var(--accent-cyan); font-weight: 500;">Automático</span>
+            </div>
+            <div class="input-action-group">
+              <input 
+                type="text" 
+                class="input-control" 
+                value="${app.establishmentId || app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-')}" 
+                readonly 
+                style="font-family: var(--font-mono); font-weight: 600; color: var(--accent-cyan);"
+              >
+              <button 
+                type="button" 
+                class="btn btn-secondary btn-sm" 
+                onclick="app.copyToClipboard('${app.establishmentId || app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-')}')" 
+                title="Copiar ID do Estabelecimento"
+              >
+                📋
+              </button>
+            </div>
+          </div>
+
+          <!-- Bloco de Integração .env da Loja -->
+          <div class="crud-field-box" style="background: rgba(56, 189, 248, 0.05); border: 1px dashed rgba(56, 189, 248, 0.25); padding: 12px; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span class="crud-field-label" style="color: var(--accent-cyan); font-weight: 600; margin: 0;">Configuração .env desta Loja</span>
+              <button 
+                type="button" 
+                class="btn btn-primary btn-sm" 
+                style="padding: 3px 8px; font-size: 0.72rem;"
+                onclick="app.copyEnvSnippet('${app.apiKey}', '${app.webhookSecret}')" 
+                title="Copiar variáveis para o .env da loja"
+              >
+                📋 Copiar .env
+              </button>
+            </div>
+            <pre style="font-size: 0.72rem; font-family: var(--font-mono); color: var(--text-secondary); margin: 0; line-height: 1.4; overflow-x: auto;">CJC_PAYS_BASE_URL=https://pays.cjcdev.site
+CJC_PAYS_API_KEY=${app.apiKey}
+CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
+          </div>
+
           <!-- Rodapé de Ações do Card -->
           <div class="crud-app-actions-bar">
             <div class="crud-app-counters">
@@ -1230,6 +1296,15 @@ class CJCPaysApp {
     navigator.clipboard.writeText(text).then(() => {
       this.showToast('Copiado para a área de transferência!', 'success');
     });
+  }
+
+  copyEnvSnippet(apiKey, webhookSecret) {
+    const origin = window.location.origin.includes('localhost')
+      ? 'https://pays.cjcdev.site'
+      : window.location.origin;
+    const content = `CJC_PAYS_BASE_URL=${origin}\nCJC_PAYS_API_KEY=${apiKey}\nCJC_PAYS_WEBHOOK_SECRET=${webhookSecret}`;
+    this.copyToClipboard(content);
+    this.showToast('Configuração .env copiada para a área de transferência!', 'success');
   }
 
   showToast(message, type = 'info') {
