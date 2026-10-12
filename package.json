@@ -16,7 +16,7 @@
     "pm2:start": "npm run build && pm2 start ecosystem.config.json",
     "pm2:status": "pm2 status",
     "pm2:logs": "pm2 logs cjc-dev-pays",
-    "pm2:restart": "npm run build && pm2 restart ecosystem.config.json",
+    "pm2:restart": "tsc && pm2 restart ecosystem.config.json --update-env",
     "pm2:stop": "pm2 stop ecosystem.config.json"
   },
   "keywords": [

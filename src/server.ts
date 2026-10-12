@@ -10,6 +10,8 @@ await initDatabase();
 
 const server = app.listen(config.port, () => {
   logger.success(`🚀 CJC-Dev-Pays rodando com sucesso na porta ${config.port}!`);
+  logger.info(`📍 Modo Mercado Pago: ${config.mpSandbox ? '🟡 SANDBOX (Testes)' : '🟢 PRODUÇÃO (Live)'}`);
+  logger.info(`📍 MP Public Key ativa: ${config.mpPublicKey ? config.mpPublicKey.substring(0, 15) + '...' : '(não configurada)'}`);
   logger.info(`📍 Painel Web: http://localhost:${config.port}`);
   logger.info(`📍 Webhook MP Único: http://localhost:${config.port}/api/webhooks/mercadopago`);
   logger.info(`📍 API Base: http://localhost:${config.port}/api/v1`);

@@ -1,7 +1,14 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-dotenv.config();
 
-const isSandbox = process.env.MP_SANDBOX === 'true';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Carrega estritamente o .env da raiz do projeto forçando sobrescrita de variáveis cacheadas pelo PM2/shell
+const envPath = path.resolve(__dirname, '../../.env');
+dotenv.config({ path: envPath, override: true });
+
+const isSandbox = String(process.env.MP_SANDBOX || '').trim().toLowerCase() === 'true';
 
 export const config = {
   port: parseInt(process.env.PORT || '4020', 10),
