@@ -2,7 +2,7 @@
 # ATENÇÃO / AVISO IMPORTANTE:
 # NÃO SUBIR ESTE COMPOSE LOCALMENTE OU EM HOMOLOGAÇÃO!
 # O contêiner cjcdev_whatsapp JÁ ESTÁ RODANDO NO SERVIDOR DE PRODUÇÃO (Porta 3102).
-# A GOWA API está ativa em http://192.168.3.177:3031 com o Device ID configurado.
+# A GOWA API está ativa em http://192.168.3.177:3102 com o Device ID configurado.
 # ==============================================================================
 
 services:

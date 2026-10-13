@@ -1,19 +1,21 @@
-# CJC-Dev-Pays WhatsApp Notifier Bot 📲
+# CJC-Dev-Pays WhatsApp Notifier 📲
 
 Versão atual: **1.0.0**
 
-O **CJC-Dev-Pays WhatsApp Notifier** é o módulo e microserviço dedicado para envio de notificações em tempo real de **transações aprovadas** e **estornadas** (reembolsos e contestações) diretamente no grupo da equipe no WhatsApp via **GOWA API** (Go WhatsApp Web Multi-Device).
+O **CJC-Dev-Pays WhatsApp Notifier** é o módulo disparador dedicado para envio de notificações em tempo real de **transações aprovadas** e **estornadas** (reembolsos e contestações) diretamente no grupo da equipe no WhatsApp via **GOWA API** (Go WhatsApp Web Multi-Device).
 
-> ⚠️ **Aviso de Infraestrutura:** O contêiner Docker da GOWA (`aldinokemal2104/go-whatsapp-web-multidevice`) **JÁ ESTÁ EM EXECUÇÃO NO SERVIDOR DE PRODUÇÃO**. Nunca execute `docker compose up` neste diretório.
+> ⚠️ **Aviso de Infraestrutura:** O contêiner Docker da GOWA (`aldinokemal2104/go-whatsapp-web-multidevice` / `cjcdev_whatsapp`) **JÁ ESTÁ EM EXECUÇÃO NO SERVIDOR DE PRODUÇÃO NA PORTA 3102**. Nunca execute `docker compose up` neste diretório.
+>
+> 🔒 **Sem Consumo de Portas Locais:** Este bot funciona exclusivamente como **disparador cliente (outbound)**. Ele **NÃO escuta em portas** e não roda servidor HTTP. As mensagens são enviadas via requisições HTTP ativas diretamente para a GOWA API (`http://192.168.3.177:3102`).
 
 ---
 
 ## 🎯 Configurações Oficiais de Produção
 
 - **Grupo Alvo**: `120363430697662911@g.us` (ID: `120363430697662911`)
-- **GOWA API URL**: `http://192.168.3.177:3031`
+- **GOWA API URL**: `http://192.168.3.177:3102`
 - **Device ID**: `5d6a4868-c62e-410a-9e42-1b84fc6e5b49`
-- **Porta do Bot HTTP (Opcional/PM2)**: `4021` (Reservada na faixa 4000 do servidor)
+- **Modo de Operação**: Cliente de disparo direto (0 portas de escuta)
 
 ---
 
@@ -22,12 +24,11 @@ O **CJC-Dev-Pays WhatsApp Notifier** é o módulo e microserviço dedicado para 
 ```text
 whatsapp-bot/
 ├── src/
-│   ├── index.js        # Entrypoint do pacote para importação ou execução
-│   ├── broadcaster.js  # Comunicação com GOWA API e formatação de mensagens
-│   └── app.js          # Servidor Express opcional (POST /notify-transaction, etc.)
-├── docs/               # Documentação completa e OpenAPI da GOWA API
-├── docker-compose.yml  # Apenas referência (já em execução no servidor)
-├── package.json        # Dependências e scripts de teste
+│   ├── index.js        # Entrypoint do pacote para importação direta de funções
+│   └── broadcaster.js  # Comunicação com GOWA API, formatação de mensagens e CLI
+├── docs/               # Documentação da GOWA API
+├── docker-compose.yml  # Referência do contêiner Docker (já rodando no servidor na porta 3102)
+├── package.json        # Dependências e scripts CLI de teste
 └── README.md           # Esta documentação
 ```
 
@@ -84,27 +85,11 @@ npm run test:refund
 
 ---
 
-## 🌐 Endpoints do Microserviço HTTP (`app.js`)
-
-Se executado via `npm start` (porta padrão `4021`):
-
-| Método | Endpoint | Descrição |
-| :--- | :--- | :--- |
-| `GET` | `/health` | Status de saúde, grupo alvo, URL da GOWA e Device ID |
-| `POST` | `/notify-transaction` | Notifica transação (direciona aprovado ou estorno pelo status) |
-| `POST` | `/notify-approved` | Dispara mensagem de pagamento aprovado |
-| `POST` | `/notify-refunded` | Dispara mensagem de pagamento estornado |
-| `POST` | `/send` | Envia mensagem de texto genérica para o grupo |
-| `POST` | `/webhook` | Confirmação de recebimento para o GOWA |
-
----
-
 ## ⚙️ Variáveis de Ambiente (.env)
 
 | Variável | Padrão | Descrição |
 | :--- | :--- | :--- |
-| `GOWA_API_URL` | `http://192.168.3.177:3031` | Endpoint da GOWA API |
+| `GOWA_API_URL` | `http://192.168.3.177:3102` | Endpoint da GOWA API |
 | `GOWA_DEVICE_ID` | `5d6a4868-c62e-410a-9e42-1b84fc6e5b49` | Device ID do WhatsApp conectado |
 | `WHATSAPP_GROUP_JID` | `120363430697662911@g.us` | JID do grupo receptor |
 | `WHATSAPP_NOTIFICATIONS_ENABLED` | `true` | Habilita/desabilita envios |
-| `WHATSAPP_BOT_PORT` | `4021` | Porta HTTP se rodar standalone via PM2 |

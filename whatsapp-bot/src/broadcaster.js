@@ -9,7 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const axios = require('axios');
 
-const API_URL = process.env.GOWA_API_URL || 'http://192.168.3.177:3031';
+const API_URL = process.env.GOWA_API_URL || 'http://192.168.3.177:3102';
 const DEVICE_ID = process.env.GOWA_DEVICE_ID || '5d6a4868-c62e-410a-9e42-1b84fc6e5b49';
 const DEFAULT_GROUP_JID = process.env.WHATSAPP_GROUP_JID || '120363430697662911@g.us';
 
