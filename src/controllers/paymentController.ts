@@ -38,6 +38,8 @@ const createCardSchema = z.object({
   issuer_id: z.string().optional(),
   payer: z.object({
     email: z.string().email('E-mail do pagador inválido'),
+    first_name: z.string().optional(),
+    last_name: z.string().optional(),
     identification: z
       .object({
         type: z.string().default('CPF'),
@@ -204,7 +206,12 @@ export class PaymentController {
         paymentMethodId: validated.payment_method_id,
         installments: validated.installments,
         issuerId: validated.issuer_id,
-        payer: validated.payer,
+        payer: {
+          email: validated.payer.email,
+          firstName: validated.payer.first_name,
+          lastName: validated.payer.last_name,
+          identification: validated.payer.identification,
+        },
         notificationUrl,
         metadata: combinedMetadata,
       });

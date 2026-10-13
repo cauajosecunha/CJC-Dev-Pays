@@ -31,6 +31,8 @@ export interface CreateCardInput {
   issuerId?: string;
   payer: {
     email: string;
+    firstName?: string;
+    lastName?: string;
     identification?: {
       type: string;
       number: string;
@@ -167,6 +169,8 @@ class MercadoPagoService {
         external_reference: input.externalReference,
         payer: {
           email: input.payer.email,
+          ...(input.payer.firstName ? { first_name: input.payer.firstName } : {}),
+          ...(input.payer.lastName ? { last_name: input.payer.lastName } : {}),
         },
       };
 
