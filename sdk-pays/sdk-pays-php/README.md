@@ -87,10 +87,13 @@ echo '<img src="data:image/png;base64,' . $response['payment']['qr_code_base64']
 ```
 
 ### 2. Cobrança com Cartão de Crédito ou Débito
-Para pagamentos com cartão, o frontend (via MercadoPago.js / Checkout Bricks) tokeniza o cartão de forma segura no navegador e repassa o token temporário para o seu backend PHP:
+Para pagamentos com cartão, o frontend (via MercadoPago.js v2) tokeniza o cartão de forma segura no navegador. O seu backend obtém a chave pública oficial dinamicamente da Central sem precisar chumbá-la:
 
 ```php
-// Cartão de Crédito (com parcelamento) ou Débito ('debvisa', 'debmaster', 'debelo'):
+// 1. Obter a chave pública ativa para o seu frontend tokenizar o cartão:
+$mpPublicKey = $client->getPublicKey(); // Envie para o JS do checkout
+
+// 2. Após o frontend tokenizar o cartão, processe a cobrança:
 $responseCard = $client->createCard([
     'external_reference' => 'PEDIDO-12345',
     'amount'             => 129.90,

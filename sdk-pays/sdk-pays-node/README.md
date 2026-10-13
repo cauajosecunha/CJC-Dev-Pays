@@ -85,10 +85,13 @@ console.log('QR Code Base64:', result.payment.qr_code_base64);
 ```
 
 ### 2. Cobrança com Cartão de Crédito ou Débito
-Para cartão, o frontend tokeniza os dados do cartão de forma segura com MercadoPago.js e repassa o token para o backend:
+Para cartão, o frontend tokeniza os dados do cartão de forma segura com MercadoPago.js v2. O backend obtém a chave pública da Central:
 
 ```javascript
-// Cartão de Crédito (com parcelamento) ou Débito ('debvisa', 'debmaster', 'debelo'):
+// 1. Obter a chave pública ativa para o frontend tokenizar o cartão:
+const mpPublicKey = await client.getPublicKey(); // Envie para o checkout
+
+// 2. Processar a cobrança com o token gerado:
 const resultCard = await client.createCard({
   external_reference: 'PEDIDO-12345',
   amount: 129.90,

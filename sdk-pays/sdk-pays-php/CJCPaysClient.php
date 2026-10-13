@@ -128,6 +128,18 @@ class CJCPaysClient
     }
 
     /**
+     * Obtém a Public Key oficial ativa na Central para tokenização segura de cartão no frontend
+     *
+     * @return string Public Key (ex: TEST-... ou APP_USR-...)
+     * @throws CJCPaysException
+     */
+    public function getPublicKey(): string
+    {
+        $res = $this->request('GET', '/api/v1/public-key');
+        return (string)($res['public_key'] ?? '');
+    }
+
+    /**
      * Consulta o status atual de um pagamento pelo ID da Central (ex: pay_ck...)
      *
      * @param string $paymentId ID gerado no CJC-Dev-Pays

@@ -88,6 +88,15 @@ export class CJCPaysClient {
   }
 
   /**
+   * Obtém a Public Key ativa do adquirente configurada na Central
+   * @returns {Promise<string>}
+   */
+  async getPublicKey() {
+    const res = await this.request('GET', '/api/v1/public-key');
+    return res.public_key || '';
+  }
+
+  /**
    * Consulta o status de um pagamento pelo ID da Central (ex: pay_ck...)
    * @param {string} paymentId
    * @returns {Promise<Object>}

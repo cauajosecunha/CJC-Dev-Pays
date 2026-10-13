@@ -16,9 +16,10 @@ require_once __DIR__ . '/CJCPaysClient.php';
 
 // 1. Configurações da Aplicação (obtidas no painel da Central)
 $apiKey = getenv('CJC_PAYS_API_KEY') ?: 'cjc_live_SUA_CHAVE_AQUI';
-$baseUrl = getenv('CJC_PAYS_BASE_URL') ?: 'https://pays.cjcdev.site';
-
 $client = new CJCPaysClient($apiKey, $baseUrl);
+
+// 2. Chave pública para o frontend tokenizar o cartão com MercadoPago.js v2 (PCI-DSS):
+// $publicKey = $client->getPublicKey(); // Passe esta chave para o seu frontend/checkout JS
 
 try {
     $pedidoId = 12345;

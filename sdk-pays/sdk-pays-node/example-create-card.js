@@ -17,6 +17,9 @@ const client = new CJCPaysClient({
   baseUrl: process.env.CJC_PAYS_BASE_URL || 'https://pays.cjcdev.site',
 });
 
+// Chave pública para o frontend tokenizar o cartão com MercadoPago.js v2 (PCI-DSS):
+// const publicKey = await client.getPublicKey(); // Envie para o checkout web
+
 async function main() {
   const pedidoId = 12345;
   const externalReference = `PEDIDO-${pedidoId}`;
