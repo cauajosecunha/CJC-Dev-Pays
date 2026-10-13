@@ -251,7 +251,7 @@ class MercadoPagoService {
    * Solicita estorno/reembolso no Mercado Pago
    */
   async refundPayment(paymentId: string, amount?: number): Promise<any> {
-    if (!this.isConfigured()) {
+    if (!this.isConfigured() || String(paymentId).startsWith('sim_')) {
       return { id: `ref_sim_${Date.now()}`, status: 'approved' };
     }
 
