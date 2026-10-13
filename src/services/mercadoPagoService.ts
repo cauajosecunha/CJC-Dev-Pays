@@ -152,14 +152,8 @@ class MercadoPagoService {
    * Processa pagamento com cartão de crédito via token
    */
   async createCardPayment(input: CreateCardInput): Promise<MPPaymentResult> {
-    if (
-      !this.isConfigured() ||
-      input.token.startsWith('sim_') ||
-      input.token.startsWith('mock_') ||
-      input.token.startsWith('test_')
-    ) {
-      logger.info(`[MercadoPagoService] Token simulado detectado ('${input.token}'). Gerando aprovação de teste.`);
-      return this.generateMockCard(input);
+    if (!this.isConfigured()) {
+      throw new Error('Mercado Pago não está configurado.');
     }
 
     try {
@@ -355,18 +349,6 @@ class MercadoPagoService {
     };
   }
 
-  private generateMockCard(input: CreateCardInput): MPPaymentResult {
-    const mockId = `sim_mp_${Date.now()}`;
-    return {
-      id: mockId,
-      status: 'APPROVED',
-      statusDetail: 'accredited',
-      amount: input.amount,
-      feeAmount: Number((input.amount * 0.035).toFixed(2)),
-      netReceivedAmount: Number((input.amount * 0.965).toFixed(2)),
-      paymentMethod: 'CREDIT_CARD',
-    };
-  }
 }
 
 export const mercadoPagoService = new MercadoPagoService();
