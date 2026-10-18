@@ -1462,5 +1462,109 @@ code {
     gap: 12px;
     align-items: center;
   }
+
+  /* Otimização da Tabela de Transações Recentes para Mobile */
+  #dashboard-view .data-table thead {
+    display: none;
+  }
+  #dashboard-view .data-table,
+  #dashboard-view .data-table tbody {
+    display: block;
+    width: 100%;
+  }
+  #payments-tbody tr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "app method amount"
+      "date date status"
+      "ref ref action";
+    gap: 8px 10px;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  #payments-tbody tr:last-child {
+    border-bottom: none;
+  }
+  #payments-tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+  #payments-tbody td {
+    padding: 0;
+    border: none;
+    white-space: normal;
+  }
+  #payments-tbody td.col-app {
+    grid-area: app;
+    display: flex;
+    align-items: center;
+  }
+  #payments-tbody td.col-method {
+    grid-area: method;
+    display: flex;
+    align-items: center;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+  #payments-tbody td.col-amount {
+    grid-area: amount;
+    text-align: right;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #ffffff;
+    font-feature-settings: 'tnum';
+  }
+  #payments-tbody td.col-date {
+    grid-area: date;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+  #payments-tbody td.col-status {
+    grid-area: status;
+    display: flex;
+    justify-content: flex-end;
+  }
+  #payments-tbody td.col-ref {
+    grid-area: ref;
+    font-size: 0.74rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #payments-tbody td.col-ref code {
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(56, 189, 248, 0.08);
+    color: var(--accent-cyan);
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #payments-tbody td.col-action {
+    grid-area: action;
+    display: flex;
+    justify-content: flex-end;
+  }
+  #payments-tbody td.col-action .btn {
+    padding: 5px 12px;
+    font-size: 0.76rem;
+  }
+  #payments-tbody tr:has(.table-empty-cell) {
+    display: block;
+  }
+  #payments-tbody td.table-empty-cell {
+    grid-column: 1 / -1;
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding: 28px 16px !important;
+  }
 }
 

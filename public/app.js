@@ -586,13 +586,13 @@ class CJCPaysApp {
             .map(
               (p) => `
             <tr>
-              <td>${this.formatDate(p.createdAt)}</td>
-              <td><span class="badge badge-app">${p.application?.name || 'Sistema'}</span></td>
-              <td><code>${p.externalReference}</code></td>
-              <td style="font-size: 0.8rem; font-weight: 500;">${p.paymentMethod}</td>
-              <td style="font-weight: 600; color: #ffffff;">${this.formatCurrency(p.amount)}</td>
-              <td>${this.renderStatusBadge(p.status, p.statusDetail)}</td>
-              <td style="text-align: right;">
+              <td class="col-date">${this.formatDate(p.createdAt)}</td>
+              <td class="col-app"><span class="badge badge-app">${p.application?.name || 'Sistema'}</span></td>
+              <td class="col-ref"><code>${p.externalReference}</code></td>
+              <td class="col-method" style="font-size: 0.8rem; font-weight: 500;">${p.paymentMethod}</td>
+              <td class="col-amount" style="font-weight: 600; color: #ffffff;">${this.formatCurrency(p.amount)}</td>
+              <td class="col-status">${this.renderStatusBadge(p.status, p.statusDetail)}</td>
+              <td class="col-action" style="text-align: right;">
                 <button class="btn btn-secondary btn-sm" onclick="app.viewPaymentDetails('${p.id}')">
                   Detalhes
                 </button>
