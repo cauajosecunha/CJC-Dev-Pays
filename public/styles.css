@@ -1378,7 +1378,8 @@ code {
   .topbar-container {
     padding: 0 16px;
   }
-  .admin-profile .profile-info {
+  .topbar .admin-profile,
+  .topbar #btn-logout {
     display: none;
   }
   .main-content {
