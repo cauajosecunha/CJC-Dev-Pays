@@ -105,6 +105,7 @@ class CJCPaysClient
      *       @type array  $identification { type: 'CPF'|'CNPJ', number: '12345678909' } (opcional)
      *   }
      *   @type string $callback_url       URL customizada para receber o webhook deste pedido (opcional)
+     *   @type int    $expiration_minutes Tempo de expiração do Pix em minutos (opcional, padrão: 30)
      *   @type array  $metadata           Metadados adicionais do seu sistema (opcional)
      * }
      * @return array Resposta da central com payment.id, qr_code, qr_code_base64, etc.

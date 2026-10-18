@@ -281,6 +281,9 @@
               <button class="btn btn-secondary btn-sm" id="btn-refresh-payments" title="Atualizar tabela de transações">
                 <span>🔄</span> Atualizar
               </button>
+              <button class="btn btn-danger btn-sm" id="btn-purge-expired" title="Excluir do histórico pagamentos não pagos / expirados">
+                <span>🗑️</span> Limpar Não Pagos
+              </button>
             </div>
           </section>
 
@@ -314,6 +317,7 @@
                   <option value="ALL">Todos os Status</option>
                   <option value="APPROVED">Aprovado</option>
                   <option value="PENDING">Pendente</option>
+                  <option value="CANCELLED">Não Pago / Cancelado</option>
                   <option value="REJECTED">Rejeitado</option>
                   <option value="REFUNDED">Estornado</option>
                 </select>

@@ -19,6 +19,8 @@ adminRouter.get('/metrics', (req, res, next) => adminController.getMetrics(req, 
 
 // Gestão de pagamentos
 adminRouter.get('/payments', (req, res, next) => adminController.getPayments(req, res, next));
+adminRouter.delete('/payments/expired', (req, res, next) => adminController.purgeExpiredPayments(req, res, next));
+adminRouter.post('/payments/expired/purge', (req, res, next) => adminController.purgeExpiredPayments(req, res, next));
 adminRouter.get('/payments/:id', (req, res, next) => adminController.getPaymentDetails(req, res, next));
 adminRouter.post('/payments/:id/refund', (req, res, next) => adminController.refundPayment(req, res, next));
 

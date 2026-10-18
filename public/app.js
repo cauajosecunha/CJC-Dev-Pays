@@ -249,6 +249,28 @@ class CJCPaysApp {
       this.showToast('Transações atualizadas!', 'info');
     });
 
+    document.getElementById('btn-purge-expired')?.addEventListener('click', async () => {
+      const confirmed = confirm('Deseja realmente remover do histórico todas as transações não pagas / expiradas?');
+      if (!confirmed) return;
+
+      try {
+        const res = await fetch('/api/admin/payments/expired', {
+          method: 'DELETE',
+          headers: this.getHeaders(),
+        });
+        const data = await res.json();
+        if (data.success) {
+          this.showToast(data.message || 'Pagamentos expirados removidos!', 'success');
+          this.loadAllPayments();
+          this.loadMetrics();
+        } else {
+          this.showToast(data.error || 'Erro ao remover pagamentos expirados', 'error');
+        }
+      } catch (err) {
+        this.showToast('Erro de comunicação com o servidor', 'error');
+      }
+    });
+
     document.getElementById('btn-apply-filters')?.addEventListener('click', () => {
       this.applyPaymentsFilters();
     });
@@ -565,7 +587,7 @@ class CJCPaysApp {
               <td><code>${p.externalReference}</code></td>
               <td style="font-size: 0.8rem; font-weight: 500;">${p.paymentMethod}</td>
               <td style="font-weight: 600; color: #ffffff;">${this.formatCurrency(p.amount)}</td>
-              <td>${this.renderStatusBadge(p.status)}</td>
+              <td>${this.renderStatusBadge(p.status, p.statusDetail)}</td>
               <td style="text-align: right;">
                 <button class="btn btn-secondary btn-sm" onclick="app.viewPaymentDetails('${p.id}')">
                   Detalhes
@@ -690,7 +712,7 @@ class CJCPaysApp {
             </td>
             <td style="font-size: 0.8rem; font-weight: 500;">${p.paymentMethod}</td>
             <td style="font-weight: 600; color: #ffffff;">${this.formatCurrency(p.amount)}</td>
-            <td>${this.renderStatusBadge(p.status)}</td>
+            <td>${this.renderStatusBadge(p.status, p.statusDetail)}</td>
             <td style="text-align: right;">
               <button class="btn btn-secondary btn-sm" onclick="app.viewPaymentDetails('${p.id}')">
                 Detalhes
@@ -1213,7 +1235,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
             <div class="modal-row-label">Referência do Pedido</div>
             <code style="font-size: 0.95rem; font-weight: 600; color: var(--accent-cyan);">${p.externalReference}</code>
           </div>
-          <div>${this.renderStatusBadge(p.status)}</div>
+          <div>${this.renderStatusBadge(p.status, p.statusDetail)}</div>
         </div>
 
         <div class="modal-grid">
@@ -1396,12 +1418,15 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     });
   }
 
-  renderStatusBadge(status) {
+  renderStatusBadge(status, statusDetail) {
+    if (status === 'CANCELLED' && (statusDetail === 'expired' || statusDetail === 'cancelled_expired')) {
+      return '<span class="badge badge-rejected" title="Não pago - Expirado após 30 minutos">Não Pago (Expirado)</span>';
+    }
     const map = {
       APPROVED: '<span class="badge badge-approved">Aprovado</span>',
       PENDING: '<span class="badge badge-pending">Pendente</span>',
       REJECTED: '<span class="badge badge-rejected">Rejeitado</span>',
-      CANCELLED: '<span class="badge badge-rejected">Cancelado</span>',
+      CANCELLED: '<span class="badge badge-rejected">Não Pago / Cancelado</span>',
       REFUNDED: '<span class="badge badge-rejected">Estornado</span>',
     };
     return map[status] || `<span class="badge badge-pending">${status}</span>`;

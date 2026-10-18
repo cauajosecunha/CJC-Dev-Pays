@@ -19,6 +19,7 @@ export interface CreatePixInput {
   };
   notificationUrl?: string;
   metadata?: Record<string, any>;
+  expirationMinutes?: number;
 }
 
 export interface CreateCardInput {
@@ -53,6 +54,7 @@ export interface MPPaymentResult {
   qrCodeBase64?: string;
   ticketUrl?: string;
   paymentMethod: string;
+  dateOfExpiration?: string;
   rawResponse?: any;
 }
 
@@ -88,11 +90,15 @@ class MercadoPagoService {
 
     try {
       const idempotencyKey = crypto.randomUUID();
+      const expirationMinutes = input.expirationMinutes || 30;
+      const expirationDate = new Date(Date.now() + expirationMinutes * 60 * 1000);
+
       const payload: any = {
         transaction_amount: Number(input.amount.toFixed(2)),
         description: input.description,
         payment_method_id: 'pix',
         external_reference: input.externalReference,
+        date_of_expiration: expirationDate.toISOString(),
         payer: {
           email: input.payer.email,
           first_name: input.payer.firstName || 'Cliente',
@@ -141,6 +147,7 @@ class MercadoPagoService {
         qrCodeBase64: transactionData?.qr_code_base64,
         ticketUrl: transactionData?.ticket_url,
         paymentMethod: 'PIX',
+        dateOfExpiration: data.date_of_expiration || expirationDate.toISOString(),
         rawResponse: data,
       };
     } catch (error: any) {
@@ -330,6 +337,8 @@ class MercadoPagoService {
   private async generateMockPix(input: CreatePixInput): Promise<MPPaymentResult> {
     const mockId = `sim_mp_${Date.now()}`;
     const mockCopiaECola = `00020126580014br.gov.bcb.pix0136mock-cjcdev-${input.externalReference}520400005303986540${input.amount.toFixed(2)}5802BR5910CJC DEV PAYS6009SAO PAULO62070503***6304MOCK`;
+    const expirationMinutes = input.expirationMinutes || 30;
+    const expirationDate = new Date(Date.now() + expirationMinutes * 60 * 1000);
 
     // Gera imagem base64 real do QR Code para exibição visual imediata no dashboard e app
     let qrBase64 = '';
@@ -350,6 +359,7 @@ class MercadoPagoService {
       qrCodeBase64: qrBase64.replace(/^data:image\/png;base64,/, ''),
       ticketUrl: `http://localhost:${config.port}/checkout/simulated/${mockId}`,
       paymentMethod: 'PIX',
+      dateOfExpiration: expirationDate.toISOString(),
     };
   }
 

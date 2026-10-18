@@ -10,6 +10,7 @@ import { whatsappService } from '../services/whatsappService.js';
 import { mercadoPagoService } from '../services/mercadoPagoService.js';
 import { appEvents, EVENTS } from '../lib/eventEmitter.js';
 import { logger } from '../lib/logger.js';
+import { expirationService } from '../services/expirationService.js';
 import axios from 'axios';
 
 export class AdminController {
@@ -84,6 +85,9 @@ export class AdminController {
    */
   async getPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      // Sincroniza pagamentos Pix que já ultrapassaram o tempo limite de 30 minutos
+      await expirationService.processPendingExpirations();
+
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
       const status = req.query.status as string;
@@ -887,6 +891,26 @@ export class AdminController {
       await prisma.adminUser.delete({ where: { id } });
 
       res.json({ success: true, message: 'Administrador removido com sucesso.' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /api/admin/payments/expired
+   * POST /api/admin/payments/expired/purge
+   * Remove do histórico pagamentos cancelados/expirados sem pagamento
+   */
+  async purgeExpiredPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const appId = (req.query.appId as string) || (req.body?.applicationId as string);
+      const result = await expirationService.purgeExpiredPayments(appId);
+
+      res.json({
+        success: true,
+        deletedCount: result.deletedCount,
+        message: `${result.deletedCount} pagamento(s) não pago(s)/expirado(s) removido(s) do histórico com sucesso.`,
+      });
     } catch (error) {
       next(error);
     }

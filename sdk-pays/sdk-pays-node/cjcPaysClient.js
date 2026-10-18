@@ -71,6 +71,7 @@ export class CJCPaysClient {
    * @param {string} data.description        Descrição do produto/serviço
    * @param {Object} data.payer              Dados do pagador { email, first_name, last_name, identification: { type: 'CPF', number } }
    * @param {string} [data.callback_url]     URL customizada para webhook
+   * @param {number} [data.expiration_minutes] Tempo de expiração do Pix em minutos (opcional, padrão: 30)
    * @param {Object} [data.metadata]         Metadados extras arbitrários
    * @returns {Promise<Object>} Resposta da central com payment.id, qr_code, etc.
    */

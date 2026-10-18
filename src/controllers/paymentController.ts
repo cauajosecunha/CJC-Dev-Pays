@@ -8,11 +8,13 @@ import { logger } from '../lib/logger.js';
 import { webhookDispatcher } from '../services/webhookDispatcher.js';
 import { whatsappService } from '../services/whatsappService.js';
 import { config } from '../config/env.js';
+import { expirationService } from '../services/expirationService.js';
 
 const createPixSchema = z.object({
   external_reference: z.string().min(1, 'external_reference é obrigatório'),
   amount: z.number().positive('amount deve ser um valor positivo'),
   description: z.string().min(1, 'description é obrigatória'),
+  expiration_minutes: z.number().int().min(5).max(43200).default(30).optional(),
   payer: z.object({
     email: z.string().email('E-mail do pagador inválido'),
     first_name: z.string().optional(),
@@ -82,11 +84,16 @@ export class PaymentController {
         return;
       }
 
-      // Prepara metadata injetando identificadores do estabelecimento e do CJC-Dev-Pays
+      const expirationMinutes = validated.expiration_minutes || 30;
+      const expirationDate = new Date(Date.now() + expirationMinutes * 60 * 1000);
+
+      // Prepara metadata injetando identificadores do estabelecimento, expiração e do CJC-Dev-Pays
       const combinedMetadata = {
         estabelecimento_id: estabId,
         estabelecimento_nome: app.name,
         estabelecimento_tipo: app.slug,
+        expiration_minutes: expirationMinutes,
+        expires_at: expirationDate.toISOString(),
         ...(validated.metadata || {}),
         cjc_app_id: app.id,
         cjc_app_slug: app.slug,
@@ -94,11 +101,12 @@ export class PaymentController {
 
       const notificationUrl = `${config.apiBaseUrl}/api/webhooks/mercadopago`;
 
-      // Chama Mercado Pago
+      // Chama Mercado Pago com expiração configurada
       const mpResult = await mercadoPagoService.createPix({
         amount: validated.amount,
         description: validated.description,
         externalReference: finalReference,
+        expirationMinutes,
         payer: {
           email: validated.payer.email,
           firstName: validated.payer.first_name,
@@ -140,7 +148,7 @@ export class PaymentController {
         appName: app.name,
       });
 
-      logger.success(`Pix criado com sucesso [${payment.externalReference}] R$ ${payment.amount} (App: ${app.slug})`);
+      logger.success(`Pix criado com sucesso [${payment.externalReference}] R$ ${payment.amount} (Expira em: ${expirationMinutes} min) (App: ${app.slug})`);
 
       res.status(201).json({
         success: true,
@@ -148,10 +156,13 @@ export class PaymentController {
           id: payment.id,
           external_reference: payment.externalReference,
           status: payment.status,
+          status_detail: payment.statusDetail,
           amount: payment.amount,
           qr_code: payment.qrCode,
           qr_code_base64: payment.qrCodeBase64,
           ticket_url: payment.ticketUrl,
+          expires_at: mpResult.dateOfExpiration || expirationDate.toISOString(),
+          expiration_minutes: expirationMinutes,
           created_at: payment.createdAt,
         },
       });
@@ -279,22 +290,29 @@ export class PaymentController {
         return;
       }
 
+      // Validação em tempo real: se for Pix pendente que ultrapassou prazo, expira imediatamente
+      const currentPayment = await expirationService.checkAndExpireIfDue({ ...payment, application: app });
+      const expiresAt = currentPayment.paymentMethod === 'PIX'
+        ? expirationService.getExpirationDate(currentPayment).toISOString()
+        : null;
+
       res.json({
         success: true,
         payment: {
-          id: payment.id,
-          external_reference: payment.externalReference,
-          status: payment.status,
-          status_detail: payment.statusDetail,
-          amount: payment.amount,
-          fee_amount: payment.feeAmount,
-          net_received_amount: payment.netReceivedAmount,
-          payment_method: payment.paymentMethod,
-          paid_at: payment.paidAt,
-          qr_code: payment.qrCode,
-          ticket_url: payment.ticketUrl,
-          created_at: payment.createdAt,
-          updated_at: payment.updatedAt,
+          id: currentPayment.id,
+          external_reference: currentPayment.externalReference,
+          status: currentPayment.status,
+          status_detail: currentPayment.statusDetail,
+          amount: currentPayment.amount,
+          fee_amount: currentPayment.feeAmount,
+          net_received_amount: currentPayment.netReceivedAmount,
+          payment_method: currentPayment.paymentMethod,
+          paid_at: currentPayment.paidAt,
+          qr_code: currentPayment.qrCode,
+          ticket_url: currentPayment.ticketUrl,
+          expires_at: expiresAt,
+          created_at: currentPayment.createdAt,
+          updated_at: currentPayment.updatedAt,
         },
       });
     } catch (error) {
@@ -326,19 +344,26 @@ export class PaymentController {
         return;
       }
 
+      // Validação em tempo real: se for Pix pendente que ultrapassou prazo, expira imediatamente
+      const currentPayment = await expirationService.checkAndExpireIfDue({ ...payment, application: app });
+      const expiresAt = currentPayment.paymentMethod === 'PIX'
+        ? expirationService.getExpirationDate(currentPayment).toISOString()
+        : null;
+
       res.json({
         success: true,
         payment: {
-          id: payment.id,
-          external_reference: payment.externalReference,
-          status: payment.status,
-          status_detail: payment.statusDetail,
-          amount: payment.amount,
-          payment_method: payment.paymentMethod,
-          paid_at: payment.paidAt,
-          qr_code: payment.qrCode,
-          created_at: payment.createdAt,
-          updated_at: payment.updatedAt,
+          id: currentPayment.id,
+          external_reference: currentPayment.externalReference,
+          status: currentPayment.status,
+          status_detail: currentPayment.statusDetail,
+          amount: currentPayment.amount,
+          payment_method: currentPayment.paymentMethod,
+          paid_at: currentPayment.paidAt,
+          qr_code: currentPayment.qrCode,
+          expires_at: expiresAt,
+          created_at: currentPayment.createdAt,
+          updated_at: currentPayment.updatedAt,
         },
       });
     } catch (error) {
