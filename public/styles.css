@@ -1415,7 +1415,41 @@ code {
     line-height: 1.25;
   }
   .apps-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .apps-grid .empty-state {
+    grid-column: 1 / -1;
+  }
+  .app-card {
+    padding: 14px 12px;
+    gap: 10px;
+  }
+  .app-card-header {
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: flex-start;
+  }
+  .app-name {
+    font-size: 0.88rem;
+    line-height: 1.2;
+    word-break: break-word;
+  }
+  .app-slug {
+    font-size: 0.72rem;
+  }
+  .app-stats-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding-top: 8px;
+  }
+  .app-volume-label {
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+  .app-volume-value {
+    font-size: 1.05rem;
   }
   .crud-apps-grid {
     grid-template-columns: 1fr;
