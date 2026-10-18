@@ -249,7 +249,7 @@ class CJCPaysApp {
       this.showToast('Transações atualizadas!', 'info');
     });
 
-    document.getElementById('btn-purge-expired')?.addEventListener('click', async () => {
+    const handlePurgeExpired = async () => {
       const confirmed = confirm('Deseja realmente remover do histórico todas as transações não pagas / expiradas?');
       if (!confirmed) return;
 
@@ -269,6 +269,10 @@ class CJCPaysApp {
       } catch (err) {
         this.showToast('Erro de comunicação com o servidor', 'error');
       }
+    };
+
+    ['btn-purge-expired', 'btn-purge-expired-filters', 'btn-purge-expired-overview'].forEach((btnId) => {
+      document.getElementById(btnId)?.addEventListener('click', handlePurgeExpired);
     });
 
     document.getElementById('btn-apply-filters')?.addEventListener('click', () => {

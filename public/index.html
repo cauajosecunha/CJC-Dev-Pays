@@ -3,11 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>CJC-Dev-Pays — Central de Pagamentos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=2.9">
+  <link rel="stylesheet" href="/styles.css?v=3.2.0">
 </head>
 <body>
 
@@ -237,10 +240,15 @@
 
           <!-- Transações Recentes -->
           <section class="section-block">
-            <div class="section-heading">
+            <div class="section-heading" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
               <div>
                 <h2 class="section-title">Transações Recentes</h2>
                 <span class="section-subtitle">Feed em tempo real via Server-Sent Events</span>
+              </div>
+              <div class="page-header-actions">
+                <button type="button" class="btn btn-danger btn-sm" id="btn-purge-expired-overview" title="Excluir do histórico pagamentos não pagos / expirados">
+                  <span>🗑️</span> Limpar Não Pagos
+                </button>
               </div>
             </div>
 
@@ -326,6 +334,9 @@
               <div class="filter-actions">
                 <button type="button" class="btn btn-primary btn-sm" id="btn-apply-filters">Filtrar</button>
                 <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-filters">Limpar</button>
+                <button type="button" class="btn btn-danger btn-sm" id="btn-purge-expired-filters" title="Excluir do histórico pagamentos não pagos / expirados">
+                  <span>🗑️</span> Limpar Não Pagos
+                </button>
               </div>
             </div>
           </section>
@@ -812,6 +823,6 @@
   <!-- Toast Container -->
   <div class="toast-stack" id="toast-container" aria-live="polite"></div>
 
-  <script src="/app.js?v=2.9"></script>
+  <script src="/app.js?v=3.2.0"></script>
 </body>
 </html>

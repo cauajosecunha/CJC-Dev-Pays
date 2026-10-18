@@ -658,6 +658,13 @@ input:-webkit-autofill:focus {
   gap: 16px;
 }
 
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .page-title {
   font-size: 1.45rem;
   font-weight: 700;

@@ -24,8 +24,18 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Servir frontend web minimalista
-app.use(express.static(publicPath));
+// Servir frontend web minimalista com desativação de cache para HTML
+app.use(
+  express.static(publicPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
+    },
+  })
+);
 
 // Rota de Healthcheck do Servidor
 app.get('/health', (req, res) => {
@@ -51,6 +61,9 @@ app.get('*', (req, res, next) => {
     });
     return;
   }
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(publicPath, 'index.html'));
 });
 
