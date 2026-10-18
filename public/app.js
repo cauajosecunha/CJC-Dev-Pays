@@ -23,6 +23,10 @@ class CJCPaysApp {
     this.webhooksFilters = { search: '', appId: 'ALL', status: 'ALL' };
     this.currentWebhookPayload = '';
 
+    // Filtro mensal do Dashboard
+    this.dashboardMonth = String(new Date().getMonth() + 1);
+    this.dashboardYear = new Date().getFullYear();
+
     this.init();
   }
 
@@ -242,6 +246,18 @@ class CJCPaysApp {
       this.loadMetrics();
       this.showToast('Dados atualizados com sucesso!', 'info');
     });
+
+    // Dashboard Filtro Mensal
+    const monthSelect = document.getElementById('dashboard-month-filter');
+    if (monthSelect) {
+      monthSelect.value = this.dashboardMonth;
+      monthSelect.addEventListener('change', (e) => {
+        this.dashboardMonth = e.target.value;
+        this.loadMetrics();
+        const selectedText = monthSelect.options[monthSelect.selectedIndex]?.text || '';
+        this.showToast(`Filtrando dados por: ${selectedText}`, 'info');
+      });
+    }
 
     // Eventos da Tela de Transações
     document.getElementById('btn-refresh-payments')?.addEventListener('click', () => {
@@ -521,7 +537,16 @@ class CJCPaysApp {
   // ==================== DADOS DO DASHBOARD ====================
   async loadMetrics() {
     try {
-      const res = await fetch('/api/admin/metrics', { headers: this.getHeaders() });
+      const params = new URLSearchParams();
+      if (this.dashboardMonth && this.dashboardMonth !== 'ALL') {
+        params.append('month', this.dashboardMonth);
+      }
+      if (this.dashboardYear) {
+        params.append('year', this.dashboardYear);
+      }
+      const qs = params.toString() ? `?${params.toString()}` : '';
+
+      const res = await fetch(`/api/admin/metrics${qs}`, { headers: this.getHeaders() });
 
       if (res.status === 401) {
         this.clearSession();
@@ -532,19 +557,40 @@ class CJCPaysApp {
       const data = await res.json();
       if (!data.success) return;
 
-      const { kpis, webhooks, applications, recentPayments } = data;
+      const { kpis, webhooks, applications, recentPayments, isCurrentMonth } = data;
 
       // KPIs
-      document.getElementById('kpi-total-volume').innerText = this.formatCurrency(kpis.totalVolume);
-      document.getElementById('kpi-net-volume').innerText = this.formatCurrency(kpis.netVolume);
-      document.getElementById('kpi-today-volume').innerText = this.formatCurrency(kpis.todayVolume);
-      document.getElementById('kpi-month-volume').innerText = this.formatCurrency(kpis.monthVolume);
-      document.getElementById('kpi-approval-rate').innerText = `${kpis.approvalRate}%`;
-      document.getElementById('kpi-approved-count').innerText = kpis.approvedCount;
-      document.getElementById('kpi-total-count').innerText = kpis.totalCount;
-      document.getElementById('kpi-webhook-health').innerText = `${webhooks.healthPct}%`;
-      document.getElementById('kpi-webhook-success').innerText = webhooks.success;
-      document.getElementById('kpi-webhook-failed').innerText = webhooks.failed;
+      if (kpis) {
+        document.getElementById('kpi-total-volume').innerText = this.formatCurrency(kpis.totalVolume);
+        document.getElementById('kpi-net-volume').innerText = this.formatCurrency(kpis.netVolume);
+
+        // Adaptação dos rótulos de faturamento conforme o mês selecionado
+        const todayLabel = document.getElementById('kpi-today-label');
+        const todayMeta = document.getElementById('kpi-today-meta');
+        if (isCurrentMonth) {
+          if (todayLabel) todayLabel.innerText = 'Faturamento Hoje';
+          document.getElementById('kpi-today-volume').innerText = this.formatCurrency(kpis.todayVolume);
+          if (todayMeta) {
+            todayMeta.innerHTML = `Acumulado no mês: <strong id="kpi-month-volume">${this.formatCurrency(kpis.monthVolume)}</strong>`;
+          }
+        } else {
+          if (todayLabel) todayLabel.innerText = 'Total do Mês';
+          document.getElementById('kpi-today-volume').innerText = this.formatCurrency(kpis.monthVolume);
+          if (todayMeta) {
+            todayMeta.innerHTML = `Líquido no mês: <strong id="kpi-month-volume">${this.formatCurrency(kpis.netVolume)}</strong>`;
+          }
+        }
+
+        document.getElementById('kpi-approval-rate').innerText = `${kpis.approvalRate}%`;
+        document.getElementById('kpi-approved-count').innerText = kpis.approvedCount;
+        document.getElementById('kpi-total-count').innerText = kpis.totalCount;
+      }
+
+      if (webhooks) {
+        document.getElementById('kpi-webhook-health').innerText = `${webhooks.healthPct}%`;
+        document.getElementById('kpi-webhook-success').innerText = webhooks.success;
+        document.getElementById('kpi-webhook-failed').innerText = webhooks.failed;
+      }
 
       // Apps Volume Grid
       const appsContainer = document.getElementById('apps-container');

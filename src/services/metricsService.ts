@@ -1,11 +1,26 @@
 import { prisma } from '../lib/prisma.js';
 
 export class MetricsService {
-  async getDashboardMetrics() {
+  async getDashboardMetrics(month?: number, year?: number) {
     const now = new Date();
+    const targetYear = year ?? now.getFullYear();
+
+    const paymentWhere: any = {};
+    const webhookWhere: any = {};
+    let isCurrentMonth = true;
+
+    if (month && month >= 1 && month <= 12) {
+      const startDate = new Date(targetYear, month - 1, 1, 0, 0, 0, 0);
+      const endDate = new Date(targetYear, month, 1, 0, 0, 0, 0);
+
+      paymentWhere.createdAt = { gte: startDate, lt: endDate };
+      webhookWhere.createdAt = { gte: startDate, lt: endDate };
+
+      isCurrentMonth = targetYear === now.getFullYear() && month === now.getMonth() + 1;
+    }
+
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const [
       totalCount,
@@ -18,40 +33,45 @@ export class MetricsService {
       deliveriesTotal,
       deliveriesFailed,
       deliveriesSuccess,
-      appsWithCounts,
+      apps,
       recentPayments,
     ] = await Promise.all([
-      prisma.payment.count(),
-      prisma.payment.count({ where: { status: 'APPROVED' } }),
-      prisma.payment.count({ where: { status: 'PENDING' } }),
-      prisma.payment.count({ where: { status: { in: ['REJECTED', 'CANCELLED'] } } }),
+      prisma.payment.count({ where: paymentWhere }),
+      prisma.payment.count({ where: { ...paymentWhere, status: 'APPROVED' } }),
+      prisma.payment.count({ where: { ...paymentWhere, status: 'PENDING' } }),
+      prisma.payment.count({ where: { ...paymentWhere, status: { in: ['REJECTED', 'CANCELLED'] } } }),
       prisma.payment.aggregate({
         _sum: { amount: true, netReceivedAmount: true, feeAmount: true },
-        where: { status: 'APPROVED' },
+        where: { ...paymentWhere, status: 'APPROVED' },
       }),
+      isCurrentMonth
+        ? prisma.payment.aggregate({
+            _sum: { amount: true },
+            where: { status: 'APPROVED', createdAt: { gte: startOfToday } },
+          })
+        : Promise.resolve({ _sum: { amount: 0 } }),
       prisma.payment.aggregate({
         _sum: { amount: true },
-        where: { status: 'APPROVED', paidAt: { gte: startOfToday } },
+        where: {
+          status: 'APPROVED',
+          ...(month
+            ? paymentWhere
+            : { createdAt: { gte: startOfCurrentMonth } }),
+        },
       }),
-      prisma.payment.aggregate({
-        _sum: { amount: true },
-        where: { status: 'APPROVED', paidAt: { gte: startOfMonth } },
-      }),
-      prisma.webhookDelivery.count(),
-      prisma.webhookDelivery.count({ where: { status: 'FAILED' } }),
-      prisma.webhookDelivery.count({ where: { status: 'DELIVERED' } }),
+      prisma.webhookDelivery.count({ where: webhookWhere }),
+      prisma.webhookDelivery.count({ where: { ...webhookWhere, status: 'FAILED' } }),
+      prisma.webhookDelivery.count({ where: { ...webhookWhere, status: 'DELIVERED' } }),
       prisma.application.findMany({
         select: {
           id: true,
           name: true,
           slug: true,
           isActive: true,
-          _count: {
-            select: { payments: true },
-          },
         },
       }),
       prisma.payment.findMany({
+        where: paymentWhere,
         take: 10,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -64,28 +84,39 @@ export class MetricsService {
 
     const approvalRate = totalCount > 0 ? ((approvedCount / totalCount) * 100).toFixed(1) : '100.0';
 
-    // Agrupamento por aplicação de valores aprovados
-    const paymentsByApp = await prisma.payment.groupBy({
-      by: ['applicationId'],
-      where: { status: 'APPROVED' },
-      _sum: { amount: true },
-      _count: { id: true },
-    });
+    // Agrupamento por aplicação no período selecionado
+    const [paymentsCountByApp, paymentsByApp] = await Promise.all([
+      prisma.payment.groupBy({
+        by: ['applicationId'],
+        where: paymentWhere,
+        _count: { id: true },
+      }),
+      prisma.payment.groupBy({
+        by: ['applicationId'],
+        where: { ...paymentWhere, status: 'APPROVED' },
+        _sum: { amount: true },
+        _count: { id: true },
+      }),
+    ]);
 
-    const appVolumes = appsWithCounts.map((app) => {
+    const appVolumes = apps.map((app) => {
       const stats = paymentsByApp.find((p) => p.applicationId === app.id);
+      const totalStat = paymentsCountByApp.find((p) => p.applicationId === app.id);
       return {
         id: app.id,
         name: app.name,
         slug: app.slug,
         isActive: app.isActive,
-        totalPayments: app._count.payments,
+        totalPayments: totalStat?._count.id || 0,
         approvedVolume: stats?._sum.amount || 0,
         approvedCount: stats?._count.id || 0,
       };
     });
 
     return {
+      selectedMonth: month || null,
+      selectedYear: targetYear,
+      isCurrentMonth,
       kpis: {
         totalVolume: totalVolume._sum.amount || 0,
         netVolume: totalVolume._sum.netReceivedAmount || 0,

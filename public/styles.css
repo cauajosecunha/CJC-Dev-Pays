@@ -665,6 +665,49 @@ input:-webkit-autofill:focus {
   flex-wrap: wrap;
 }
 
+.month-filter-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  transition: all 0.2s ease;
+}
+
+.month-filter-container:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+}
+
+.month-filter-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.month-select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.month-select option {
+  background: #0b111e;
+  color: var(--text-primary);
+}
+
 .page-title {
   font-size: 1.45rem;
   font-weight: 700;
@@ -1384,6 +1427,26 @@ code {
   }
   .main-content {
     padding: 20px 16px;
+  }
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .page-header-actions {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .month-filter-container {
+    flex: 1;
+    justify-content: space-between;
+  }
+  .month-select {
+    flex: 1;
+    min-width: 0;
   }
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);

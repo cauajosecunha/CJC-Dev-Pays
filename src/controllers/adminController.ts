@@ -73,7 +73,23 @@ export class AdminController {
    */
   async getMetrics(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await metricsService.getDashboardMetrics();
+      let month: number | undefined;
+      if (req.query.month && req.query.month !== 'ALL') {
+        const parsed = parseInt(req.query.month as string, 10);
+        if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 12) {
+          month = parsed;
+        }
+      }
+
+      let year: number | undefined;
+      if (req.query.year) {
+        const parsedYear = parseInt(req.query.year as string, 10);
+        if (!Number.isNaN(parsedYear) && parsedYear >= 2000) {
+          year = parsedYear;
+        }
+      }
+
+      const data = await metricsService.getDashboardMetrics(month, year);
       res.json({ success: true, ...data });
     } catch (error) {
       next(error);

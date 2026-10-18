@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=3.2.5">
+  <link rel="stylesheet" href="/styles.css?v=3.2.6">
 </head>
 <body>
 
@@ -173,6 +173,24 @@
               <p class="page-subtitle">Acompanhamento consolidado de transações Pix, cartões e despachos de webhooks.</p>
             </div>
             <div class="page-header-actions">
+              <div class="month-filter-container">
+                <span class="month-filter-label">📅 Mês:</span>
+                <select id="dashboard-month-filter" class="select-control month-select" aria-label="Filtrar por Mês">
+                  <option value="1">Janeiro</option>
+                  <option value="2">Fevereiro</option>
+                  <option value="3">Março</option>
+                  <option value="4">Abril</option>
+                  <option value="5">Maio</option>
+                  <option value="6">Junho</option>
+                  <option value="7">Julho</option>
+                  <option value="8">Agosto</option>
+                  <option value="9">Setembro</option>
+                  <option value="10" selected>Outubro</option>
+                  <option value="11">Novembro</option>
+                  <option value="12">Dezembro</option>
+                  <option value="ALL">Ano Todo (Consolidado)</option>
+                </select>
+              </div>
               <button class="btn btn-secondary btn-sm" id="btn-refresh" title="Atualizar dados agora">
                 <span>🔄</span> Atualizar
               </button>
@@ -194,11 +212,11 @@
 
             <div class="kpi-card">
               <div class="kpi-header">
-                <span class="kpi-label">Faturamento Hoje</span>
+                <span class="kpi-label" id="kpi-today-label">Faturamento Hoje</span>
                 <span class="kpi-icon-pill blue">📈</span>
               </div>
               <div class="kpi-value" id="kpi-today-volume">R$ 0,00</div>
-              <div class="kpi-meta">
+              <div class="kpi-meta" id="kpi-today-meta">
                 Acumulado no mês: <strong id="kpi-month-volume">R$ 0,00</strong>
               </div>
             </div>
@@ -822,6 +840,6 @@
   <!-- Toast Container -->
   <div class="toast-stack" id="toast-container" aria-live="polite"></div>
 
-  <script src="/app.js?v=3.2.5"></script>
+  <script src="/app.js?v=3.2.6"></script>
 </body>
 </html>
