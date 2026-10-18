@@ -241,11 +241,12 @@ class CJCPaysApp {
     document.getElementById('btn-logout')?.addEventListener('click', () => this.logout());
     document.getElementById('btn-drawer-logout')?.addEventListener('click', () => this.logout());
 
-    // Dashboard refresh
-    document.getElementById('btn-refresh')?.addEventListener('click', () => {
-      this.loadMetrics();
-      this.showToast('Dados atualizados com sucesso!', 'info');
-    });
+    // Atualização dinâmica contínua do Dashboard (fallback de sincronização a cada 30s)
+    setInterval(() => {
+      if (this.currentView === 'dashboard-view' && !document.hidden && this.token) {
+        this.loadMetrics();
+      }
+    }, 30000);
 
     // Dashboard Filtro Mensal
     const monthSelect = document.getElementById('dashboard-month-filter');
