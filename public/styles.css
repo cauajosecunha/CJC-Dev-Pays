@@ -2653,13 +2653,18 @@ code {
     background: #ffffff !important;
     color: #0f172a !important;
     font-size: 10pt !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
-  .app-layout, .main-content, .content-container {
+  .app-layout, .main-content, .content-container, .view-panel {
     padding: 0 !important;
     margin: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    position: static !important;
   }
 
   .card {

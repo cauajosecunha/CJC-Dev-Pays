@@ -2769,11 +2769,890 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     }
   }
 
-  printFinancialReport() {
-    this.showToast('Preparando demonstrativo para impressão/PDF...', 'info');
-    setTimeout(() => {
-      window.print();
-    }, 200);
+  async printFinancialReport() {
+    this.showToast('Preparando demonstrativo contábil para impressão/PDF...', 'info');
+
+    // 1. Abre a nova janela imediatamente para garantir que não haja bloqueio de popups
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      this.showToast('Por favor, permita popups neste site para abrir o relatório contábil.', 'warning');
+      return;
+    }
+
+    // Carregamento temporário elegante
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <title>Gerando Relatório Contábil...</title>
+          <style>
+            body {
+              margin: 0;
+              padding: 0;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              background: #0f172a;
+              color: #f8fafc;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+            }
+            .loader-box {
+              text-align: center;
+              padding: 32px;
+              background: #1e293b;
+              border: 1px solid #334155;
+              border-radius: 12px;
+              box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+              max-width: 420px;
+            }
+            .spinner {
+              width: 44px;
+              height: 44px;
+              border: 3px solid rgba(56, 189, 248, 0.2);
+              border-top-color: #38bdf8;
+              border-radius: 50%;
+              animation: spin 0.8s linear infinite;
+              margin: 0 auto 16px auto;
+            }
+            @keyframes spin { to { transform: rotate(360deg); } }
+          </style>
+        </head>
+        <body>
+          <div class="loader-box">
+            <div class="spinner"></div>
+            <h3 style="margin: 0 0 8px 0; font-size: 1.15rem; color: #ffffff;">Gerando Relatório Contábil Oficial</h3>
+            <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">Consultando a base de dados e compilando o demonstrativo em padrão executivo A4...</p>
+          </div>
+        </body>
+      </html>
+    `);
+
+    try {
+      // 2. Garante que os dados contábeis estejam disponíveis
+      let report = this.financialReportCache;
+      if (!report) {
+        const qs = this.buildFinancialQueryString();
+        const res = await fetch(`/api/admin/financial/report${qs ? `?${qs}` : ''}`, { headers: this.getHeaders() });
+        if (res.status === 401) {
+          this.clearSession();
+          this.showLogin();
+          printWindow.close();
+          return;
+        }
+        if (!res.ok) {
+          throw new Error('Falha na resposta do servidor');
+        }
+        const data = await res.json();
+        report = data.report;
+        this.financialReportCache = report;
+      }
+
+      if (!report) {
+        throw new Error('Relatório indisponível');
+      }
+
+      // 3. Identifica a loja filtrada se aplicável
+      let appFilterName = 'Todas as Aplicações (Consolidado Geral)';
+      if (this.financialFilters.applicationId && this.applicationsCache) {
+        const found = this.applicationsCache.find((a) => a.id === this.financialFilters.applicationId);
+        if (found) appFilterName = `${found.name} (${found.slug})`;
+      }
+
+      // 4. Monta o documento HTML completo com estilos formais para A4
+      const reportHtml = this.buildPrintableFinancialReportHtml(report, appFilterName);
+
+      // 5. Injeta no documento da janela de impressão
+      printWindow.document.open();
+      printWindow.document.write(reportHtml);
+      printWindow.document.close();
+
+      this.showToast('✅ Relatório contábil gerado com sucesso!', 'success');
+    } catch (err) {
+      console.error('Erro ao gerar relatório contábil impresso:', err);
+      this.showToast('Erro ao obter dados do relatório contábil.', 'warning');
+      if (printWindow && !printWindow.closed) {
+        printWindow.document.body.innerHTML = `
+          <div style="font-family: sans-serif; text-align: center; padding: 40px; color: #ef4444;">
+            <h3>Falha ao carregar relatório contábil</h3>
+            <p>Ocorreu um erro ao comunicar com a base de dados. Por favor, tente novamente.</p>
+            <button onclick="window.close()" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;">Fechar</button>
+          </div>
+        `;
+      }
+    }
+  }
+
+  buildPrintableFinancialReportHtml(report, appFilterName) {
+    const { kpis, dre } = report;
+    const now = new Date();
+    const emissionDateStr = now.toLocaleDateString('pt-BR');
+    const emissionTimeStr = now.toLocaleTimeString('pt-BR');
+    const docId = `CJC-FIN-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    const gross = dre.receitaBrutaTotal || 0;
+    const calcPct = (val) => (gross > 0 ? ((val / gross) * 100).toFixed(2).replace('.', ',') + '%' : '0,00%');
+    const formatMoney = (val) => Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const formatPct = (val) => Number(val || 0).toFixed(2).replace('.', ',') + '%';
+
+    const methodLabels = {
+      pix: 'Pix Instantâneo',
+      credit_card: 'Cartão de Crédito',
+      debit_card: 'Cartão de Débito',
+      ticket: 'Boleto Bancário',
+      account_money: 'Saldo Mercado Pago',
+    };
+
+    const statusLabels = {
+      approved: 'Aprovada',
+      pending: 'Pendente',
+      in_process: 'Processamento',
+      refunded: 'Estornada',
+      charged_back: 'Chargeback',
+      cancelled: 'Cancelada',
+      rejected: 'Recusada',
+    };
+
+    // Linhas do Meio de Pagamento
+    const methodsRows = (report.byMethod || [])
+      .map(
+        (m) => `
+        <tr>
+          <td><strong>${m.label || methodLabels[m.method] || m.method}</strong></td>
+          <td class="text-center">${m.count}</td>
+          <td class="text-center font-mono">${formatPct(m.sharePercent)}</td>
+          <td class="text-right font-semibold">${formatMoney(m.grossVolume)}</td>
+          <td class="text-right text-danger">${formatMoney(m.mpFeeVolume)}</td>
+          <td class="text-right text-success font-semibold">${formatMoney(m.commissionVolume)}</td>
+          <td class="text-right font-semibold">${formatMoney(m.netPayoutVolume)}</td>
+        </tr>
+      `
+      )
+      .join('');
+
+    // Linhas de Lojas / Aplicações
+    const appsRows = (report.byApplication || [])
+      .map(
+        (app) => `
+        <tr>
+          <td><strong>${app.name}</strong></td>
+          <td class="font-mono text-center">${app.establishmentId}</td>
+          <td class="text-center">
+            ${
+              app.isCommissionExempt
+                ? '<span class="report-badge badge-neutral">Isenta (0%)</span>'
+                : '<span class="report-badge badge-active">Padrão com Lucro</span>'
+            }
+          </td>
+          <td class="text-center">${app.approvedTransactions} / ${app.totalTransactions}</td>
+          <td class="text-right font-semibold">${formatMoney(app.grossVolume)}</td>
+          <td class="text-right text-danger">${formatMoney(app.mpFeeVolume)}</td>
+          <td class="text-right text-success font-semibold">${formatMoney(app.commissionVolume)}</td>
+          <td class="text-right font-semibold">${formatMoney(app.netPayoutVolume)}</td>
+          <td class="text-right text-muted">${formatMoney(app.refundedVolume)}</td>
+        </tr>
+      `
+      )
+      .join('');
+
+    // Linhas do Livro Razão Analítico (Transações)
+    const txRows = (report.transactions || [])
+      .map(
+        (tx, index) => `
+        <tr>
+          <td class="text-center text-muted font-mono" style="font-size: 7pt;">${index + 1}</td>
+          <td class="text-center font-mono" style="font-size: 7.2pt; white-space: nowrap;">${new Date(tx.createdAt).toLocaleString('pt-BR')}</td>
+          <td class="font-mono" style="font-size: 7.2pt;">${tx.externalReference || tx.id.slice(0, 8)}</td>
+          <td>${tx.applicationName}</td>
+          <td>${methodLabels[tx.paymentMethod] || tx.paymentMethod}</td>
+          <td class="text-center font-semibold" style="font-size: 7.2pt;">${statusLabels[tx.status] || tx.status}</td>
+          <td class="text-right font-semibold">${formatMoney(tx.amount)}</td>
+          <td class="text-right text-danger">${formatMoney(tx.mpFee)}</td>
+          <td class="text-right text-success">${formatMoney(tx.cjcCommission)}</td>
+          <td class="text-right font-semibold">${formatMoney(tx.netPayout)}</td>
+        </tr>
+      `
+      )
+      .join('');
+
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório Contábil - ${report.periodLabel} - CJC Dev Pays</title>
+  <style>
+    /* Configurações Globais de Página A4 */
+    @page {
+      size: A4 portrait;
+      margin: 12mm 10mm 15mm 10mm;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #f1f5f9;
+      color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 8pt;
+      line-height: 1.35;
+    }
+
+    /* Barra Superior Interativa (Oculta na Impressão/PDF) */
+    .screen-toolbar {
+      position: sticky;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+      z-index: 99999;
+    }
+    .toolbar-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .toolbar-icon {
+      font-size: 22px;
+    }
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-tool {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      border: none;
+    }
+    .btn-tool-primary {
+      background: #0284c7;
+      color: #ffffff;
+    }
+    .btn-tool-primary:hover {
+      background: #0369a1;
+    }
+    .btn-tool-secondary {
+      background: #334155;
+      color: #f8fafc;
+      border: 1px solid #475569;
+    }
+    .btn-tool-secondary:hover {
+      background: #475569;
+    }
+    .btn-tool-close {
+      background: transparent;
+      color: #94a3b8;
+      border: 1px solid #334155;
+    }
+    .btn-tool-close:hover {
+      color: #ffffff;
+      background: #ef4444;
+      border-color: #ef4444;
+    }
+
+    /* Folha do Relatório A4 */
+    .report-sheet {
+      max-width: 210mm;
+      margin: 20px auto 40px auto;
+      background: #ffffff;
+      padding: 16mm 14mm;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      border-radius: 4px;
+    }
+
+    /* Regras Estritas de Impressão */
+    @media print {
+      body {
+        background: #ffffff !important;
+      }
+      .screen-toolbar {
+        display: none !important;
+      }
+      .report-sheet {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+    }
+
+    /* Seções e Tipografia Contábil */
+    .report-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .company-brand {
+      font-size: 15pt;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .company-brand span {
+      color: #0284c7;
+    }
+    .company-sub {
+      font-size: 7.2pt;
+      color: #475569;
+      margin-top: 2px;
+    }
+    .header-meta {
+      text-align: right;
+      font-size: 7.2pt;
+      color: #475569;
+    }
+    .header-doc-badge {
+      display: inline-block;
+      background: #f1f5f9;
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 7pt;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .report-title-block {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-left: 4px solid #0284c7;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 2px;
+    }
+    .report-main-title {
+      font-size: 11pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0;
+    }
+    .report-main-subtitle {
+      font-size: 7.5pt;
+      color: #64748b;
+      margin: 2px 0 0 0;
+    }
+
+    /* Grid de KPIs */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .kpi-box {
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      padding: 8px 10px;
+      border-radius: 3px;
+    }
+    .kpi-label {
+      font-size: 6.8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #475569;
+      letter-spacing: 0.3px;
+    }
+    .kpi-value {
+      font-size: 11.5pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 2px 0;
+    }
+    .kpi-foot {
+      font-size: 6.8pt;
+      color: #64748b;
+    }
+
+    /* Tabelas Contábeis */
+    .section-title {
+      font-size: 8.5pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #0f172a;
+      margin: 16px 0 6px 0;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .section-title span.count-info {
+      font-size: 7pt;
+      color: #64748b;
+      font-weight: normal;
+      text-transform: none;
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 14px;
+      font-size: 7.6pt;
+    }
+    .report-table thead {
+      display: table-header-group;
+    }
+    .report-table tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .report-table th {
+      background: #f1f5f9;
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
+      padding: 5px 6px;
+      font-weight: 700;
+      font-size: 6.8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .report-table td {
+      border: 1px solid #e2e8f0;
+      padding: 4px 6px;
+      color: #1e293b;
+    }
+    .report-table tbody tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+    .report-table tfoot tr td {
+      background: #f1f5f9;
+      border-top: 2px solid #94a3b8;
+      font-weight: 800;
+      color: #0f172a;
+      padding: 6px;
+    }
+
+    /* Linhas Especiais do DRE */
+    .dre-row-revenue td {
+      background: #f8fafc;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .dre-row-subtotal td {
+      background: #f1f5f9;
+      font-weight: 700;
+      border-top: 1px solid #94a3b8;
+      border-bottom: 1px solid #94a3b8;
+    }
+    .dre-row-highlight td {
+      background: #ecfdf5 !important;
+      font-weight: 800;
+      color: #065f46;
+    }
+    .dre-row-final td {
+      background: #f0fdf4 !important;
+      font-weight: 800;
+      font-size: 8.5pt;
+      border-top: 2px solid #059669;
+      border-bottom: 2px solid #059669;
+      color: #047857;
+    }
+
+    /* Utilitários Tipográficos */
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .text-left { text-align: left; }
+    .font-semibold { font-weight: 600; }
+    .font-bold { font-weight: 700; }
+    .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .text-success { color: #047857; }
+    .text-danger { color: #b91c1c; }
+    .text-muted { color: #64748b; }
+
+    .report-badge {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 6.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-active {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+    }
+    .badge-neutral {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+
+    .page-break-avoid {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    /* Termo de Encerramento e Assinaturas */
+    .audit-footer {
+      margin-top: 24px;
+      padding-top: 14px;
+      border-top: 1px dashed #cbd5e1;
+    }
+    .audit-text {
+      font-size: 6.8pt;
+      color: #475569;
+      line-height: 1.4;
+      text-align: justify;
+      margin-bottom: 24px;
+    }
+    .signatures-grid {
+      display: flex;
+      justify-content: space-between;
+      gap: 32px;
+      margin-top: 28px;
+    }
+    .signature-item {
+      flex: 1;
+      text-align: center;
+    }
+    .signature-line {
+      border-top: 1px solid #0f172a;
+      width: 80%;
+      margin: 0 auto 5px auto;
+    }
+    .signature-role {
+      font-size: 7.2pt;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .signature-sub {
+      font-size: 6.5pt;
+      color: #64748b;
+    }
+    .report-bottom-bar {
+      margin-top: 20px;
+      padding-top: 8px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 6.5pt;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra Superior Interativa para Tela -->
+  <div class="screen-toolbar">
+    <div class="toolbar-info">
+      <div class="toolbar-icon">📑</div>
+      <div>
+        <div style="font-weight: 700; font-size: 14px;">Relatório Financeiro & Contábil Oficial</div>
+        <div style="font-size: 11px; color: #94a3b8;">Formatado para papel A4 • Texto vetorial de alta definição</div>
+      </div>
+    </div>
+    <div class="toolbar-actions">
+      <button class="btn-tool btn-tool-primary" onclick="window.print()">
+        <span>🖨️</span> Salvar como PDF / Imprimir
+      </button>
+      <button class="btn-tool btn-tool-secondary" onclick="if(window.opener && window.opener.app) { window.opener.app.exportFinancialCsv(); } else { alert('Para baixar o CSV, utilize o botão no painel principal.'); }">
+        <span>📥</span> Baixar Planilha (CSV)
+      </button>
+      <button class="btn-tool btn-tool-close" onclick="window.close()">
+        <span>✖</span> Fechar
+      </button>
+    </div>
+  </div>
+
+  <!-- Folha de Impressão A4 -->
+  <div class="report-sheet">
+
+    <!-- Cabeçalho Institucional -->
+    <header class="report-header">
+      <div>
+        <div class="company-brand">CJC <span>DEV PAYS</span></div>
+        <div class="company-sub">Central Unificada de Pagamentos & Split Financeiro Inteligente</div>
+        <div class="company-sub">CNPJ: 54.321.987/0001-00 • Pays.cjcdev.site • Ambiente Produção</div>
+      </div>
+      <div class="header-meta">
+        <div class="header-doc-badge">Documento Oficial</div>
+        <div><strong>Autenticação:</strong> <span class="font-mono">${docId}</span></div>
+        <div><strong>Emissão:</strong> ${emissionDateStr} às ${emissionTimeStr}</div>
+        <div><strong>Operador:</strong> Administrador do Sistema</div>
+      </div>
+    </header>
+
+    <!-- Bloco de Título do Relatório -->
+    <div class="report-title-block">
+      <div>
+        <h1 class="report-main-title">DEMONSTRATIVO DE FECHAMENTO FINANCEIRO & CONTÁBIL</h1>
+        <p class="report-main-subtitle">Prestação de contas contábil, conciliação do Mercado Pago e apuração de comissões</p>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 9pt; font-weight: 800; color: #0284c7;">${report.periodLabel}</div>
+        <div style="font-size: 7.2pt; color: #475569;">Filtro: ${appFilterName}</div>
+      </div>
+    </div>
+
+    <!-- Seção 1: Resumo Executivo / KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-box">
+        <div class="kpi-label">Volume Bruto Transacionado (GMV)</div>
+        <div class="kpi-value">${formatMoney(kpis.totalGrossVolume)}</div>
+        <div class="kpi-foot">${kpis.approvedCount} aprovadas de ${kpis.totalCount} cobranças</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-label">Custos do Mercado Pago (Adquirente)</div>
+        <div class="kpi-value text-danger">${formatMoney(kpis.totalMpFees)}</div>
+        <div class="kpi-foot">Tarifas de processamento e bandeiras</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-label">Margem Bruta da Operação</div>
+        <div class="kpi-value">${formatMoney(kpis.totalGrossVolume - kpis.totalMpFees)}</div>
+        <div class="kpi-foot">Volume após dedução do custo MP</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-label">Comissões Retidas (Lucro CJC Dev)</div>
+        <div class="kpi-value text-success">${formatMoney(kpis.totalCjcCommission)}</div>
+        <div class="kpi-foot">Taxa média retida: ${kpis.averageRetentionPercent.toFixed(2)}%</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-label">Repasse Líquido às Lojas</div>
+        <div class="kpi-value">${formatMoney(kpis.totalNetPayout)}</div>
+        <div class="kpi-foot">Montante a transferir aos estabelecimentos</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-label">Estornos e Devoluções</div>
+        <div class="kpi-value text-muted">${formatMoney(kpis.totalRefunded)}</div>
+        <div class="kpi-foot">${kpis.refundedCount} estorno(s) • Ticket médio: ${formatMoney(kpis.ticketMedio)}</div>
+      </div>
+    </div>
+
+    <!-- Seção 2: DRE Sintético Contábil -->
+    <div class="page-break-avoid">
+      <div class="section-title">
+        <span>Demonstrativo do Resultado do Exercício (DRE Sintético)</span>
+        <span class="count-info">Padrão Contábil IFRS / CFC</span>
+      </div>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 70px;" class="text-center">Código</th>
+            <th>Descrição da Conta Contábil</th>
+            <th style="width: 100px;" class="text-center">Natureza</th>
+            <th style="width: 130px;" class="text-right">Valor Consolidado</th>
+            <th style="width: 100px;" class="text-right">% Rec. Bruta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="dre-row-revenue">
+            <td class="text-center font-mono">1.0</td>
+            <td><strong>(+) RECEITA OPERACIONAL BRUTA (Cobranças Aprovadas)</strong></td>
+            <td class="text-center">Crédito (+)</td>
+            <td class="text-right">${formatMoney(dre.receitaBrutaTotal)}</td>
+            <td class="text-right font-mono">100,00%</td>
+          </tr>
+          <tr>
+            <td class="text-center font-mono">2.0</td>
+            <td>(-) CUSTO DOS SERVIÇOS PRESTADOS (Taxas do Adquirente Mercado Pago)</td>
+            <td class="text-center text-danger">Débito (-)</td>
+            <td class="text-right text-danger">(${formatMoney(dre.custoMercadoPago)})</td>
+            <td class="text-right font-mono text-danger">${calcPct(dre.custoMercadoPago)}</td>
+          </tr>
+          <tr class="dre-row-subtotal">
+            <td class="text-center font-mono">3.0</td>
+            <td><strong>(=) MARGEM BRUTA DA OPERAÇÃO (Subtotal Operacional)</strong></td>
+            <td class="text-center">Saldo (=)</td>
+            <td class="text-right font-bold">${formatMoney(dre.margemBruta)}</td>
+            <td class="text-right font-mono font-bold">${calcPct(dre.margemBruta)}</td>
+          </tr>
+          <tr>
+            <td class="text-center font-mono">4.0</td>
+            <td>(-) REPASSE LÍQUIDO A ESTABELECIMENTOS / LOJAS CONECTADAS</td>
+            <td class="text-center text-danger">Débito (-)</td>
+            <td class="text-right">(${formatMoney(dre.repassesLojas)})</td>
+            <td class="text-right font-mono">${calcPct(dre.repassesLojas)}</td>
+          </tr>
+          <tr class="dre-row-highlight">
+            <td class="text-center font-mono">5.0</td>
+            <td><strong>(=) RECEITA LÍQUIDA DE INTERMEDIAÇÃO (Comissões CJC Dev Pays)</strong></td>
+            <td class="text-center">Receita Líquida</td>
+            <td class="text-right font-bold">${formatMoney(dre.lucroLiquidoCJC)}</td>
+            <td class="text-right font-mono font-bold">${calcPct(dre.lucroLiquidoCJC)}</td>
+          </tr>
+          <tr>
+            <td class="text-center font-mono">6.0</td>
+            <td>(-) ESTORNOS E DEVOLUÇÕES OPERACIONAIS</td>
+            <td class="text-center text-muted">Débito (-)</td>
+            <td class="text-right text-muted">(${formatMoney(dre.estornosRealizados)})</td>
+            <td class="text-right font-mono text-muted">${calcPct(dre.estornosRealizados)}</td>
+          </tr>
+          <tr class="dre-row-final">
+            <td class="text-center font-mono">7.0</td>
+            <td><strong>(=) RESULTADO OPERACIONAL LÍQUIDO FINAL (SUPERÁVIT)</strong></td>
+            <td class="text-center">Resultado (=)</td>
+            <td class="text-right">${formatMoney(dre.resultadoOperacionalFinal)}</td>
+            <td class="text-right font-mono">${calcPct(dre.resultadoOperacionalFinal)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Seção 3: Conciliação por Meio de Pagamento -->
+    <div class="page-break-avoid">
+      <div class="section-title">
+        <span>Conciliação Consolidada por Meio de Pagamento</span>
+        <span class="count-info">Pix, Cartão de Crédito e Débito</span>
+      </div>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Meio de Pagamento</th>
+            <th style="width: 80px;" class="text-center">Qtd. Vendas</th>
+            <th style="width: 80px;" class="text-center">Partic. (%)</th>
+            <th style="width: 120px;" class="text-right">Volume Bruto</th>
+            <th style="width: 110px;" class="text-right">Custo Mercado Pago</th>
+            <th style="width: 110px;" class="text-right">Lucro CJC Dev</th>
+            <th style="width: 120px;" class="text-right">Repasse Líquido</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${methodsRows || '<tr><td colspan="7" class="text-center text-muted" style="padding: 10px;">Nenhum meio transacionado no período.</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>TOTAL GERAL CONSOLIDADO</td>
+            <td class="text-center">${kpis.approvedCount}</td>
+            <td class="text-center font-mono">100,00%</td>
+            <td class="text-right">${formatMoney(kpis.totalGrossVolume)}</td>
+            <td class="text-right text-danger">${formatMoney(kpis.totalMpFees)}</td>
+            <td class="text-right text-success">${formatMoney(kpis.totalCjcCommission)}</td>
+            <td class="text-right">${formatMoney(kpis.totalNetPayout)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Seção 4: Fechamento por Loja / Estabelecimento -->
+    <div class="page-break-avoid">
+      <div class="section-title">
+        <span>Demonstrativo de Fechamento por Estabelecimento / Loja</span>
+        <span class="count-info">Liquidação e regimes tarifários</span>
+      </div>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Loja / Aplicação</th>
+            <th style="width: 90px;" class="text-center">ID Estabelec.</th>
+            <th style="width: 110px;" class="text-center">Regime</th>
+            <th style="width: 80px;" class="text-center">Aprov./Total</th>
+            <th style="width: 100px;" class="text-right">Volume Bruto</th>
+            <th style="width: 90px;" class="text-right">Custo MP</th>
+            <th style="width: 90px;" class="text-right">Comissão CJC</th>
+            <th style="width: 100px;" class="text-right">Líquido Loja</th>
+            <th style="width: 80px;" class="text-right">Estornos</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${appsRows || '<tr><td colspan="9" class="text-center text-muted" style="padding: 10px;">Nenhum estabelecimento transacionou no período.</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4">TOTAL CONSOLIDADO DAS LOJAS</td>
+            <td class="text-right">${formatMoney(kpis.totalGrossVolume)}</td>
+            <td class="text-right text-danger">${formatMoney(kpis.totalMpFees)}</td>
+            <td class="text-right text-success">${formatMoney(kpis.totalCjcCommission)}</td>
+            <td class="text-right">${formatMoney(kpis.totalNetPayout)}</td>
+            <td class="text-right text-muted">${formatMoney(kpis.totalRefunded)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Seção 5: Livro Razão Analítico (Extrato Completo do Banco de Dados) -->
+    <div style="margin-top: 18px;">
+      <div class="section-title">
+        <span>Livro Razão Analítico de Lançamentos</span>
+        <span class="count-info">${report.transactions?.length || 0} lançamentos do banco de dados</span>
+      </div>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th style="width: 30px;" class="text-center">#</th>
+            <th style="width: 105px;" class="text-center">Data / Hora</th>
+            <th style="width: 80px;">Ref. Pedido</th>
+            <th>Aplicação</th>
+            <th style="width: 85px;">Meio</th>
+            <th style="width: 70px;" class="text-center">Status</th>
+            <th style="width: 80px;" class="text-right">Bruto</th>
+            <th style="width: 70px;" class="text-right">Custo MP</th>
+            <th style="width: 70px;" class="text-right">Lucro CJC</th>
+            <th style="width: 80px;" class="text-right">Líquido Loja</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${txRows || '<tr><td colspan="10" class="text-center text-muted" style="padding: 14px;">Nenhuma transação individual registrada no período selecionado.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Seção 6: Termo de Encerramento e Assinaturas -->
+    <div class="audit-footer page-break-avoid">
+      <div class="audit-text">
+        <strong>TERMO DE AUDITORIA E ENCERRAMENTO CONTÁBIL:</strong> Certificamos para os devidos fins de prestação de contas fiscais e societárias que as informações, somatórios e conciliações detalhados neste relatório foram extraídos diretamente da base de dados transacional da Central CJC Dev Pays. Os valores representam com fidedignidade as movimentações financeiras, retenções adquirentes do Mercado Pago e comissões da plataforma registradas no período de apuração indicado.
+      </div>
+      <div class="signatures-grid">
+        <div class="signature-item">
+          <div class="signature-line"></div>
+          <div class="signature-role">CJC DEV PAYS - GESTÃO FINANCEIRA</div>
+          <div class="signature-sub">Administração da Plataforma</div>
+        </div>
+        <div class="signature-item">
+          <div class="signature-line"></div>
+          <div class="signature-role">RESPONSÁVEL / ESTABELECIMENTO</div>
+          <div class="signature-sub">Conferência e De Acordo</div>
+        </div>
+      </div>
+      <div class="report-bottom-bar">
+        <div>Central CJC Dev Pays • Gateway & Split de Pagamentos • pays.cjcdev.site</div>
+        <div>Página gerada em ${emissionDateStr} às ${emissionTimeStr} • Autenticação: ${docId}</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Dispara a caixa de diálogo de impressão nativa (Salvar como PDF) após carregamento
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        window.print();
+      }, 400);
+    });
+  </script>
+</body>
+</html>`;
   }
 }
 
