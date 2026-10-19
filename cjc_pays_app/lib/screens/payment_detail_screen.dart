@@ -26,6 +26,7 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   bool _isRefunding = false;
+  bool _isApproving = false;
 
   @override
   void initState() {
@@ -99,6 +100,53 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
       );
     } finally {
       if (mounted) setState(() => _isRefunding = false);
+    }
+  }
+
+  Future<void> _handleApprove() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Aprovar Pagamento'),
+        content: Text(
+          'Deseja aprovar manualmente este pagamento de ${_currencyFormat.format(_payment!.amount)}? O sistema emitirá o evento de aprovação e disparará o webhook para a aplicação.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sim, Aprovar', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isApproving = true);
+
+    try {
+      await _api.approveSimulatedPayment(widget.paymentId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pagamento aprovado com sucesso! Webhook disparado.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      _fetchPayment();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao aprovar: $e'), backgroundColor: AppColors.danger),
+      );
+    } finally {
+      if (mounted) setState(() => _isApproving = false);
     }
   }
 
@@ -316,6 +364,27 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
             ),
           ),
           const SizedBox(height: 16),
+
+          // Approve Button if pending (Sandbox / Manual approval)
+          if (p.isPending) ...[
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: _isApproving ? null : _handleApprove,
+              icon: _isApproving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                    )
+                  : const Icon(Icons.check_circle_rounded),
+              label: Text(_isApproving ? 'Processando Aprovação...' : 'Aprovar Pagamento (Simulador)'),
+            ),
+            const SizedBox(height: 24),
+          ],
 
           // Refund Button if approved
           if (p.isApproved) ...[

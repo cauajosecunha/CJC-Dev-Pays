@@ -308,4 +308,250 @@ class ApiService {
       throw ApiException('Sem conexão com o servidor.');
     }
   }
+
+  // ==================== CRUD DE APLICAÇÕES ====================
+
+  /// Cadastra uma nova aplicação cliente
+  Future<ApplicationModel> createApplication({
+    required String name,
+    required String slug,
+    String? webhookUrl,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            _uri('/api/admin/applications'),
+            headers: _headers,
+            body: jsonEncode({
+              'name': name.trim(),
+              'slug': slug.trim().toLowerCase(),
+              if (webhookUrl != null && webhookUrl.trim().isNotEmpty) 'webhookUrl': webhookUrl.trim(),
+            }),
+          )
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return ApplicationModel.fromJson(data['application'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Atualiza os dados de uma aplicação
+  Future<ApplicationModel> updateApplication({
+    required String id,
+    String? name,
+    String? webhookUrl,
+    bool? isActive,
+  }) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (name != null) payload['name'] = name.trim();
+      if (webhookUrl != null) payload['webhookUrl'] = webhookUrl.trim();
+      if (isActive != null) payload['isActive'] = isActive;
+
+      final response = await http
+          .put(
+            _uri('/api/admin/applications/$id'),
+            headers: _headers,
+            body: jsonEncode(payload),
+          )
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return ApplicationModel.fromJson(data['application'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Exclui uma aplicação cliente
+  Future<void> deleteApplication(String id) async {
+    try {
+      final response = await http
+          .delete(_uri('/api/admin/applications/$id'), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      _processResponse(response);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Rotaciona a chave de API de uma aplicação
+  Future<String> regenerateApiKey(String id) async {
+    try {
+      final response = await http
+          .post(_uri('/api/admin/applications/$id/regenerate-key'), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return data['application']?['apiKey']?.toString() ?? '';
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Limpa todas as transações e webhooks de uma aplicação
+  Future<String> clearApplicationTransactions(String id) async {
+    try {
+      final response = await http
+          .post(_uri('/api/admin/applications/$id/clear-transactions'), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return data['message']?.toString() ?? 'Transações limpas com sucesso.';
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  // ==================== EXPURGO E SIMULADOR ====================
+
+  /// Limpa pagamentos não pagos / expirados do histórico
+  Future<int> purgeExpiredPayments({String? appId}) async {
+    try {
+      final query = appId != null && appId.isNotEmpty && appId != 'ALL' ? {'appId': appId} : null;
+      final response = await http
+          .post(_uri('/api/admin/payments/expired/purge', query), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return (data['deletedCount'] as num?)?.toInt() ?? 0;
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Simula um pagamento Pix para testes
+  Future<PaymentModel> simulatePayment({
+    required String applicationId,
+    required double amount,
+    String? description,
+    bool autoApprove = false,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            _uri('/api/admin/simulator/simulate-payment'),
+            headers: _headers,
+            body: jsonEncode({
+              'applicationId': applicationId,
+              'amount': amount,
+              'description': description,
+              'autoApprove': autoApprove,
+            }),
+          )
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return PaymentModel.fromJson(data['payment'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Aprova um pagamento manualmente / em modo sandbox
+  Future<PaymentModel> approveSimulatedPayment(String id) async {
+    try {
+      final response = await http
+          .post(_uri('/api/admin/simulator/approve-payment/$id'), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return PaymentModel.fromJson(data['payment'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  // ==================== CRUD DE ADMINISTRADORES ====================
+
+  /// Lista todos os administradores cadastrados
+  Future<List<AdminUser>> getAdminUsers() async {
+    try {
+      final response = await http
+          .get(_uri('/api/admin/users'), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      final list = (data['users'] as List<dynamic>? ?? [])
+          .map((item) => AdminUser.fromJson(item as Map<String, dynamic>))
+          .toList();
+      return list;
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Cria um novo administrador
+  Future<AdminUser> createAdminUser({
+    required String name,
+    required String email,
+    String? username,
+    required String password,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            _uri('/api/admin/users'),
+            headers: _headers,
+            body: jsonEncode({
+              'name': name.trim(),
+              'email': email.trim().toLowerCase(),
+              'username': username?.trim().isNotEmpty == true ? username!.trim() : null,
+              'password': password,
+            }),
+          )
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return AdminUser.fromJson(data['user'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Atualiza os dados de um administrador
+  Future<AdminUser> updateAdminUser({
+    required String id,
+    String? name,
+    String? email,
+    String? username,
+    String? password,
+  }) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (name != null) payload['name'] = name.trim();
+      if (email != null) payload['email'] = email.trim().toLowerCase();
+      if (username != null) payload['username'] = username.trim().isNotEmpty ? username.trim() : null;
+      if (password != null && password.isNotEmpty) payload['password'] = password;
+
+      final response = await http
+          .put(
+            _uri('/api/admin/users/$id'),
+            headers: _headers,
+            body: jsonEncode(payload),
+          )
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return AdminUser.fromJson(data['user'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Remove um administrador
+  Future<void> deleteAdminUser(String id) async {
+    try {
+      final response = await http
+          .delete(_uri('/api/admin/users/$id'), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      _processResponse(response);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
 }

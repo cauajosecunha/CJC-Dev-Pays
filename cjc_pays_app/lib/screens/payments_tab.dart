@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../constants/app_colors.dart';
+import '../models/application.dart';
 import '../models/payment.dart';
 import '../services/api_service.dart';
 import '../widgets/app_chip.dart';
@@ -123,6 +124,306 @@ class _PaymentsTabState extends State<PaymentsTab> {
     _fetchPayments(refresh: true);
   }
 
+  Future<void> _openPurgeDialog() async {
+    List<ApplicationModel> apps = [];
+    try {
+      apps = await _api.getApplications();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    String? selectedAppId;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Row(
+            children: [
+              Icon(Icons.delete_sweep_rounded, color: AppColors.danger, size: 22),
+              SizedBox(width: 8),
+              Text('Expurgo de Não Pagos', style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Esta ação remove permanentemente do histórico todas as transações que expiraram sem confirmação de pagamento (status PENDENTE / CANCELADO).',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Filtrar por Aplicação:',
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String?>(
+                initialValue: selectedAppId,
+                dropdownColor: AppColors.surfaceAlt,
+                decoration: const InputDecoration(
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  filled: true,
+                  fillColor: AppColors.surfaceAlt,
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Todas as Aplicações', style: TextStyle(fontSize: 13)),
+                  ),
+                  ...apps.map(
+                    (app) => DropdownMenuItem<String?>(
+                      value: app.id,
+                      child: Text(app.name, style: const TextStyle(fontSize: 13)),
+                    ),
+                  ),
+                ],
+                onChanged: (val) {
+                  setDialogState(() {
+                    selectedAppId = val;
+                  });
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Executar Expurgo', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final deletedCount = await _api.purgeExpiredPayments(appId: selectedAppId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$deletedCount pagamento(s) não pago(s)/expirado(s) removido(s) com sucesso!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      _fetchPayments(refresh: true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Falha ao expurgar pagamentos: $e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openSimulatePaymentDialog() async {
+    List<ApplicationModel> apps = [];
+    try {
+      apps = await _api.getApplications();
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    if (apps.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nenhuma aplicação cadastrada encontrada para simulação.'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    String selectedAppId = apps.first.id;
+    final amountController = TextEditingController(text: '10.00');
+    final descController = TextEditingController(text: 'Pagamento Simulado App');
+    bool autoApprove = false;
+    bool isSubmitting = false;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.science_rounded, color: AppColors.primary, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Simulador Pix (Sandbox)',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Selecione a Aplicação Destino:',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedAppId,
+                    dropdownColor: AppColors.surfaceAlt,
+                    decoration: const InputDecoration(
+                      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      filled: true,
+                      fillColor: AppColors.surfaceAlt,
+                    ),
+                    items: apps
+                        .map((app) => DropdownMenuItem(
+                              value: app.id,
+                              child: Text(app.name, style: const TextStyle(fontSize: 13)),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) setSheetState(() => selectedAppId = val);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Valor (R\$)',
+                      hintText: '10.00',
+                      prefixIcon: Icon(Icons.attach_money_rounded, color: AppColors.primary, size: 20),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: descController,
+                    decoration: const InputDecoration(
+                      labelText: 'Descrição (Opcional)',
+                      hintText: 'Ex: Teste simulado via Mobile',
+                      prefixIcon: Icon(Icons.description_outlined, color: AppColors.primary, size: 20),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Aprovação Imediata', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    subtitle: const Text(
+                      'Simula o pagamento e dispara o webhook imediatamente',
+                      style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+                    ),
+                    value: autoApprove,
+                    activeThumbColor: AppColors.primary,
+                    onChanged: (val) => setSheetState(() => autoApprove = val),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton(
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            final rawAmount = double.tryParse(amountController.text.replaceAll(',', '.'));
+                            if (rawAmount == null || rawAmount <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Informe um valor válido maior que zero.'),
+                                  backgroundColor: AppColors.danger,
+                                ),
+                              );
+                              return;
+                            }
+
+                            final messenger = ScaffoldMessenger.of(context);
+                            final nav = Navigator.of(context);
+                            setSheetState(() => isSubmitting = true);
+
+                            try {
+                              final payment = await _api.simulatePayment(
+                                applicationId: selectedAppId,
+                                amount: rawAmount,
+                                description: descController.text.trim(),
+                                autoApprove: autoApprove,
+                              );
+
+                              if (!mounted) return;
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              _fetchPayments(refresh: true);
+
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    autoApprove
+                                        ? 'Pagamento simulado criado e aprovado!'
+                                        : 'Pagamento Pix simulado gerado com sucesso!',
+                                  ),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+
+                              nav.push(
+                                MaterialPageRoute(
+                                  builder: (_) => PaymentDetailScreen(paymentId: payment.id),
+                                ),
+                              );
+                            } catch (e) {
+                              setSheetState(() => isSubmitting = false);
+                              if (!mounted) return;
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text('Falha ao simular pagamento: $e'),
+                                  backgroundColor: AppColors.danger,
+                                ),
+                              );
+                            }
+                          },
+                    child: isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                          )
+                        : const Text('Gerar Pagamento Simulado'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -180,23 +481,43 @@ class _PaymentsTabState extends State<PaymentsTab> {
           ),
         ),
 
-        // Result count bar
+        // Result count & Action bar
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           color: AppColors.background,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '$_totalCount transações encontradas',
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                '$_totalCount transações',
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
-              if (_isLoading)
+              if (_isLoading) ...[
+                const SizedBox(width: 8),
                 const SizedBox(
                   width: 12,
                   height: 12,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
+              ],
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.delete_sweep_rounded, color: AppColors.danger, size: 20),
+                tooltip: 'Expurgar Não Pagos / Expirados',
+                visualDensity: VisualDensity.compact,
+                onPressed: _openPurgeDialog,
+              ),
+              IconButton(
+                icon: const Icon(Icons.science_rounded, color: AppColors.primary, size: 20),
+                tooltip: 'Simulador Pix (Sandbox)',
+                visualDensity: VisualDensity.compact,
+                onPressed: _openSimulatePaymentDialog,
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary, size: 20),
+                tooltip: 'Atualizar Lista',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _fetchPayments(refresh: true),
+              ),
             ],
           ),
         ),
@@ -268,13 +589,14 @@ class _PaymentsTabState extends State<PaymentsTab> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => PaymentDetailScreen(paymentId: p.id),
             ),
           );
+          _fetchPayments(refresh: true);
         },
         child: Padding(
           padding: const EdgeInsets.all(14),

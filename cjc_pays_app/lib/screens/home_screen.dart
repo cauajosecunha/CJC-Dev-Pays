@@ -6,6 +6,7 @@ import 'dashboard_tab.dart';
 import 'login_screen.dart';
 import 'payments_tab.dart';
 import 'server_settings_screen.dart';
+import 'users_tab.dart';
 import 'webhooks_tab.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -24,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'Transações',
     'Aplicações & Chaves',
     'Fila de Webhooks',
+    'Administradores',
   ];
 
   void _onTabSelected(int index) {
@@ -130,6 +132,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Divider(height: 28),
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.primary),
+                title: const Text('Administradores do Sistema'),
+                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _onTabSelected(4);
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.settings_outlined, color: AppColors.primary),
                 title: const Text('Configurações do Servidor'),
@@ -243,6 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const PaymentsTab(),
           const ApplicationsTab(),
           const WebhooksTab(),
+          const UsersTab(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -264,6 +276,10 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.podcasts_rounded),
             label: 'Webhooks',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.admin_panel_settings_rounded),
+            label: 'Admins',
           ),
         ],
       ),

@@ -3,12 +3,14 @@ class AdminUser {
   final String email;
   final String username;
   final String name;
+  final DateTime? createdAt;
 
   AdminUser({
     required this.id,
     required this.email,
     required this.username,
     required this.name,
+    this.createdAt,
   });
 
   factory AdminUser.fromJson(Map<String, dynamic> json) {
@@ -17,6 +19,9 @@ class AdminUser {
       email: json['email']?.toString() ?? '',
       username: json['username']?.toString() ?? '',
       name: json['name']?.toString() ?? (json['username']?.toString() ?? 'Administrador'),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'].toString())
+          : null,
     );
   }
 
@@ -26,6 +31,7 @@ class AdminUser {
       'email': email,
       'username': username,
       'name': name,
+      if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
     };
   }
 
