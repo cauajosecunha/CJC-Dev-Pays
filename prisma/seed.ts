@@ -7,10 +7,10 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Iniciando seed do banco de dados CJC-Dev-Pays...');
 
-  // 1. Criar Usuário Administrador
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@cjcdev.com';
-  const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  // 1. Criar Usuário Administrador Inicial
+  const adminEmail = 'admin@cjcdev.com';
+  const adminUsername = 'admin';
+  const adminPassword = 'admin123';
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(adminPassword, salt);
 

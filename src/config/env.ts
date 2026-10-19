@@ -18,11 +18,6 @@ if (isProduction && (!jwtSecret || jwtSecret === 'cjc_dev_pays_super_secret_jwt_
   console.warn('⚠️ [AVISO DE SEGURANÇA] JWT_SECRET não configurado ou utilizando valor padrão em produção. Recomenda-se definir um segredo forte no .env!');
 }
 
-const adminPassword = process.env.ADMIN_PASSWORD;
-if (isProduction && (!adminPassword || adminPassword === 'admin123')) {
-  console.warn('⚠️ [AVISO DE SEGURANÇA] ADMIN_PASSWORD está utilizando o valor padrão "admin123". Recomenda-se alterá-la no .env de produção ou pelo painel!');
-}
-
 // Configuração de origens permitidas para CORS
 const envOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
@@ -40,8 +35,6 @@ export const config = {
   apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:4020',
   allowedOrigins,
   jwtSecret: jwtSecret || 'cjc_dev_pays_super_secret_jwt_token_2026',
-  adminUsername: process.env.ADMIN_USERNAME || 'admin',
-  adminPassword: adminPassword || 'admin123',
 
   // Mercado Pago
   mpSandbox: isSandbox,

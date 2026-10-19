@@ -41,12 +41,12 @@ export async function initDatabase(): Promise<void> {
       logger.success('Coluna `email` migrada e índice garantido em `admin_users`.');
     }
 
-    // 2. Garantir que exista ao menos 1 usuário administrador
+    // 2. Garantir que exista ao menos 1 usuário administrador se o banco estiver vazio
     const adminCount = await prisma.adminUser.count();
     if (adminCount === 0) {
-      const defaultEmail = process.env.ADMIN_EMAIL || 'admin@cjcdev.com';
-      const defaultUsername = process.env.ADMIN_USERNAME || 'admin';
-      const defaultPassword = process.env.ADMIN_PASSWORD || 'admin123';
+      const defaultEmail = 'admin@cjcdev.com';
+      const defaultUsername = 'admin';
+      const defaultPassword = 'admin123';
       const defaultHash = await bcrypt.hash(defaultPassword, 10);
 
       await prisma.adminUser.create({
@@ -58,9 +58,7 @@ export async function initDatabase(): Promise<void> {
         } as any,
       });
       logger.success(`Usuário administrador inicial criado (${defaultEmail}).`);
-      if (defaultPassword === 'admin123') {
-        logger.warn('⚠️ AVISO DE SEGURANÇA: Administrador inicial criado com a senha padrão "admin123". Altere imediatamente no painel!');
-      }
+      logger.warn('⚠️ AVISO DE SEGURANÇA: Administrador inicial criado com a senha padrão "admin123". Altere imediatamente no painel!');
     }
   } catch (error) {
     logger.error('Erro na inicialização/migração automática do banco SQLite:', error);
