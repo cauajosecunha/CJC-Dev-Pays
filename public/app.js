@@ -925,7 +925,7 @@ class CJCPaysApp {
 
           <!-- ID do Estabelecimento (Automático) -->
           <div class="crud-field-box">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="crud-field-header">
               <span class="crud-field-label">ID do Estabelecimento Contábil</span>
               <span style="font-size: 0.7rem; color: var(--accent-cyan); font-weight: 500;">Automático</span>
             </div>
