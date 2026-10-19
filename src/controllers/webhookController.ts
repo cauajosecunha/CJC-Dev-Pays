@@ -5,6 +5,7 @@ import { webhookDispatcher } from '../services/webhookDispatcher.js';
 import { whatsappService } from '../services/whatsappService.js';
 import { logger } from '../lib/logger.js';
 import { appEvents, EVENTS } from '../lib/eventEmitter.js';
+import { config } from '../config/env.js';
 
 export class WebhookController {
   /**
@@ -49,7 +50,15 @@ export class WebhookController {
       });
 
       if (!isSignatureValid) {
-        logger.warn(`Assinatura HMAC inválida para o webhook ${logEntry.id}. O evento continuará o fluxo se em modo sandbox.`);
+        logger.warn(`Assinatura HMAC inválida para o webhook ${logEntry.id}.`);
+        if (!config.mpSandbox && config.mpWebhookSecret) {
+          logger.error(`[WebhookController] Requisição rejeitada em produção por falha na assinatura HMAC (Log ID: ${logEntry.id}).`);
+          await prisma.webhookLog.update({
+            where: { id: logEntry.id },
+            data: { processed: true, error: 'Assinatura HMAC inválida rejeitada' },
+          });
+          return;
+        }
       }
 
       // Emite evento em tempo real para o Dashboard avisar o administrador

@@ -58,6 +58,9 @@ export async function initDatabase(): Promise<void> {
         } as any,
       });
       logger.success(`Usuário administrador inicial criado (${defaultEmail}).`);
+      if (defaultPassword === 'admin123') {
+        logger.warn('⚠️ AVISO DE SEGURANÇA: Administrador inicial criado com a senha padrão "admin123". Altere imediatamente no painel!');
+      }
     }
   } catch (error) {
     logger.error('Erro na inicialização/migração automática do banco SQLite:', error);

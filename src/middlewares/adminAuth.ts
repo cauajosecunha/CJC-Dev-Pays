@@ -28,7 +28,9 @@ export function adminAuth(req: AdminRequest, res: Response, next: NextFunction):
       return;
     }
 
-    const decoded = jwt.verify(token, config.jwtSecret) as { id: string; username: string };
+    const decoded = jwt.verify(token, config.jwtSecret, {
+      algorithms: ['HS256'],
+    }) as { id: string; username: string };
     req.adminUser = decoded;
     next();
   } catch (error) {

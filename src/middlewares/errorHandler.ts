@@ -23,8 +23,15 @@ export function errorHandler(
   }
 
   const statusCode = err.status || err.statusCode || 500;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  let clientMessage = err.message || 'Ocorreu um erro interno no servidor.';
+  if (statusCode >= 500 && isProduction) {
+    clientMessage = 'Ocorreu um erro interno no servidor. Por favor, tente novamente mais tarde.';
+  }
+
   res.status(statusCode).json({
     success: false,
-    error: err.message || 'Ocorreu um erro interno no servidor.',
+    error: clientMessage,
   });
 }

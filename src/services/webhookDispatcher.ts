@@ -5,6 +5,7 @@ import { logger } from '../lib/logger.js';
 import { config } from '../config/env.js';
 import { appEvents, EVENTS } from '../lib/eventEmitter.js';
 import { Payment, Application } from '@prisma/client';
+import { isSafeUrl } from '../lib/urlValidator.js';
 
 export interface DispatchEventOptions {
   payment: Payment;
@@ -87,6 +88,22 @@ class WebhookDispatcher {
       .createHmac('sha256', secret)
       .update(`t=${timestamp}&body=${payloadString}`)
       .digest('hex');
+
+    if (!isSafeUrl(targetUrl)) {
+      logger.error(`[WebhookDispatcher] URL de webhook bloqueada por segurança (SSRF): ${targetUrl}`);
+      await prisma.webhookDelivery.update({
+        where: { id: deliveryId },
+        data: {
+          status: 'FAILED',
+          httpStatus: null,
+          responseBody: 'URL bloqueada pela política de segurança (SSRF: IP ou domínio privado/inválido)',
+          attempts: 1,
+          nextRetryAt: null,
+          updatedAt: new Date(),
+        },
+      });
+      return false;
+    }
 
     try {
       logger.info(`Disparando webhook para ${targetUrl} (App: ${appSlug})`);

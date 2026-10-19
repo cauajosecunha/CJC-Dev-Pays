@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { paymentController } from '../controllers/paymentController.js';
 import { apiKeyAuth } from '../middlewares/apiKeyAuth.js';
+import { apiLimiter } from '../middlewares/rateLimiter.js';
 import { config } from '../config/env.js';
 
 export const apiRouter = Router();
 
-// Todas as rotas /v1 exigem autenticação por chave de API (X-Api-Key)
+// Aplica limitação de taxa e autenticação por chave de API (X-Api-Key)
+apiRouter.use(apiLimiter);
 apiRouter.use(apiKeyAuth);
 
 // Configuração pública ativa (Public Key do adquirente para tokenização no frontend)

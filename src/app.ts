@@ -12,17 +12,43 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicPath = path.resolve(__dirname, '../public');
 
+import { config } from './config/env.js';
+
 export const app = express();
 
 // Middlewares essenciais de segurança e parse
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com', 'data:'],
+        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+        connectSrc: ["'self'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
   })
 );
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Permite requisições sem origin (ex: server-to-server, curl) ou presentes na whitelist
+      if (!origin || config.allowedOrigins.includes(origin) || config.nodeEnv !== 'production') {
+        callback(null, true);
+      } else {
+        callback(new Error('Origem bloqueada pela política de CORS do CJC-Dev-Pays.'));
+      }
+    },
+    credentials: true,
+  })
+);
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Servir frontend web minimalista com desativação de cache para HTML
 app.use(

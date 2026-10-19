@@ -10,13 +10,38 @@ dotenv.config({ path: envPath, override: true });
 
 const isSandbox = String(process.env.MP_SANDBOX || '').trim().toLowerCase() === 'true';
 
+const isProduction = (process.env.NODE_ENV || 'development').toLowerCase() === 'production';
+
+// Validação estrita de segredos críticos em produção
+const jwtSecret = process.env.JWT_SECRET;
+if (isProduction && (!jwtSecret || jwtSecret === 'cjc_dev_pays_super_secret_jwt_token_2026')) {
+  throw new Error('CRITICAL SECURITY: Defina uma variável JWT_SECRET forte e única no arquivo .env em produção!');
+}
+
+const adminPassword = process.env.ADMIN_PASSWORD;
+if (isProduction && adminPassword === 'admin123') {
+  throw new Error('CRITICAL SECURITY: Altere a senha padrão do administrador (ADMIN_PASSWORD) no .env de produção!');
+}
+
+// Configuração de origens permitidas para CORS
+const envOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+  : [];
+const defaultOrigins = [
+  'https://pays.cjcdev.site',
+  'http://localhost:4020',
+  'http://127.0.0.1:4020',
+];
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+
 export const config = {
   port: parseInt(process.env.PORT || '4020', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:4020',
-  jwtSecret: process.env.JWT_SECRET || 'cjc_dev_pays_super_secret_jwt_token_2026',
+  allowedOrigins,
+  jwtSecret: jwtSecret || 'cjc_dev_pays_super_secret_jwt_token_2026',
   adminUsername: process.env.ADMIN_USERNAME || 'admin',
-  adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
+  adminPassword: adminPassword || 'admin123',
 
   // Mercado Pago
   mpSandbox: isSandbox,

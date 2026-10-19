@@ -949,20 +949,19 @@ class CJCPaysApp {
           </div>
 
           <!-- Bloco de Integração .env da Loja -->
-          <div class="crud-field-box" style="background: rgba(56, 189, 248, 0.05); border: 1px dashed rgba(56, 189, 248, 0.25); padding: 12px; border-radius: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span class="crud-field-label" style="color: var(--accent-cyan); font-weight: 600; margin: 0;">Configuração .env desta Loja</span>
+          <div class="crud-field-box crud-env-box">
+            <div class="crud-env-header">
+              <span class="crud-field-label crud-env-label">Configuração .env desta Loja</span>
               <button 
                 type="button" 
-                class="btn btn-primary btn-sm" 
-                style="padding: 3px 8px; font-size: 0.72rem;"
+                class="btn btn-primary btn-sm btn-copy-env" 
                 onclick="app.copyEnvSnippet('${app.apiKey}', '${app.webhookSecret}')" 
                 title="Copiar variáveis para o .env da loja"
               >
                 📋 Copiar .env
               </button>
             </div>
-            <pre style="font-size: 0.72rem; font-family: var(--font-mono); color: var(--text-secondary); margin: 0; line-height: 1.4; overflow-x: auto;">CJC_PAYS_BASE_URL=https://pays.cjcdev.site
+            <pre class="crud-env-pre">CJC_PAYS_BASE_URL=https://pays.cjcdev.site
 CJC_PAYS_API_KEY=${app.apiKey}
 CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
           </div>

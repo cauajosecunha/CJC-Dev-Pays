@@ -11,6 +11,7 @@ import { mercadoPagoService } from '../services/mercadoPagoService.js';
 import { appEvents, EVENTS } from '../lib/eventEmitter.js';
 import { logger } from '../lib/logger.js';
 import { expirationService } from '../services/expirationService.js';
+import { isSafeUrl } from '../lib/urlValidator.js';
 import axios from 'axios';
 
 export class AdminController {
@@ -104,8 +105,10 @@ export class AdminController {
       // Sincroniza pagamentos Pix que já ultrapassaram o tempo limite de 30 minutos
       await expirationService.processPendingExpirations();
 
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+      const rawPage = parseInt(req.query.page as string, 10);
+      const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+      const rawLimit = parseInt(req.query.limit as string, 10);
+      const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 20;
       const status = req.query.status as string;
       const appId = req.query.appId as string;
       const search = req.query.search as string;
@@ -198,23 +201,48 @@ export class AdminController {
     try {
       const id = String(req.params.id);
 
-      const payment = await prisma.payment.findUnique({
-        where: { id },
-        include: { application: true },
+      // Trava atômica no banco: muda status para REFUND_IN_PROCESS prevenindo duplo estorno concorrente
+      const lockResult = await prisma.payment.updateMany({
+        where: { id, status: 'APPROVED' },
+        data: {
+          status: 'REFUND_IN_PROCESS',
+          statusDetail: 'refund_processing_by_admin',
+          updatedAt: new Date(),
+        },
       });
 
-      if (!payment) {
-        res.status(404).json({ success: false, error: 'Pagamento não encontrado.' });
+      if (lockResult.count === 0) {
+        const current = await prisma.payment.findUnique({ where: { id } });
+        if (!current) {
+          res.status(404).json({ success: false, error: 'Pagamento não encontrado.' });
+        } else {
+          res.status(400).json({
+            success: false,
+            error: `Apenas pagamentos aprovados podem ser estornados. Status atual: ${current.status}`,
+          });
+        }
         return;
       }
 
-      if (payment.status !== 'APPROVED') {
-        res.status(400).json({ success: false, error: 'Apenas pagamentos aprovados podem ser estornados.' });
-        return;
-      }
+      const payment = (await prisma.payment.findUnique({
+        where: { id },
+        include: { application: true },
+      }))!;
 
-      if (payment.mpPaymentId) {
-        await mercadoPagoService.refundPayment(payment.mpPaymentId);
+      try {
+        if (payment.mpPaymentId) {
+          await mercadoPagoService.refundPayment(payment.mpPaymentId);
+        }
+      } catch (mpError) {
+        await prisma.payment.update({
+          where: { id },
+          data: {
+            status: 'APPROVED',
+            statusDetail: 'accredited',
+            updatedAt: new Date(),
+          },
+        });
+        throw mpError;
       }
 
       const updated = await prisma.payment.update({
@@ -260,10 +288,13 @@ export class AdminController {
         orderBy: { name: 'asc' },
       });
 
-      const applications = apps.map((app) => ({
-        ...app,
-        establishmentId: app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-'),
-      }));
+      const applications = apps.map((app) => {
+        const { apiKeyHash, ...safeApp } = app;
+        return {
+          ...safeApp,
+          establishmentId: app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-'),
+        };
+      });
 
       res.json({ success: true, applications });
     } catch (error) {
@@ -280,6 +311,14 @@ export class AdminController {
 
       if (!name || !slug) {
         res.status(400).json({ success: false, error: 'Nome e slug são obrigatórios.' });
+        return;
+      }
+
+      if (webhookUrl && !isSafeUrl(webhookUrl)) {
+        res.status(400).json({
+          success: false,
+          error: 'URL de webhook inválida ou rejeitada por segurança (IP privado/loopback não permitido).',
+        });
         return;
       }
 
@@ -322,6 +361,14 @@ export class AdminController {
     try {
       const id = String(req.params.id);
       const { name, webhookUrl, isActive } = req.body;
+
+      if (webhookUrl !== undefined && webhookUrl !== null && webhookUrl !== '' && !isSafeUrl(webhookUrl)) {
+        res.status(400).json({
+          success: false,
+          error: 'URL de webhook inválida ou rejeitada por segurança (IP privado/loopback não permitido).',
+        });
+        return;
+      }
 
       const updated = await prisma.application.update({
         where: { id },
@@ -458,6 +505,14 @@ export class AdminController {
         return;
       }
 
+      if (!isSafeUrl(app.webhookUrl)) {
+        res.status(400).json({
+          success: false,
+          error: 'URL de webhook bloqueada por segurança (SSRF: IP privado ou de loopback).',
+        });
+        return;
+      }
+
       const timestamp = Math.floor(Date.now() / 1000);
       const testPayload = JSON.stringify({
         event: 'system.ping',
@@ -509,8 +564,10 @@ export class AdminController {
    */
   async getDeliveries(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+      const rawPage = parseInt(req.query.page as string, 10);
+      const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+      const rawLimit = parseInt(req.query.limit as string, 10);
+      const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 20;
       const status = req.query.status as string;
       const appId = req.query.appId as string;
       const search = req.query.search as string;

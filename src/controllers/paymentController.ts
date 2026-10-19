@@ -9,6 +9,7 @@ import { webhookDispatcher } from '../services/webhookDispatcher.js';
 import { whatsappService } from '../services/whatsappService.js';
 import { config } from '../config/env.js';
 import { expirationService } from '../services/expirationService.js';
+import { isSafeUrl } from '../lib/urlValidator.js';
 
 const createPixSchema = z.object({
   external_reference: z.string().min(1, 'external_reference é obrigatório'),
@@ -26,7 +27,13 @@ const createPixSchema = z.object({
       })
       .optional(),
   }),
-  callback_url: z.string().url().optional(),
+  callback_url: z
+    .string()
+    .url()
+    .refine((url) => isSafeUrl(url), {
+      message: 'callback_url inválida ou rejeitada por segurança (IP privado/loopback não permitido)',
+    })
+    .optional(),
   metadata: z.record(z.any()).optional(),
 });
 
@@ -49,7 +56,13 @@ const createCardSchema = z.object({
       })
       .optional(),
   }),
-  callback_url: z.string().url().optional(),
+  callback_url: z
+    .string()
+    .url()
+    .refine((url) => isSafeUrl(url), {
+      message: 'callback_url inválida ou rejeitada por segurança (IP privado/loopback não permitido)',
+    })
+    .optional(),
   metadata: z.record(z.any()).optional(),
 });
 
@@ -69,21 +82,6 @@ export class PaymentController {
         finalReference = `${estabId}-${finalReference}`;
       }
 
-      // Verifica se a referência externa já existe
-      const existing = await prisma.payment.findUnique({
-        where: { externalReference: finalReference },
-      });
-
-      if (existing) {
-        res.status(409).json({
-          success: false,
-          error: `Já existe um pagamento registrado com a referência '${finalReference}'.`,
-          payment_id: existing.id,
-          status: existing.status,
-        });
-        return;
-      }
-
       const expirationMinutes = validated.expiration_minutes || 30;
       const expirationDate = new Date(Date.now() + expirationMinutes * 60 * 1000);
 
@@ -99,45 +97,76 @@ export class PaymentController {
         cjc_app_slug: app.slug,
       };
 
-      const notificationUrl = `${config.apiBaseUrl}/api/webhooks/mercadopago`;
+      // Criação preventiva atômica no banco para reservar a referência e impedir race condition
+      let payment;
+      try {
+        payment = await prisma.payment.create({
+          data: {
+            applicationId: app.id,
+            externalReference: finalReference,
+            paymentMethod: 'PIX',
+            status: 'PENDING',
+            statusDetail: 'pending_waiting_transfer',
+            amount: validated.amount,
+            description: validated.description,
+            payerEmail: validated.payer.email,
+            payerName: [validated.payer.first_name, validated.payer.last_name].filter(Boolean).join(' ') || null,
+            payerDocument: validated.payer.identification?.number || null,
+            callbackUrl: validated.callback_url || null,
+            metadata: JSON.stringify(combinedMetadata),
+          },
+        });
+      } catch (dbError: any) {
+        if (dbError.code === 'P2002') {
+          const existing = await prisma.payment.findUnique({ where: { externalReference: finalReference } });
+          res.status(409).json({
+            success: false,
+            error: `Já existe um pagamento registrado com a referência '${finalReference}'.`,
+            payment_id: existing?.id,
+            status: existing?.status,
+          });
+          return;
+        }
+        throw dbError;
+      }
 
-      // Chama Mercado Pago com expiração configurada
-      const mpResult = await mercadoPagoService.createPix({
-        amount: validated.amount,
-        description: validated.description,
-        externalReference: finalReference,
-        expirationMinutes,
-        payer: {
-          email: validated.payer.email,
-          firstName: validated.payer.first_name,
-          lastName: validated.payer.last_name,
-          identification: validated.payer.identification,
-        },
-        notificationUrl,
-        metadata: combinedMetadata,
-      });
-
-      // Salva no banco de dados
-      const payment = await prisma.payment.create({
-        data: {
-          applicationId: app.id,
+      // Referência garantida de forma exclusiva; dispara a cobrança ao Mercado Pago
+      let mpResult;
+      try {
+        const notificationUrl = `${config.apiBaseUrl}/api/webhooks/mercadopago`;
+        mpResult = await mercadoPagoService.createPix({
+          amount: validated.amount,
+          description: validated.description,
           externalReference: finalReference,
+          expirationMinutes,
+          payer: {
+            email: validated.payer.email,
+            firstName: validated.payer.first_name,
+            lastName: validated.payer.last_name,
+            identification: validated.payer.identification,
+          },
+          notificationUrl,
+          metadata: combinedMetadata,
+        });
+      } catch (mpError) {
+        // Se a chamada externa falhar, remove a reserva pendente do banco
+        await prisma.payment.delete({ where: { id: payment.id } }).catch(() => {});
+        throw mpError;
+      }
+
+      // Atualiza dados consolidados recebidos do Mercado Pago
+      payment = await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
           mpPaymentId: mpResult.id,
-          paymentMethod: 'PIX',
           status: mpResult.status,
           statusDetail: mpResult.statusDetail,
           amount: mpResult.amount,
           feeAmount: mpResult.feeAmount,
           netReceivedAmount: mpResult.netReceivedAmount,
-          description: validated.description,
-          payerEmail: validated.payer.email,
-          payerName: [validated.payer.first_name, validated.payer.last_name].filter(Boolean).join(' ') || null,
-          payerDocument: validated.payer.identification?.number || null,
           qrCode: mpResult.qrCode,
           qrCodeBase64: mpResult.qrCodeBase64,
           ticketUrl: mpResult.ticketUrl,
-          callbackUrl: validated.callback_url || null,
-          metadata: JSON.stringify(combinedMetadata),
         },
       });
 
@@ -186,18 +215,6 @@ export class PaymentController {
         finalReference = `${estabId}-${finalReference}`;
       }
 
-      const existing = await prisma.payment.findUnique({
-        where: { externalReference: finalReference },
-      });
-
-      if (existing) {
-        res.status(409).json({
-          success: false,
-          error: `Já existe um pagamento com a referência '${finalReference}'.`,
-        });
-        return;
-      }
-
       const combinedMetadata = {
         estabelecimento_id: estabId,
         estabelecimento_nome: app.name,
@@ -207,42 +224,69 @@ export class PaymentController {
         cjc_app_slug: app.slug,
       };
 
-      const notificationUrl = `${config.apiBaseUrl}/api/webhooks/mercadopago`;
+      // Criação preventiva atômica no banco para reservar a referência e impedir race condition
+      let payment;
+      try {
+        payment = await prisma.payment.create({
+          data: {
+            applicationId: app.id,
+            externalReference: finalReference,
+            paymentMethod: validated.payment_method_id.toLowerCase().startsWith('deb') ? 'DEBIT_CARD' : 'CREDIT_CARD',
+            status: 'PENDING',
+            statusDetail: 'pending_gateway',
+            amount: validated.amount,
+            description: validated.description,
+            payerEmail: validated.payer.email,
+            payerDocument: validated.payer.identification?.number || null,
+            callbackUrl: validated.callback_url || null,
+            metadata: JSON.stringify(combinedMetadata),
+          },
+        });
+      } catch (dbError: any) {
+        if (dbError.code === 'P2002') {
+          res.status(409).json({
+            success: false,
+            error: `Já existe um pagamento com a referência '${finalReference}'.`,
+          });
+          return;
+        }
+        throw dbError;
+      }
 
-      const mpResult = await mercadoPagoService.createCardPayment({
-        amount: validated.amount,
-        description: validated.description,
-        externalReference: finalReference,
-        token: validated.token,
-        paymentMethodId: validated.payment_method_id,
-        installments: validated.installments,
-        issuerId: validated.issuer_id,
-        payer: {
-          email: validated.payer.email,
-          firstName: validated.payer.first_name,
-          lastName: validated.payer.last_name,
-          identification: validated.payer.identification,
-        },
-        notificationUrl,
-        metadata: combinedMetadata,
-      });
-
-      const payment = await prisma.payment.create({
-        data: {
-          applicationId: app.id,
+      let mpResult;
+      try {
+        const notificationUrl = `${config.apiBaseUrl}/api/webhooks/mercadopago`;
+        mpResult = await mercadoPagoService.createCardPayment({
+          amount: validated.amount,
+          description: validated.description,
           externalReference: finalReference,
+          token: validated.token,
+          paymentMethodId: validated.payment_method_id,
+          installments: validated.installments,
+          issuerId: validated.issuer_id,
+          payer: {
+            email: validated.payer.email,
+            firstName: validated.payer.first_name,
+            lastName: validated.payer.last_name,
+            identification: validated.payer.identification,
+          },
+          notificationUrl,
+          metadata: combinedMetadata,
+        });
+      } catch (mpError) {
+        await prisma.payment.delete({ where: { id: payment.id } }).catch(() => {});
+        throw mpError;
+      }
+
+      payment = await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
           mpPaymentId: mpResult.id,
-          paymentMethod: validated.payment_method_id.toLowerCase().startsWith('deb') ? 'DEBIT_CARD' : 'CREDIT_CARD',
           status: mpResult.status,
           statusDetail: mpResult.statusDetail,
           amount: mpResult.amount,
           feeAmount: mpResult.feeAmount,
           netReceivedAmount: mpResult.netReceivedAmount,
-          description: validated.description,
-          payerEmail: validated.payer.email,
-          payerDocument: validated.payer.identification?.number || null,
-          callbackUrl: validated.callback_url || null,
-          metadata: JSON.stringify(combinedMetadata),
           paidAt: mpResult.status === 'APPROVED' ? new Date() : null,
         },
       });
@@ -379,25 +423,46 @@ export class PaymentController {
       const id = String(req.params.id);
       const app = req.application!;
 
-      const payment = await prisma.payment.findFirst({
-        where: { id, applicationId: app.id },
+      // Trava atômica no banco: muda status para REFUND_IN_PROCESS prevenindo duplo estorno concorrente
+      const lockResult = await prisma.payment.updateMany({
+        where: { id, applicationId: app.id, status: 'APPROVED' },
+        data: {
+          status: 'REFUND_IN_PROCESS',
+          statusDetail: 'refund_processing',
+          updatedAt: new Date(),
+        },
       });
 
-      if (!payment) {
-        res.status(404).json({ success: false, error: 'Pagamento não encontrado.' });
+      if (lockResult.count === 0) {
+        const current = await prisma.payment.findFirst({ where: { id, applicationId: app.id } });
+        if (!current) {
+          res.status(404).json({ success: false, error: 'Pagamento não encontrado.' });
+        } else {
+          res.status(400).json({
+            success: false,
+            error: `Apenas pagamentos aprovados podem ser estornados. Status atual: ${current.status}`,
+          });
+        }
         return;
       }
 
-      if (payment.status !== 'APPROVED') {
-        res.status(400).json({
-          success: false,
-          error: `Apenas pagamentos aprovados podem ser estornados. Status atual: ${payment.status}`,
+      const payment = (await prisma.payment.findUnique({ where: { id } }))!;
+
+      try {
+        if (payment.mpPaymentId) {
+          await mercadoPagoService.refundPayment(payment.mpPaymentId);
+        }
+      } catch (mpError) {
+        // Em caso de falha externa no Mercado Pago, reverte o status para APPROVED
+        await prisma.payment.update({
+          where: { id },
+          data: {
+            status: 'APPROVED',
+            statusDetail: 'accredited',
+            updatedAt: new Date(),
+          },
         });
-        return;
-      }
-
-      if (payment.mpPaymentId) {
-        await mercadoPagoService.refundPayment(payment.mpPaymentId);
+        throw mpError;
       }
 
       const updated = await prisma.payment.update({

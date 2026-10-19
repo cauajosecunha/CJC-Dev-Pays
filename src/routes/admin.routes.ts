@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { adminController } from '../controllers/adminController.js';
 import { sseStreamHandler } from '../controllers/sseController.js';
 import { adminAuth } from '../middlewares/adminAuth.js';
+import { loginLimiter } from '../middlewares/rateLimiter.js';
 
 export const adminRouter = Router();
 
-// Rota pública de login
-adminRouter.post('/auth/login', (req, res, next) => adminController.login(req, res, next));
+// Rota pública de login com proteção de rate limit contra força bruta
+adminRouter.post('/auth/login', loginLimiter, (req, res, next) => adminController.login(req, res, next));
 
 // Rotas protegidas por autenticação administrativa
 adminRouter.use(adminAuth);
