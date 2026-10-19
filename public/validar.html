@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Validador de Autenticidade Contábil — CJC Dev Pays</title>
+  <link rel="icon" type="image/png" href="/Fintech-CJC-Dev-PAYS.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #090d16;
+      --bg-surface: #0f172a;
+      --bg-card: #1e293b;
+      --border-subtle: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-cyan: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-rose: #f43f5e;
+      --accent-amber: #f59e0b;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 32px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+    }
+
+    .brand-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .brand-logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(56, 189, 248, 0.2);
+      margin-bottom: 14px;
+    }
+
+    .brand-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-title span {
+      color: var(--accent-cyan);
+    }
+
+    .brand-subtitle {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 24px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      line-height: 1.45;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 10px;
+    }
+
+    .input-code {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: #ffffff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 12px 16px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .input-code:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+
+    .btn-validate {
+      background: #0284c7;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 0 20px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .btn-validate:hover {
+      background: #0369a1;
+      transform: translateY(-1px);
+    }
+
+    .result-container {
+      margin-top: 24px;
+      display: none;
+    }
+
+    /* Selo de Validação */
+    .seal-box {
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .seal-valid {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #34d399;
+    }
+
+    .seal-invalid {
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      color: #fb7185;
+    }
+
+    .seal-icon {
+      font-size: 32px;
+    }
+
+    .seal-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    .seal-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Grid de Dados Auditados */
+    .audit-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 580px) {
+      .audit-grid {
+        grid-template-columns: 1fr;
+      }
+      .search-box {
+        flex-direction: column;
+      }
+    }
+
+    .data-card {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .data-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.4px;
+    }
+
+    .data-val {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-top: 3px;
+    }
+
+    .data-val-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+    }
+
+    /* Tabela de Totais Fiscais */
+    .totals-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      font-size: 0.85rem;
+    }
+
+    .totals-table th {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .totals-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #cbd5e1;
+    }
+
+    .totals-table td.val-col {
+      text-align: right;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .text-success { color: var(--accent-emerald) !important; }
+    .text-danger { color: var(--accent-rose) !important; }
+    .text-warning { color: var(--accent-amber) !important; }
+
+    .hash-badge {
+      background: var(--bg-card);
+      border: 1px dashed var(--border-subtle);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      word-break: break-all;
+      margin-top: 12px;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-top: 24px;
+    }
+
+    .footer a {
+      color: var(--accent-cyan);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="brand-header">
+      <img src="/Fintech-CJC-Dev-PAYS.png" alt="CJC Dev Pays" class="brand-logo">
+      <h1 class="brand-title">CJC <span>DEV PAYS</span></h1>
+      <p class="brand-subtitle">Validador Público de Autenticidade Contábil & Split Financeiro</p>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">🔍 Consulta de Autenticidade do Relatório</h2>
+      <p class="card-desc">
+        Informe o código de autenticação impresso no cabeçalho ou rodapé do demonstrativo contábil recebido (ex: <code>CJC-FIN-202610-A98BC</code>) para verificar se o documento foi oficialmente emitido e se os valores coincidem com o banco de dados.
+      </p>
+
+      <form id="form-validate" onsubmit="event.preventDefault(); validateCode();">
+        <div class="search-box">
+          <input type="text" id="input-code" class="input-code" placeholder="CJC-FIN-YYYYMM-XXXXX" required autocomplete="off">
+          <button type="submit" class="btn-validate" id="btn-submit">
+            <span>🛡️</span> Validar Documento
+          </button>
+        </div>
+      </form>
+
+      <!-- Resultado da Consulta -->
+      <div id="result-box" class="result-container">
+        <!-- Renderizado via JavaScript -->
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>© 2026 CJC Dev Pays • Central de Split de Pagamentos • <a href="/">Acessar Painel</a></p>
+    </div>
+  </div>
+
+  <script>
+    function formatCurrency(val) {
+      return Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    async function validateCode(codeOverride) {
+      const input = document.getElementById('input-code');
+      const resultBox = document.getElementById('result-box');
+      const submitBtn = document.getElementById('btn-submit');
+      const code = (codeOverride || input.value || '').trim().toUpperCase();
+
+      if (!code) return;
+      input.value = code;
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>⏳</span> Verificando...';
+      resultBox.style.display = 'block';
+      resultBox.innerHTML = '<div style="text-align: center; padding: 24px; color: #94a3b8;">Consultando a base de dados central...</div>';
+
+      try {
+        const res = await fetch(`/api/public/validate-report/${encodeURIComponent(code)}`);
+        const data = await res.json();
+
+        if (data.valid && data.audit) {
+          const a = data.audit;
+          const comp = a.company || {};
+
+          resultBox.innerHTML = `
+            <div class="seal-box seal-valid">
+              <div class="seal-icon">✅</div>
+              <div>
+                <div class="seal-title">DOCUMENTO AUTÊNTICO E AUDITADO</div>
+                <div class="seal-sub">Emitido oficialmente pela Central CJC Dev Pays em ${new Date(a.issuedAt).toLocaleString('pt-BR')}.</div>
+              </div>
+            </div>
+
+            <div class="audit-grid">
+              <div class="data-card">
+                <div class="data-label">Código de Autenticação</div>
+                <div class="data-val data-val-mono" style="color: var(--accent-cyan);">${a.code}</div>
+              </div>
+              <div class="data-card">
+                <div class="data-label">Período de Apuração</div>
+                <div class="data-val">${a.periodLabel}</div>
+              </div>
+              <div class="data-card">
+                <div class="data-label">Empresa Emissora (Central)</div>
+                <div class="data-val">${comp.legalName || 'CJC Dev Soluções'}</div>
+                <div style="font-size: 0.75rem; color: #94a3b8;">CNPJ: ${comp.cnpj || 'Não informado'}</div>
+              </div>
+              <div class="data-card">
+                <div class="data-label">Aplicação / Loja Parceira</div>
+                <div class="data-val">${a.applicationName}</div>
+              </div>
+            </div>
+
+            <div style="font-size: 0.85rem; font-weight: 700; color: #ffffff; margin: 18px 0 8px 0;">
+              📊 Totais Fiscais Auditados na Base de Dados:
+            </div>
+
+            <table class="totals-table">
+              <thead>
+                <tr>
+                  <th>Rubrica Contábil</th>
+                  <th style="text-align: right;">Valor Registrado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>(+) Volume Bruto Transacionado (GMV)</td>
+                  <td class="val-col" style="color: #ffffff;">${formatCurrency(a.grossVolume)}</td>
+                </tr>
+                <tr>
+                  <td>(-) Custos de Intermediação Mercado Pago</td>
+                  <td class="val-col text-danger">(${formatCurrency(a.mpFeeVolume)})</td>
+                </tr>
+                <tr>
+                  <td>(=) Comissões da Plataforma CJC Dev Pays</td>
+                  <td class="val-col text-success">${formatCurrency(a.commissionVolume)}</td>
+                </tr>
+                <tr style="background: rgba(16, 185, 129, 0.06);">
+                  <td><strong>(=) Repasse Líquido à Loja Parceira</strong></td>
+                  <td class="val-col text-warning" style="font-size: 0.95rem;">${formatCurrency(a.netPayoutVolume)}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="margin-top: 16px;">
+              <div class="data-label">Assinatura Criptográfica de Integridade (SHA-256)</div>
+              <div class="hash-badge">${a.dataHash}</div>
+            </div>
+          `;
+        } else {
+          resultBox.innerHTML = `
+            <div class="seal-box seal-invalid">
+              <div class="seal-icon">❌</div>
+              <div>
+                <div class="seal-title">DOCUMENTO NÃO LOCALIZADO OU INVÁLIDO</div>
+                <div class="seal-sub">${data.message || 'Código de autenticação não encontrado em nossa base de dados.'}</div>
+              </div>
+            </div>
+            <p style="font-size: 0.82rem; color: #94a3b8; line-height: 1.45;">
+              Este documento pode ser uma falsificação ou os valores podem ter sido adulterados. Por favor, solicite ao emissor uma nova via oficial gerada diretamente pela plataforma.
+            </p>
+          `;
+        }
+      } catch (err) {
+        console.error(err);
+        resultBox.innerHTML = `
+          <div class="seal-box seal-invalid">
+            <div class="seal-icon">⚠️</div>
+            <div>
+              <div class="seal-title">ERRO DE COMUNICAÇÃO</div>
+              <div class="seal-sub">Não foi possível consultar o servidor no momento. Verifique sua conexão.</div>
+            </div>
+          </div>
+        `;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>🛡️</span> Validar Documento';
+      }
+    }
+
+    // Leitura automática de query params (?codigo=CJC-FIN-...)
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('codigo') || urlParams.get('code');
+      if (code) {
+        document.getElementById('input-code').value = code;
+        validateCode(code);
+      }
+    });
+  </script>
+</body>
+</html>

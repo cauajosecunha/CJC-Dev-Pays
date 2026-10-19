@@ -114,8 +114,39 @@ model PlatformSettings {
   commissionPixPercent    Float    @default(1.00)
   commissionCreditPercent Float    @default(2.00)
   commissionDebitPercent  Float    @default(1.50)
+
+  // Informações Fiscais e Cadastrais da Empresa Emissora
+  companyLegalName        String   @default("CJC Dev Soluções Tecnológicas")
+  companyTradeName        String   @default("CJC Dev Pays")
+  companyCnpj             String   @default("")
+  companyStateTaxId       String   @default("")
+  companyMunicipalTaxId   String   @default("")
+  companyAddress          String   @default("")
+  companyCityState        String   @default("")
+  companyZipCode          String   @default("")
+  companyEmail            String   @default("financeiro@cjcdev.com.br")
+  companyPhone            String   @default("")
+
   updatedAt               DateTime @updatedAt
 
   @@map("platform_settings")
+}
+
+model ReportAudit {
+  id                String   @id @default(cuid())
+  code              String   @unique // Código no formato CJC-FIN-YYYYMM-XXXXX
+  periodLabel       String
+  applicationId     String?
+  applicationName   String   @default("Consolidado Geral")
+  grossVolume       Float
+  mpFeeVolume       Float
+  commissionVolume  Float
+  netPayoutVolume   Float
+  transactionsCount Int      @default(0)
+  dataHash          String   // Assinatura SHA-256 do balancete
+  issuedBy          String   @default("Administrador")
+  issuedAt          DateTime @default(now())
+
+  @@map("report_audits")
 }
 

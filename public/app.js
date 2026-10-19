@@ -178,6 +178,7 @@ class CJCPaysApp {
       'webhooks-view': 'Fila de Webhooks',
       'users-view': 'Administradores',
       'fees-view': 'Taxas & Comissões',
+      'company-view': 'Dados Fiscais & Empresa',
     };
     const tag = document.getElementById('topbar-current-page-tag');
     if (tag) {
@@ -204,6 +205,8 @@ class CJCPaysApp {
       this.loadAdminUsersCRUD();
     } else if (viewId === 'fees-view') {
       this.loadFeeSettings();
+    } else if (viewId === 'company-view') {
+      this.loadCompanySettings();
     }
   }
 
@@ -517,6 +520,39 @@ class CJCPaysApp {
       'fee-comm-debit',
     ].forEach((id) => {
       document.getElementById(id)?.addEventListener('input', () => this.updateLiveFeeSimulation());
+    });
+
+    // Configurações Cadastrais & Fiscais da Empresa
+    document.getElementById('btn-refresh-company')?.addEventListener('click', () => this.loadCompanySettings());
+    document.getElementById('btn-save-company')?.addEventListener('click', () => this.handleSaveCompany());
+    document.getElementById('form-company-settings')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleSaveCompany();
+    });
+
+    // Máscaras de entrada para CNPJ e CEP
+    document.getElementById('company-cnpj')?.addEventListener('input', (e) => {
+      let v = e.target.value.replace(/\D/g, '');
+      if (v.length > 14) v = v.slice(0, 14);
+      if (v.length > 12) {
+        v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2})$/, '$1.$2.$3/$4-$5');
+      } else if (v.length > 8) {
+        v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{1,4})$/, '$1.$2.$3/$4');
+      } else if (v.length > 5) {
+        v = v.replace(/^(\d{2})(\d{3})(\d{1,3})$/, '$1.$2.$3');
+      } else if (v.length > 2) {
+        v = v.replace(/^(\d{2})(\d{1,3})$/, '$1.$2');
+      }
+      e.target.value = v;
+    });
+
+    document.getElementById('company-zip-code')?.addEventListener('input', (e) => {
+      let v = e.target.value.replace(/\D/g, '');
+      if (v.length > 8) v = v.slice(0, 8);
+      if (v.length > 5) {
+        v = v.replace(/^(\d{5})(\d{1,3})$/, '$1-$2');
+      }
+      e.target.value = v;
     });
 
     // Eventos do Módulo Financeiro & Contábil (Filtro Único Baseado em Mêses)
@@ -2454,6 +2490,107 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     }
   }
 
+  // ==================== DADOS CADASTRAIS & FISCAIS DA EMPRESA ====================
+  async loadCompanySettings() {
+    try {
+      const res = await fetch('/api/admin/settings/company', { headers: this.getHeaders() });
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        return;
+      }
+      const data = await res.json();
+      if (!data.success) return;
+
+      const s = data.settings;
+      this.companySettingsCache = s;
+
+      const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val || '';
+      };
+
+      setVal('company-legal-name', s.companyLegalName);
+      setVal('company-trade-name', s.companyTradeName);
+      setVal('company-cnpj', s.companyCnpj);
+      setVal('company-state-tax-id', s.companyStateTaxId);
+      setVal('company-municipal-tax-id', s.companyMunicipalTaxId);
+      setVal('company-address', s.companyAddress);
+      setVal('company-city-state', s.companyCityState);
+      setVal('company-zip-code', s.companyZipCode);
+      setVal('company-email', s.companyEmail);
+      setVal('company-phone', s.companyPhone);
+    } catch (e) {
+      console.error('Erro ao carregar dados fiscais:', e);
+      this.showToast('Erro ao carregar dados fiscais da empresa.', 'warning');
+    }
+  }
+
+  async handleSaveCompany() {
+    const submitBtn = document.getElementById('btn-save-company');
+    const legalName = document.getElementById('company-legal-name')?.value.trim();
+    const tradeName = document.getElementById('company-trade-name')?.value.trim();
+    const cnpj = document.getElementById('company-cnpj')?.value.trim();
+    const stateTaxId = document.getElementById('company-state-tax-id')?.value.trim();
+    const municipalTaxId = document.getElementById('company-municipal-tax-id')?.value.trim();
+    const address = document.getElementById('company-address')?.value.trim();
+    const cityState = document.getElementById('company-city-state')?.value.trim();
+    const zipCode = document.getElementById('company-zip-code')?.value.trim();
+    const email = document.getElementById('company-email')?.value.trim();
+    const phone = document.getElementById('company-phone')?.value.trim();
+
+    if (!legalName) {
+      this.showToast('Por favor, informe a Razão Social da empresa.', 'warning');
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Salvando...';
+    }
+
+    try {
+      const res = await fetch('/api/admin/settings/company', {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          companyLegalName: legalName,
+          companyTradeName: tradeName,
+          companyCnpj: cnpj,
+          companyStateTaxId: stateTaxId,
+          companyMunicipalTaxId: municipalTaxId,
+          companyAddress: address,
+          companyCityState: cityState,
+          companyZipCode: zipCode,
+          companyEmail: email,
+          companyPhone: phone,
+        }),
+      });
+
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        return;
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        this.companySettingsCache = data.settings;
+        this.showToast('✅ Informações cadastrais e fiscais salvas com sucesso!', 'success');
+      } else {
+        this.showToast(data.error || 'Falha ao salvar dados fiscais.', 'warning');
+      }
+    } catch (e) {
+      console.error('Erro ao salvar dados fiscais:', e);
+      this.showToast('Erro de comunicação ao salvar dados fiscais.', 'warning');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>💾</span> Salvar Dados Fiscais';
+      }
+    }
+  }
+
   // ==================== MÓDULO FINANCEIRO & CONTÁBIL ====================
   async populateFinancialAppOptions() {
     const select = document.getElementById('fin-filter-app');
@@ -2860,10 +2997,35 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
         if (found) appFilterName = `${found.name} (${found.slug})`;
       }
 
-      // 4. Monta o documento HTML completo com estilos formais para A4
-      const reportHtml = this.buildPrintableFinancialReportHtml(report, appFilterName);
+      // 4. Registra auditoria contábil oficial no banco de dados
+      let auditCode = null;
+      try {
+        const auditRes = await fetch('/api/admin/financial/audit/register', {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({
+            periodLabel: report.periodLabel,
+            applicationId: this.financialFilters.applicationId || null,
+            applicationName: appFilterName,
+            grossVolume: report.kpis.totalGrossVolume,
+            mpFeeVolume: report.kpis.totalMpFees,
+            commissionVolume: report.kpis.totalCjcCommission,
+            netPayoutVolume: report.kpis.totalNetPayout,
+            transactionsCount: report.kpis.approvedCount,
+          }),
+        });
+        if (auditRes.ok) {
+          const auditData = await auditRes.json();
+          auditCode = auditData.audit?.code;
+        }
+      } catch (auditErr) {
+        console.warn('Aviso ao registrar auditoria contábil:', auditErr);
+      }
 
-      // 5. Injeta no documento da janela de impressão
+      // 5. Monta o documento HTML completo com estilos formais para A4
+      const reportHtml = this.buildPrintableFinancialReportHtml(report, appFilterName, auditCode);
+
+      // 6. Injeta no documento da janela de impressão
       printWindow.document.open();
       printWindow.document.write(reportHtml);
       printWindow.document.close();
@@ -2884,12 +3046,25 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     }
   }
 
-  buildPrintableFinancialReportHtml(report, appFilterName) {
+  buildPrintableFinancialReportHtml(report, appFilterName, auditCode) {
     const { kpis, dre } = report;
     const now = new Date();
     const emissionDateStr = now.toLocaleDateString('pt-BR');
     const emissionTimeStr = now.toLocaleTimeString('pt-BR');
-    const docId = `CJC-FIN-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    const docId = auditCode || `CJC-FIN-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    const comp = report.company || this.companySettingsCache || {
+      legalName: 'CJC Dev Soluções Tecnológicas',
+      tradeName: 'CJC Dev Pays',
+      cnpj: '',
+      stateTaxId: '',
+      municipalTaxId: '',
+      address: '',
+      cityState: '',
+      zipCode: '',
+      email: 'financeiro@cjcdev.com.br',
+      phone: '',
+    };
 
     const gross = dre.receitaBrutaTotal || 0;
     const calcPct = (val) => (gross > 0 ? ((val / gross) * 100).toFixed(2).replace('.', ',') + '%' : '0,00%');
@@ -3392,15 +3567,21 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     <!-- Cabeçalho Institucional -->
     <header class="report-header">
       <div>
-        <div class="company-brand">CJC <span>DEV PAYS</span></div>
-        <div class="company-sub">Central Unificada de Pagamentos & Split Financeiro Inteligente</div>
-        <div class="company-sub">CNPJ: 54.321.987/0001-00 • Pays.cjcdev.site • Ambiente Produção</div>
+        <div class="company-brand">${comp.tradeName || 'CJC DEV PAYS'}</div>
+        <div class="company-sub" style="font-weight: 600; color: #0f172a;">${comp.legalName || 'CJC Dev Soluções Tecnológicas'}</div>
+        <div class="company-sub">
+          CNPJ: <strong>${comp.cnpj || 'Não configurado (preencher em Dados Fiscais)'}</strong>
+          ${comp.stateTaxId ? ` • IE: ${comp.stateTaxId}` : ''}
+          ${comp.address ? ` • ${comp.address}` : ''}
+          ${comp.cityState ? ` • ${comp.cityState}` : ''}
+          ${comp.email ? ` • Contato: ${comp.email}` : ''}
+        </div>
       </div>
       <div class="header-meta">
-        <div class="header-doc-badge">Documento Oficial</div>
-        <div><strong>Autenticação:</strong> <span class="font-mono">${docId}</span></div>
+        <div class="header-doc-badge">Documento Oficial Auditado</div>
+        <div><strong>Autenticação:</strong> <span class="font-mono" style="color: #0284c7; font-weight: 700;">${docId}</span></div>
         <div><strong>Emissão:</strong> ${emissionDateStr} às ${emissionTimeStr}</div>
-        <div><strong>Operador:</strong> Administrador do Sistema</div>
+        <div><strong>Validação:</strong> <a href="https://pays.cjcdev.site/validar.html?codigo=${encodeURIComponent(docId)}" target="_blank" style="color: #0284c7; text-decoration: none; font-weight: 600;">pays.cjcdev.site/validar.html</a></div>
       </div>
     </header>
 
@@ -3621,12 +3802,12 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     <!-- Seção 6: Termo de Encerramento e Assinaturas -->
     <div class="audit-footer page-break-avoid">
       <div class="audit-text">
-        <strong>TERMO DE AUDITORIA E ENCERRAMENTO CONTÁBIL:</strong> Certificamos para os devidos fins de prestação de contas fiscais e societárias que as informações, somatórios e conciliações detalhados neste relatório foram extraídos diretamente da base de dados transacional da Central CJC Dev Pays. Os valores representam com fidedignidade as movimentações financeiras, retenções adquirentes do Mercado Pago e comissões da plataforma registradas no período de apuração indicado.
+        <strong>TERMO DE AUDITORIA E ENCERRAMENTO CONTÁBIL:</strong> Certificamos para os devidos fins de prestação de contas fiscais e societárias que as informações, somatórios e conciliações detalhados neste relatório foram extraídos diretamente da base de dados transacional da Central ${comp.tradeName || 'CJC Dev Pays'}, operada por ${comp.legalName || 'CJC Dev Soluções Tecnológicas'}${comp.cnpj ? ` (CNPJ: ${comp.cnpj})` : ''}. Os valores representam com fidedignidade as movimentações financeiras, retenções adquirentes do Mercado Pago e comissões da plataforma registradas no período de apuração indicado.
       </div>
       <div class="signatures-grid">
         <div class="signature-item">
           <div class="signature-line"></div>
-          <div class="signature-role">CJC DEV PAYS - GESTÃO FINANCEIRA</div>
+          <div class="signature-role">${(comp.legalName || 'CJC DEV PAYS').toUpperCase()}</div>
           <div class="signature-sub">Administração da Plataforma</div>
         </div>
         <div class="signature-item">
@@ -3636,7 +3817,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
         </div>
       </div>
       <div class="report-bottom-bar">
-        <div>Central CJC Dev Pays • Gateway & Split de Pagamentos • pays.cjcdev.site</div>
+        <div>Central ${comp.tradeName || 'CJC Dev Pays'} • Validação Pública: <a href="https://pays.cjcdev.site/validar.html?codigo=${encodeURIComponent(docId)}" target="_blank" style="color: #0284c7; text-decoration: none;">https://pays.cjcdev.site/validar.html?codigo=${docId}</a></div>
         <div>Página gerada em ${emissionDateStr} às ${emissionTimeStr} • Autenticação: ${docId}</div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { feeService } from './feeService.js';
+import { companyService } from './companyService.js';
 import { logger } from '../lib/logger.js';
 
 export interface FinancialFilterParams {
@@ -86,6 +87,18 @@ export interface FinancialReportData {
   byApplication: AppFinancialBreakdown[];
   byMethod: MethodFinancialBreakdown[];
   transactions: AnalyticalTransaction[];
+  company: {
+    legalName: string;
+    tradeName: string;
+    cnpj: string;
+    stateTaxId: string;
+    municipalTaxId: string;
+    address: string;
+    cityState: string;
+    zipCode: string;
+    email: string;
+    phone: string;
+  };
 }
 
 export class FinancialService {
@@ -386,6 +399,8 @@ export class FinancialService {
       })
       .sort((a, b) => b.grossVolume - a.grossVolume);
 
+    const companySettings = await companyService.getSettings();
+
     return {
       periodLabel,
       startDate: startDate.toISOString(),
@@ -409,6 +424,18 @@ export class FinancialService {
       byApplication,
       byMethod,
       transactions: analyticalTransactions,
+      company: {
+        legalName: companySettings.companyLegalName,
+        tradeName: companySettings.companyTradeName,
+        cnpj: companySettings.companyCnpj,
+        stateTaxId: companySettings.companyStateTaxId,
+        municipalTaxId: companySettings.companyMunicipalTaxId,
+        address: companySettings.companyAddress,
+        cityState: companySettings.companyCityState,
+        zipCode: companySettings.companyZipCode,
+        email: companySettings.companyEmail,
+        phone: companySettings.companyPhone,
+      },
     };
   }
 

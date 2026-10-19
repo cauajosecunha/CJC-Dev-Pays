@@ -14,6 +14,8 @@ import { expirationService } from '../services/expirationService.js';
 import { isSafeUrl } from '../lib/urlValidator.js';
 import { feeService } from '../services/feeService.js';
 import { financialService } from '../services/financialService.js';
+import { companyService } from '../services/companyService.js';
+import { auditService } from '../services/auditService.js';
 import axios from 'axios';
 
 export class AdminController {
@@ -1108,6 +1110,53 @@ export class AdminController {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.status(200).send(csvContent);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/admin/settings/company
+   */
+  async getCompanySettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const settings = await companyService.getSettings();
+      res.json({
+        success: true,
+        settings,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /api/admin/settings/company
+   */
+  async updateCompanySettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const settings = await companyService.updateSettings(req.body);
+      res.json({
+        success: true,
+        message: 'Informações cadastrais e fiscais da empresa atualizadas com sucesso.',
+        settings,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/admin/financial/audit/register
+   */
+  async registerReportAudit(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const audit = await auditService.registerReportAudit(req.body);
+      res.json({
+        success: true,
+        audit,
+        validationUrl: `https://pays.cjcdev.site/validar.html?codigo=${audit.code}`,
+      });
     } catch (error) {
       next(error);
     }

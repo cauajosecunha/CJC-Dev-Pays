@@ -117,6 +117,10 @@
           <span class="nav-icon">📈</span>
           <span class="nav-text">Taxas & Comissões</span>
         </button>
+        <button class="drawer-nav-item" data-view="company-view" id="nav-item-company">
+          <span class="nav-icon">🏛️</span>
+          <span class="nav-text">Dados Fiscais & Empresa</span>
+        </button>
       </nav>
 
       <div class="drawer-footer">
@@ -1076,6 +1080,148 @@
               </div>
             </div>
           </section>
+        </div>
+
+        <!-- ==================== VIEW 8: DADOS FISCAIS & EMPRESA ==================== -->
+        <div id="company-view" class="view-panel" style="display: none;">
+          <!-- Header da Página -->
+          <section class="page-header">
+            <div>
+              <h1 class="page-title">Dados Cadastrais & Informações Fiscais</h1>
+              <p class="page-subtitle">Configure as informações oficiais da sua empresa (Razão Social, CNPJ e Endereço) para os relatórios contábeis, DRE e prestação de contas.</p>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-refresh-company" type="button" title="Recarregar dados fiscais">
+                <span>🔄</span> Recarregar
+              </button>
+              <button class="btn btn-primary btn-sm" id="btn-save-company" type="button">
+                <span>💾</span> Salvar Dados Fiscais
+              </button>
+            </div>
+          </section>
+
+          <form id="form-company-settings">
+            <!-- Grid de Configurações Fiscais -->
+            <div class="fees-grid">
+              <!-- Card 1: Identificação Jurídica & Fiscal -->
+              <div class="card fee-card">
+                <div class="fee-card-header">
+                  <div class="fee-card-icon" style="background: rgba(14, 165, 233, 0.15); color: #38bdf8;">🏛️</div>
+                  <div>
+                    <h3 class="fee-card-title">Identificação Jurídica & Fiscal</h3>
+                    <p class="fee-card-subtitle">Dados de registro societário e tributário perante a Receita Federal</p>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="field-group">
+                    <label class="field-label" for="company-legal-name">Razão Social (Nome Empresarial Oficial) *</label>
+                    <input type="text" id="company-legal-name" class="input-control" placeholder="Ex: Minha Empresa Soluções Tecnológicas Ltda" required>
+                    <small class="field-hint" style="color: var(--text-muted); font-size: 0.74rem;">Nome formal presente no Contrato Social e Cartão CNPJ.</small>
+                  </div>
+
+                  <div class="field-group" style="margin-top: 14px;">
+                    <label class="field-label" for="company-trade-name">Nome Fantasia (Marca do Gateway)</label>
+                    <input type="text" id="company-trade-name" class="input-control" placeholder="Ex: CJC Dev Pays">
+                    <small class="field-hint" style="color: var(--text-muted); font-size: 0.74rem;">Nome de exibição pública da plataforma.</small>
+                  </div>
+
+                  <div class="field-group" style="margin-top: 14px;">
+                    <label class="field-label" for="company-cnpj">CNPJ *</label>
+                    <input type="text" id="company-cnpj" class="input-control" placeholder="00.000.000/0001-00" maxlength="18">
+                    <small class="field-hint" style="color: var(--text-muted); font-size: 0.74rem;">Número de inscrição no Cadastro Nacional da Pessoa Jurídica.</small>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px;">
+                    <div class="field-group">
+                      <label class="field-label" for="company-state-tax-id">Inscrição Estadual (IE)</label>
+                      <input type="text" id="company-state-tax-id" class="input-control" placeholder="Isento ou número da IE">
+                    </div>
+                    <div class="field-group">
+                      <label class="field-label" for="company-municipal-tax-id">Inscrição Municipal (IM)</label>
+                      <input type="text" id="company-municipal-tax-id" class="input-control" placeholder="Número da IM">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2: Endereço Fiscal & Contato -->
+              <div class="card fee-card">
+                <div class="fee-card-header">
+                  <div class="fee-card-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">📍</div>
+                  <div>
+                    <h3 class="fee-card-title">Sede Fiscal & Contatos Oficiais</h3>
+                    <p class="fee-card-subtitle">Endereço comercial da matriz e canais de contato contábil</p>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="field-group">
+                    <label class="field-label" for="company-address">Endereço Completo (Logradouro, Nº, Bairro)</label>
+                    <input type="text" id="company-address" class="input-control" placeholder="Ex: Av. Paulista, 1000, Bela Vista">
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-top: 14px;">
+                    <div class="field-group">
+                      <label class="field-label" for="company-city-state">Cidade / UF</label>
+                      <input type="text" id="company-city-state" class="input-control" placeholder="Ex: São Paulo - SP">
+                    </div>
+                    <div class="field-group">
+                      <label class="field-label" for="company-zip-code">CEP</label>
+                      <input type="text" id="company-zip-code" class="input-control" placeholder="00000-000" maxlength="9">
+                    </div>
+                  </div>
+
+                  <div class="field-group" style="margin-top: 14px;">
+                    <label class="field-label" for="company-email">E-mail Financeiro / Contábil</label>
+                    <input type="email" id="company-email" class="input-control" placeholder="financeiro@suaempresa.com.br">
+                  </div>
+
+                  <div class="field-group" style="margin-top: 14px;">
+                    <label class="field-label" for="company-phone">Telefone / WhatsApp Financeiro</label>
+                    <input type="text" id="company-phone" class="input-control" placeholder="(11) 99999-9999">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3: Auditoria & Validação de Documentos -->
+            <section class="section-block" style="margin-top: 24px;">
+              <div class="card">
+                <div class="card-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);">
+                  <h3 class="card-title" style="margin: 0; font-size: 1.05rem;">🛡️ Como esses dados e a autenticação funcionam?</h3>
+                  <p class="card-subtitle" style="margin: 2px 0 0 0; font-size: 0.8rem; color: var(--text-muted);">
+                    Transparência e segurança jurídica para você e para os donos dos aplicativos parceiros.
+                  </p>
+                </div>
+                <div class="card-body" style="padding: 20px;">
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                    <div style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 16px;">
+                      <div style="font-size: 1.3rem; margin-bottom: 8px;">📄</div>
+                      <h4 style="margin: 0 0 6px 0; font-size: 0.95rem; color: #ffffff;">Emissão Oficial de Relatórios & PDF</h4>
+                      <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+                        A Razão Social, CNPJ e dados fiscais salvos aqui são inseridos automaticamente no cabeçalho executivo de todos os relatórios contábeis, DRE e demonstrativos impressos ou salvos em PDF.
+                      </p>
+                    </div>
+
+                    <div style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 16px;">
+                      <div style="font-size: 1.3rem; margin-bottom: 8px;">🔍</div>
+                      <h4 style="margin: 0 0 6px 0; font-size: 0.95rem; color: #ffffff;">Validação Pública de Autenticidade</h4>
+                      <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+                        Cada relatório emitido gera um código criptográfico único no padrão <strong style="color: #38bdf8;">CJC-FIN-YYYYMM-XXXXX</strong>. O dono do aplicativo parceiro pode acessar a página pública <strong style="color: #10b981;">/validar.html</strong> para conferir se o relatório é autêntico e se os valores coincidem exatamente com o banco de dados.
+                      </p>
+                    </div>
+
+                    <div style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 16px;">
+                      <div style="font-size: 1.3rem; margin-bottom: 8px;">⚖️</div>
+                      <h4 style="margin: 0 0 6px 0; font-size: 0.95rem; color: #ffffff;">Segurança Contra Adulterações</h4>
+                      <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+                        O validador confere a assinatura digital SHA-256 e os totais auditados (Volume Bruto, Taxas do Mercado Pago, Margem e Repasse Líquido), tornando impossível adulterar o documento em PDF sem ser detectado.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </form>
         </div>
 
       </div>

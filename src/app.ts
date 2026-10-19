@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { apiRouter } from './routes/api.routes.js';
 import { webhookRouter } from './routes/webhook.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
+import { auditService } from './services/auditService.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { logger } from './lib/logger.js';
 
@@ -151,6 +152,20 @@ app.get('/health', (req, res) => {
 app.use('/api/v1', apiRouter);
 app.use('/api/webhooks', webhookRouter);
 app.use('/api/admin', adminRouter);
+
+// Rota pública para validação de autenticidade de relatórios contábeis
+app.get('/api/public/validate-report/:code', async (req, res, next) => {
+  try {
+    const result = await auditService.validateReport(req.params.code);
+    if (!result.valid) {
+      res.status(404).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Fallback SPA para navegação web
 app.get('*', (req, res, next) => {
