@@ -27,6 +27,18 @@ class CJCPaysApp {
     this.dashboardMonth = String(new Date().getMonth() + 1);
     this.dashboardYear = new Date().getFullYear();
 
+    // Filtros e estado do Módulo Financeiro & Contábil
+    this.financialFilters = {
+      range: 'this_month',
+      month: String(new Date().getMonth() + 1),
+      year: new Date().getFullYear(),
+      startDate: '',
+      endDate: '',
+      applicationId: '',
+      paymentMethod: '',
+    };
+    this.financialReportCache = null;
+
     this.init();
   }
 
@@ -165,6 +177,7 @@ class CJCPaysApp {
       'dashboard-view': 'Visão Geral',
       'payments-view': 'Transações',
       'applications-view': 'Aplicações & Chaves',
+      'financial-view': 'Financeiro & Contábil',
       'webhooks-view': 'Fila de Webhooks',
       'users-view': 'Administradores',
       'fees-view': 'Taxas & Comissões',
@@ -183,6 +196,9 @@ class CJCPaysApp {
       this.loadAllPayments();
     } else if (viewId === 'applications-view') {
       this.loadApplicationsCRUD();
+    } else if (viewId === 'financial-view') {
+      this.populateFinancialAppOptions();
+      this.loadFinancialReport();
     } else if (viewId === 'webhooks-view') {
       this.populateWebhooksAppFilterOptions();
       this.loadAllWebhooks();
@@ -503,6 +519,31 @@ class CJCPaysApp {
       'fee-comm-debit',
     ].forEach((id) => {
       document.getElementById(id)?.addEventListener('input', () => this.updateLiveFeeSimulation());
+    });
+
+    // Eventos do Módulo Financeiro & Contábil
+    document.querySelectorAll('.btn-range-pill').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const range = e.currentTarget.getAttribute('data-range');
+        if (range) this.setFinancialRange(range);
+      });
+    });
+
+    document.getElementById('btn-apply-financial-filter')?.addEventListener('click', () => {
+      this.applyFinancialFilters();
+    });
+
+    document.getElementById('btn-refresh-financial')?.addEventListener('click', () => {
+      this.loadFinancialReport();
+      this.showToast('Dados contábeis atualizados!', 'info');
+    });
+
+    document.getElementById('btn-export-financial-csv')?.addEventListener('click', () => {
+      this.exportFinancialCsv();
+    });
+
+    document.getElementById('btn-print-financial')?.addEventListener('click', () => {
+      this.printFinancialReport();
     });
   }
 
@@ -2402,6 +2443,412 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
         submitBtn.innerHTML = '<span>💾</span> Salvar Configurações';
       }
     }
+  }
+
+  // ==================== MÓDULO FINANCEIRO & CONTÁBIL ====================
+  async populateFinancialAppOptions() {
+    const select = document.getElementById('fin-filter-app');
+    if (!select) return;
+
+    if (!this.applicationsCache || this.applicationsCache.length === 0) {
+      try {
+        const res = await fetch('/api/admin/applications', { headers: this.getHeaders() });
+        const data = await res.json();
+        if (data.success) {
+          this.applicationsCache = data.applications || [];
+        }
+      } catch (e) {
+        console.error('Erro ao buscar aplicações para filtro financeiro:', e);
+      }
+    }
+
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">Todas as Aplicações</option>';
+    if (this.applicationsCache) {
+      this.applicationsCache.forEach((app) => {
+        const opt = document.createElement('option');
+        opt.value = app.id;
+        opt.textContent = `${app.name} (${app.establishmentId})`;
+        select.appendChild(opt);
+      });
+    }
+    if (currentVal) select.value = currentVal;
+  }
+
+  setFinancialRange(range) {
+    this.financialFilters.range = range;
+
+    document.querySelectorAll('.btn-range-pill').forEach((pill) => {
+      pill.classList.toggle('active', pill.getAttribute('data-range') === range);
+    });
+
+    const startGroup = document.getElementById('fin-custom-date-start-group');
+    const endGroup = document.getElementById('fin-custom-date-end-group');
+    const monthSelect = document.getElementById('fin-filter-month');
+    const yearSelect = document.getElementById('fin-filter-year');
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    const formatDateInput = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    if (range === 'custom') {
+      if (startGroup) startGroup.style.display = 'block';
+      if (endGroup) endGroup.style.display = 'block';
+      return;
+    } else {
+      if (startGroup) startGroup.style.display = 'none';
+      if (endGroup) endGroup.style.display = 'none';
+    }
+
+    if (range === 'today') {
+      const todayStr = formatDateInput(now);
+      this.financialFilters.startDate = todayStr;
+      this.financialFilters.endDate = todayStr;
+      this.financialFilters.month = '';
+      this.financialFilters.year = currentYear;
+      if (monthSelect) monthSelect.value = '';
+      if (yearSelect) yearSelect.value = currentYear;
+    } else if (range === 'yesterday') {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const yesterdayStr = formatDateInput(yesterday);
+      this.financialFilters.startDate = yesterdayStr;
+      this.financialFilters.endDate = yesterdayStr;
+      this.financialFilters.month = '';
+      this.financialFilters.year = yesterday.getFullYear();
+      if (monthSelect) monthSelect.value = '';
+      if (yearSelect) yearSelect.value = yesterday.getFullYear();
+    } else if (range === '7d') {
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(now.getDate() - 6);
+      this.financialFilters.startDate = formatDateInput(sevenDaysAgo);
+      this.financialFilters.endDate = formatDateInput(now);
+      this.financialFilters.month = '';
+      this.financialFilters.year = currentYear;
+      if (monthSelect) monthSelect.value = '';
+      if (yearSelect) yearSelect.value = currentYear;
+    } else if (range === 'this_month') {
+      this.financialFilters.startDate = '';
+      this.financialFilters.endDate = '';
+      this.financialFilters.month = String(currentMonth);
+      this.financialFilters.year = currentYear;
+      if (monthSelect) monthSelect.value = String(currentMonth);
+      if (yearSelect) yearSelect.value = currentYear;
+    } else if (range === 'last_month') {
+      const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthNum = lastMonthDate.getMonth() + 1;
+      const lastMonthYear = lastMonthDate.getFullYear();
+      this.financialFilters.startDate = '';
+      this.financialFilters.endDate = '';
+      this.financialFilters.month = String(lastMonthNum);
+      this.financialFilters.year = lastMonthYear;
+      if (monthSelect) monthSelect.value = String(lastMonthNum);
+      if (yearSelect) yearSelect.value = lastMonthYear;
+    } else if (range === 'this_year') {
+      this.financialFilters.startDate = '';
+      this.financialFilters.endDate = '';
+      this.financialFilters.month = '';
+      this.financialFilters.year = currentYear;
+      if (monthSelect) monthSelect.value = '';
+      if (yearSelect) yearSelect.value = currentYear;
+    }
+
+    this.loadFinancialReport();
+  }
+
+  applyFinancialFilters() {
+    const range = this.financialFilters.range;
+    const monthSelect = document.getElementById('fin-filter-month');
+    const yearSelect = document.getElementById('fin-filter-year');
+    const startDateInput = document.getElementById('fin-filter-start-date');
+    const endDateInput = document.getElementById('fin-filter-end-date');
+    const appSelect = document.getElementById('fin-filter-app');
+    const methodSelect = document.getElementById('fin-filter-method');
+
+    if (range === 'custom') {
+      this.financialFilters.startDate = startDateInput?.value || '';
+      this.financialFilters.endDate = endDateInput?.value || '';
+      this.financialFilters.month = '';
+      this.financialFilters.year = '';
+    } else {
+      this.financialFilters.month = monthSelect?.value || '';
+      this.financialFilters.year = yearSelect?.value || new Date().getFullYear();
+    }
+
+    this.financialFilters.applicationId = appSelect?.value || '';
+    this.financialFilters.paymentMethod = methodSelect?.value || '';
+
+    this.loadFinancialReport();
+  }
+
+  buildFinancialQueryString() {
+    const params = new URLSearchParams();
+    if (this.financialFilters.startDate && this.financialFilters.endDate) {
+      params.append('startDate', this.financialFilters.startDate);
+      params.append('endDate', this.financialFilters.endDate);
+    } else {
+      if (this.financialFilters.month) params.append('month', this.financialFilters.month);
+      if (this.financialFilters.year) params.append('year', this.financialFilters.year);
+    }
+    if (this.financialFilters.applicationId) {
+      params.append('applicationId', this.financialFilters.applicationId);
+    }
+    if (this.financialFilters.paymentMethod) {
+      params.append('paymentMethod', this.financialFilters.paymentMethod);
+    }
+    return params.toString();
+  }
+
+  async loadFinancialReport() {
+    const qs = this.buildFinancialQueryString();
+    const url = `/api/admin/financial/report${qs ? `?${qs}` : ''}`;
+
+    const badge = document.getElementById('fin-period-badge');
+    if (badge) badge.innerText = 'Carregando demonstrativo contábil...';
+
+    try {
+      const res = await fetch(url, { headers: this.getHeaders() });
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        return;
+      }
+
+      const data = await res.json();
+      if (!data.success || !data.report) {
+        this.showToast(data.error || 'Falha ao carregar relatório financeiro.', 'warning');
+        return;
+      }
+
+      const report = data.report;
+      this.financialReportCache = report;
+      this.renderFinancialReport(report);
+    } catch (e) {
+      console.error('Erro ao carregar relatório financeiro:', e);
+      this.showToast('Erro de comunicação com o servidor ao carregar dados contábeis.', 'warning');
+    }
+  }
+
+  renderFinancialReport(report) {
+    // 1. Rótulo do Período
+    const badge = document.getElementById('fin-period-badge');
+    if (badge) badge.innerText = report.periodLabel || 'Período Consolidado';
+
+    // 2. Indicadores Principais (KPIs)
+    const { kpis, dre } = report;
+    const elGross = document.getElementById('fin-kpi-gross-volume');
+    if (elGross) elGross.innerText = this.formatCurrency(kpis.totalGrossVolume);
+
+    const elApproved = document.getElementById('fin-kpi-approved-count');
+    if (elApproved) elApproved.innerText = `${kpis.approvedCount} aprovadas de ${kpis.totalCount} no total`;
+
+    const elMpFees = document.getElementById('fin-kpi-mp-fees');
+    if (elMpFees) elMpFees.innerText = this.formatCurrency(kpis.totalMpFees);
+
+    const elCjcComm = document.getElementById('fin-kpi-cjc-commission');
+    if (elCjcComm) elCjcComm.innerText = this.formatCurrency(kpis.totalCjcCommission);
+
+    const elRetention = document.getElementById('fin-kpi-retention-rate');
+    if (elRetention) elRetention.innerText = `Taxa média retida: ${kpis.averageRetentionPercent.toFixed(2)}%`;
+
+    const elNetPayout = document.getElementById('fin-kpi-net-payout');
+    if (elNetPayout) elNetPayout.innerText = this.formatCurrency(kpis.totalNetPayout);
+
+    const elTicket = document.getElementById('fin-kpi-ticket-medio');
+    if (elTicket) elTicket.innerText = this.formatCurrency(kpis.ticketMedio);
+
+    const elRefunds = document.getElementById('fin-kpi-refunds-summary');
+    if (elRefunds) elRefunds.innerText = `${kpis.refundedCount} estorno(s) (${this.formatCurrency(kpis.totalRefunded)})`;
+
+    // 3. DRE Sintético
+    const gross = dre.receitaBrutaTotal || 0;
+    const calcPct = (val) => (gross > 0 ? ((val / gross) * 100).toFixed(2) + '%' : '0,00%');
+
+    const dreGross = document.getElementById('fin-dre-gross');
+    if (dreGross) dreGross.innerText = this.formatCurrency(dre.receitaBrutaTotal);
+
+    const dreMp = document.getElementById('fin-dre-mp');
+    if (dreMp) dreMp.innerText = `(${this.formatCurrency(dre.custoMercadoPago)})`;
+    const drePctMp = document.getElementById('fin-dre-pct-mp');
+    if (drePctMp) drePctMp.innerText = calcPct(dre.custoMercadoPago);
+
+    const dreMargin = document.getElementById('fin-dre-gross-margin');
+    if (dreMargin) dreMargin.innerText = this.formatCurrency(dre.margemBruta);
+    const drePctMargin = document.getElementById('fin-dre-pct-gross-margin');
+    if (drePctMargin) drePctMargin.innerText = calcPct(dre.margemBruta);
+
+    const drePayout = document.getElementById('fin-dre-payout');
+    if (drePayout) drePayout.innerText = `(${this.formatCurrency(dre.repassesLojas)})`;
+    const drePctPayout = document.getElementById('fin-dre-pct-payout');
+    if (drePctPayout) drePctPayout.innerText = calcPct(dre.repassesLojas);
+
+    const dreCjc = document.getElementById('fin-dre-cjc');
+    if (dreCjc) dreCjc.innerText = this.formatCurrency(dre.lucroLiquidoCJC);
+    const drePctCjc = document.getElementById('fin-dre-pct-cjc');
+    if (drePctCjc) drePctCjc.innerText = calcPct(dre.lucroLiquidoCJC);
+
+    const dreRefund = document.getElementById('fin-dre-refund');
+    if (dreRefund) dreRefund.innerText = `(${this.formatCurrency(dre.estornosRealizados)})`;
+    const drePctRefund = document.getElementById('fin-dre-pct-refund');
+    if (drePctRefund) drePctRefund.innerText = calcPct(dre.estornosRealizados);
+
+    const dreFinal = document.getElementById('fin-dre-final');
+    if (dreFinal) dreFinal.innerText = this.formatCurrency(dre.resultadoOperacionalFinal);
+    const drePctFinal = document.getElementById('fin-dre-pct-final');
+    if (drePctFinal) drePctFinal.innerText = calcPct(dre.resultadoOperacionalFinal);
+
+    // 4. Conciliação por Meio de Pagamento
+    const methodsTbody = document.getElementById('fin-table-methods-body');
+    if (methodsTbody) {
+      if (!report.byMethod || report.byMethod.length === 0) {
+        methodsTbody.innerHTML = `<tr><td colspan="7" class="table-empty-cell">Nenhum meio transacionado no período selecionado.</td></tr>`;
+      } else {
+        methodsTbody.innerHTML = report.byMethod
+          .map(
+            (m) => `
+          <tr>
+            <td><strong>${m.label}</strong></td>
+            <td>${m.count}</td>
+            <td style="font-weight: 600; color: #ffffff;">${this.formatCurrency(m.grossVolume)}</td>
+            <td class="text-danger">${this.formatCurrency(m.mpFeeVolume)}</td>
+            <td class="text-success font-semibold">${this.formatCurrency(m.commissionVolume)}</td>
+            <td class="text-warning">${this.formatCurrency(m.netPayoutVolume)}</td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                  <div style="width: ${Math.min(m.sharePercent, 100)}%; height: 100%; background: var(--accent-cyan);"></div>
+                </div>
+                <span style="font-size: 0.76rem; font-family: var(--font-mono); color: var(--text-muted);">${m.sharePercent.toFixed(1)}%</span>
+              </div>
+            </td>
+          </tr>
+        `
+          )
+          .join('');
+      }
+    }
+
+    // 5. Fechamento Consolidado por Aplicação / Estabelecimento
+    const appsTbody = document.getElementById('fin-table-apps-body');
+    if (appsTbody) {
+      if (!report.byApplication || report.byApplication.length === 0) {
+        appsTbody.innerHTML = `<tr><td colspan="10" class="table-empty-cell">Nenhuma transação no período selecionado.</td></tr>`;
+      } else {
+        appsTbody.innerHTML = report.byApplication
+          .map(
+            (app) => `
+          <tr>
+            <td><strong>${app.name}</strong></td>
+            <td><code>${app.establishmentId}</code></td>
+            <td>
+              ${
+                app.isCommissionExempt
+                  ? `<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.3);">Isenta de Comissão</span>`
+                  : `<span class="badge badge-approved">Padrão com Lucro</span>`
+              }
+            </td>
+            <td>${app.approvedTransactions} / ${app.totalTransactions}</td>
+            <td style="font-weight: 600; color: #ffffff;">${this.formatCurrency(app.grossVolume)}</td>
+            <td class="text-danger">${this.formatCurrency(app.mpFeeVolume)}</td>
+            <td class="text-success font-semibold">${this.formatCurrency(app.commissionVolume)}</td>
+            <td class="text-warning font-semibold">${this.formatCurrency(app.netPayoutVolume)}</td>
+            <td class="text-danger">${this.formatCurrency(app.refundedVolume)}</td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                  <div style="width: ${Math.min(app.sharePercent, 100)}%; height: 100%; background: #10b981;"></div>
+                </div>
+                <span style="font-size: 0.76rem; font-family: var(--font-mono); color: var(--text-muted);">${app.sharePercent.toFixed(1)}%</span>
+              </div>
+            </td>
+          </tr>
+        `
+          )
+          .join('');
+      }
+    }
+
+    // 6. Extrato Analítico de Lançamentos
+    const txTbody = document.getElementById('fin-table-transactions-body');
+    const txCountBadge = document.getElementById('fin-transactions-count-badge');
+    if (txCountBadge) {
+      txCountBadge.innerText = `${report.transactions?.length || 0} lançamentos`;
+    }
+
+    if (txTbody) {
+      if (!report.transactions || report.transactions.length === 0) {
+        txTbody.innerHTML = `<tr><td colspan="10" class="table-empty-cell">Nenhum lançamento no período selecionado.</td></tr>`;
+      } else {
+        txTbody.innerHTML = report.transactions
+          .slice(0, 100)
+          .map(
+            (tx) => `
+          <tr>
+            <td style="font-size: 0.78rem; white-space: nowrap;">${this.formatDate(tx.createdAt)}</td>
+            <td><code>${tx.externalReference}</code></td>
+            <td><span class="badge badge-app">${tx.applicationName}</span></td>
+            <td>${tx.paymentMethod}</td>
+            <td>${this.renderStatusBadge(tx.status)}</td>
+            <td style="font-weight: 600; color: #ffffff;">${this.formatCurrency(tx.amount)}</td>
+            <td class="text-danger">${this.formatCurrency(tx.mpFee)}</td>
+            <td class="text-success font-semibold">${this.formatCurrency(tx.cjcCommission)}</td>
+            <td class="text-warning">${this.formatCurrency(tx.netPayout)}</td>
+            <td style="font-size: 0.8rem; color: var(--text-secondary);">${tx.payerName || tx.payerEmail || 'N/A'}</td>
+          </tr>
+        `
+          )
+          .join('');
+      }
+    }
+  }
+
+  async exportFinancialCsv() {
+    this.showToast('Gerando planilha contábil...', 'info');
+    const qs = this.buildFinancialQueryString();
+    const url = `/api/admin/financial/export/csv${qs ? `?${qs}` : ''}`;
+
+    try {
+      const res = await fetch(url, { headers: this.getHeaders() });
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        return;
+      }
+
+      if (!res.ok) {
+        this.showToast('Falha ao exportar CSV contábil.', 'warning');
+        return;
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `cjc-dev-pays-relatorio-financeiro-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+
+      this.showToast('📥 Planilha CSV exportada com sucesso!', 'success');
+    } catch (e) {
+      console.error('Erro ao exportar CSV:', e);
+      this.showToast('Erro de comunicação ao exportar arquivo.', 'warning');
+    }
+  }
+
+  printFinancialReport() {
+    this.showToast('Preparando demonstrativo para impressão/PDF...', 'info');
+    setTimeout(() => {
+      window.print();
+    }, 200);
   }
 }
 

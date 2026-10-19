@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../widgets/app_chip.dart';
 import '../widgets/kpi_card.dart';
 import '../widgets/status_badge.dart';
+import 'financial_report_screen.dart';
 import 'payment_detail_screen.dart';
 
 class DashboardTab extends StatefulWidget {
@@ -175,6 +176,63 @@ class _DashboardTabState extends State<DashboardTab> {
                 accentColor: AppColors.secondary,
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+
+          // Banner de Atalho para Módulo Financeiro & Contábil
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FinancialReportScreen()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary.withAlpha(35),
+                    AppColors.surface,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withAlpha(80)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withAlpha(30),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Financeiro & Contábil',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'DRE Sintético, repasses por loja e exportação CSV.',
+                          style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 24),
 

@@ -101,6 +101,10 @@
           <span class="nav-icon">🏢</span>
           <span class="nav-text">Aplicações & Chaves</span>
         </button>
+        <button class="drawer-nav-item" data-view="financial-view" id="nav-item-financial">
+          <span class="nav-icon">📑</span>
+          <span class="nav-text">Financeiro & Contábil</span>
+        </button>
         <button class="drawer-nav-item" data-view="webhooks-view" id="nav-item-webhooks">
           <span class="nav-icon">📡</span>
           <span class="nav-text">Fila de Webhooks</span>
@@ -698,6 +702,409 @@
               </div>
             </section>
           </form>
+        </div>
+
+        <!-- ==================== VIEW 7: FINANCEIRO & CONTÁBIL ==================== -->
+        <div id="financial-view" class="view-panel" style="display: none;">
+          <!-- Header da Página -->
+          <section class="page-header">
+            <div>
+              <h1 class="page-title">Gestão Financeira & Contábil</h1>
+              <p class="page-subtitle">Demonstração do Resultado (DRE), conciliação com o Mercado Pago, repasses e fechamento contábil por aplicação.</p>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-refresh-financial" type="button" title="Atualizar dados contábeis">
+                <span>🔄</span> Atualizar
+              </button>
+              <button class="btn btn-secondary btn-sm" id="btn-print-financial" type="button" title="Imprimir demonstrativo ou salvar como PDF">
+                <span>🖨️</span> Imprimir / PDF
+              </button>
+              <button class="btn btn-primary btn-sm" id="btn-export-financial-csv" type="button" title="Exportar planilha analítica compatível com Excel">
+                <span>📥</span> Exportar CSV (Excel)
+              </button>
+            </div>
+          </section>
+
+          <!-- Card de Filtros Financeiros -->
+          <section class="section-block">
+            <div class="card financial-filters-card">
+              <div class="financial-filters-header">
+                <span class="filter-title"><span>🔍</span> Filtros & Período de Apuração</span>
+                <span class="active-period-badge" id="fin-period-badge">Carregando período...</span>
+              </div>
+
+              <!-- Atalhos de Período Rápido -->
+              <div class="financial-quick-ranges">
+                <button type="button" class="btn-range-pill" data-range="today">Hoje</button>
+                <button type="button" class="btn-range-pill" data-range="yesterday">Ontem</button>
+                <button type="button" class="btn-range-pill" data-range="7d">Últimos 7 dias</button>
+                <button type="button" class="btn-range-pill active" data-range="this_month">Mês Atual</button>
+                <button type="button" class="btn-range-pill" data-range="last_month">Mês Anterior</button>
+                <button type="button" class="btn-range-pill" data-range="this_year">Ano Atual</button>
+                <button type="button" class="btn-range-pill" data-range="custom">Personalizado</button>
+              </div>
+
+              <!-- Linha de Controles Avançados -->
+              <div class="financial-filter-grid">
+                <div class="field-group">
+                  <label class="field-label" for="fin-filter-month">Mês de Referência</label>
+                  <select id="fin-filter-month" class="input-control">
+                    <option value="">Todo o ano</option>
+                    <option value="1">Janeiro</option>
+                    <option value="2">Fevereiro</option>
+                    <option value="3">Março</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Maio</option>
+                    <option value="6">Junho</option>
+                    <option value="7">Julho</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Setembro</option>
+                    <option value="10">Outubro</option>
+                    <option value="11">Novembro</option>
+                    <option value="12">Dezembro</option>
+                  </select>
+                </div>
+
+                <div class="field-group">
+                  <label class="field-label" for="fin-filter-year">Ano</label>
+                  <select id="fin-filter-year" class="input-control">
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                    <option value="2026">2026</option>
+                    <option value="2027">2027</option>
+                  </select>
+                </div>
+
+                <div class="field-group" id="fin-custom-date-start-group" style="display: none;">
+                  <label class="field-label" for="fin-filter-start-date">Data Inicial</label>
+                  <input type="date" id="fin-filter-start-date" class="input-control">
+                </div>
+
+                <div class="field-group" id="fin-custom-date-end-group" style="display: none;">
+                  <label class="field-label" for="fin-filter-end-date">Data Final</label>
+                  <input type="date" id="fin-filter-end-date" class="input-control">
+                </div>
+
+                <div class="field-group">
+                  <label class="field-label" for="fin-filter-app">Aplicação / Loja</label>
+                  <select id="fin-filter-app" class="input-control">
+                    <option value="">Todas as Aplicações</option>
+                  </select>
+                </div>
+
+                <div class="field-group">
+                  <label class="field-label" for="fin-filter-method">Meio de Pagamento</label>
+                  <select id="fin-filter-method" class="input-control">
+                    <option value="">Todos os Meios</option>
+                    <option value="pix">Pix</option>
+                    <option value="credit_card">Cartão de Crédito</option>
+                    <option value="debit_card">Cartão de Débito</option>
+                  </select>
+                </div>
+
+                <div class="field-group" style="display: flex; align-items: flex-end;">
+                  <button type="button" class="btn btn-primary btn-block" id="btn-apply-financial-filter">
+                    <span>⚡</span> Filtrar Relatório
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- KPIs Contábeis Principais -->
+          <section class="section-block">
+            <div class="kpi-grid financial-kpi-grid">
+              <!-- KPI 1: Faturamento Bruto (TPV) -->
+              <div class="card kpi-card">
+                <div class="kpi-icon-wrapper" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+                  💰
+                </div>
+                <div class="kpi-content">
+                  <span class="kpi-label">Faturamento Bruto (TPV)</span>
+                  <div class="kpi-value-row">
+                    <span class="kpi-value" id="fin-kpi-gross-volume">R$ 0,00</span>
+                  </div>
+                  <div class="kpi-subtext" id="fin-kpi-approved-count">0 transações aprovadas</div>
+                </div>
+              </div>
+
+              <!-- KPI 2: Custos Mercado Pago -->
+              <div class="card kpi-card">
+                <div class="kpi-icon-wrapper" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e;">
+                  🏦
+                </div>
+                <div class="kpi-content">
+                  <span class="kpi-label">Custos Mercado Pago</span>
+                  <div class="kpi-value-row">
+                    <span class="kpi-value text-danger" id="fin-kpi-mp-fees">R$ 0,00</span>
+                  </div>
+                  <div class="kpi-subtext">Taxas de adquirência retidas</div>
+                </div>
+              </div>
+
+              <!-- KPI 3: Lucro Líquido CJC Dev Pays -->
+              <div class="card kpi-card highlight-profit">
+                <div class="kpi-icon-wrapper" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                  📈
+                </div>
+                <div class="kpi-content">
+                  <span class="kpi-label">Lucro Plataforma (Comissões)</span>
+                  <div class="kpi-value-row">
+                    <span class="kpi-value text-success" id="fin-kpi-cjc-commission">R$ 0,00</span>
+                  </div>
+                  <div class="kpi-subtext" id="fin-kpi-retention-rate">Taxa média retida: 0,00%</div>
+                </div>
+              </div>
+
+              <!-- KPI 4: Repasse Líquido às Lojas -->
+              <div class="card kpi-card">
+                <div class="kpi-icon-wrapper" style="background: rgba(99, 102, 241, 0.15); color: #6366f1;">
+                  🏢
+                </div>
+                <div class="kpi-content">
+                  <span class="kpi-label">Repasse Líquido Lojas</span>
+                  <div class="kpi-value-row">
+                    <span class="kpi-value" id="fin-kpi-net-payout">R$ 0,00</span>
+                  </div>
+                  <div class="kpi-subtext">Saldo líquido das aplicações</div>
+                </div>
+              </div>
+
+              <!-- KPI 5: Ticket Médio & Estornos -->
+              <div class="card kpi-card">
+                <div class="kpi-icon-wrapper" style="background: rgba(234, 179, 8, 0.15); color: #eab308;">
+                  ⚖️
+                </div>
+                <div class="kpi-content">
+                  <span class="kpi-label">Ticket Médio / Estornos</span>
+                  <div class="kpi-value-row">
+                    <span class="kpi-value" id="fin-kpi-ticket-medio">R$ 0,00</span>
+                  </div>
+                  <div class="kpi-subtext" id="fin-kpi-refunds-summary">0 estornos (R$ 0,00)</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- DRE Sintético Contábil -->
+          <section class="section-block">
+            <div class="card dre-card">
+              <div class="card-header-clean">
+                <div>
+                  <h2 class="section-title">Demonstrativo do Resultado do Exercício (DRE Sintético)</h2>
+                  <p class="section-subtitle">Estrutura contábil oficial para conciliação financeira e apuração de margem líquida.</p>
+                </div>
+                <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">Padrão Contábil Executivo</span>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="data-table dre-table">
+                    <thead>
+                      <tr>
+                        <th>Rubrica Contábil</th>
+                        <th>Natureza</th>
+                        <th style="text-align: right;">Impacto (%)</th>
+                        <th style="text-align: right;">Valor Apurado (R$)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="dre-row-revenue">
+                        <td class="dre-col-item">
+                          <span class="dre-operator dre-op-plus">+</span>
+                          <span class="dre-label"><strong>Receita Bruta Transacionada (TPV Global)</strong></span>
+                        </td>
+                        <td><span class="status-badge approved">Crédito Operacional</span></td>
+                        <td style="text-align: right;" class="dre-pct">100,00%</td>
+                        <td style="text-align: right;" class="dre-val font-semibold text-primary" id="fin-dre-gross">R$ 0,00</td>
+                      </tr>
+                      <tr class="dre-row-deduction">
+                        <td class="dre-col-item">
+                          <span class="dre-operator dre-op-minus">-</span>
+                          <span class="dre-label">Custos Operacionais Mercado Pago (Adquirência)</span>
+                        </td>
+                        <td><span class="status-badge refunded">Débito Direto</span></td>
+                        <td style="text-align: right;" class="dre-pct" id="fin-dre-pct-mp">0,00%</td>
+                        <td style="text-align: right;" class="dre-val text-danger" id="fin-dre-mp">R$ 0,00</td>
+                      </tr>
+                      <tr class="dre-row-subtotal">
+                        <td class="dre-col-item">
+                          <span class="dre-operator dre-op-equal">=</span>
+                          <span class="dre-label"><strong>Margem Operacional Bruta</strong></span>
+                        </td>
+                        <td><span class="status-badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8;">Subtotal Operacional</span></td>
+                        <td style="text-align: right;" class="dre-pct" id="fin-dre-pct-gross-margin">0,00%</td>
+                        <td style="text-align: right;" class="dre-val font-semibold" id="fin-dre-gross-margin">R$ 0,00</td>
+                      </tr>
+                      <tr class="dre-row-deduction">
+                        <td class="dre-col-item">
+                          <span class="dre-operator dre-op-minus">-</span>
+                          <span class="dre-label">Repasses Líquidos às Lojas Clientes</span>
+                        </td>
+                        <td><span class="status-badge pending">Passivo Circulante</span></td>
+                        <td style="text-align: right;" class="dre-pct" id="fin-dre-pct-payout">0,00%</td>
+                        <td style="text-align: right;" class="dre-val text-warning" id="fin-dre-payout">R$ 0,00</td>
+                      </tr>
+                      <tr class="dre-row-subtotal dre-highlight-cjc">
+                        <td class="dre-col-item">
+                          <span class="dre-operator dre-op-equal">=</span>
+                          <span class="dre-label"><strong>Receita Operacional Líquida CJC Dev Pays (Comissão Retida)</strong></span>
+                        </td>
+                        <td><span class="status-badge approved">Lucro Plataforma</span></td>
+                        <td style="text-align: right;" class="dre-pct" id="fin-dre-pct-cjc">0,00%</td>
+                        <td style="text-align: right;" class="dre-val font-semibold text-success" id="fin-dre-cjc">R$ 0,00</td>
+                      </tr>
+                      <tr class="dre-row-deduction">
+                        <td class="dre-col-item">
+                          <span class="dre-operator dre-op-minus">-</span>
+                          <span class="dre-label">Deduções por Estornos / Reembolsos Realizados</span>
+                        </td>
+                        <td><span class="status-badge refunded">Estornos</span></td>
+                        <td style="text-align: right;" class="dre-pct" id="fin-dre-pct-refund">0,00%</td>
+                        <td style="text-align: right;" class="dre-val text-danger" id="fin-dre-refund">R$ 0,00</td>
+                      </tr>
+                      <tr class="dre-row-final">
+                        <td class="dre-col-item">
+                          <span class="dre-operator dre-op-equal">★</span>
+                          <span class="dre-label"><strong>RESULTADO FINANCEIRO OPERACIONAL FINAL</strong></span>
+                        </td>
+                        <td><span class="status-badge approved">Resultado Líquido</span></td>
+                        <td style="text-align: right;" class="dre-pct" id="fin-dre-pct-final">0,00%</td>
+                        <td style="text-align: right;" class="dre-val dre-final-value" id="fin-dre-final">R$ 0,00</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Grid Duplo: Conciliação por Meio de Pagamento + Notas Contábeis -->
+          <div class="financial-dual-grid">
+            <!-- Tabela Meios de Pagamento -->
+            <section class="section-block">
+              <div class="card">
+                <div class="card-header-clean">
+                  <h3 class="card-title"><span>💳</span> Conciliação por Meio de Pagamento</h3>
+                </div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Meio</th>
+                          <th>Transações</th>
+                          <th>Volume Bruto</th>
+                          <th>Custo MP</th>
+                          <th>Lucro CJC</th>
+                          <th>Líquido Lojas</th>
+                          <th>Share (%)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="fin-table-methods-body">
+                        <!-- Preenchido via app.js -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Resumo e Notas Fiscais/Contábeis -->
+            <section class="section-block">
+              <div class="card">
+                <div class="card-header-clean">
+                  <h3 class="card-title"><span>📝</span> Notas Explicativas do Exercício</h3>
+                </div>
+                <div class="card-body">
+                  <ul class="financial-notes-list">
+                    <li>
+                      <strong>Custos de Adquirência:</strong> Calculados com base no meio de pagamento (Pix, Crédito, Débito) e deduzidos automaticamente de cada recebimento via taxa de gateway do Mercado Pago.
+                    </li>
+                    <li>
+                      <strong>Lucro da Plataforma:</strong> Corresponde às comissões de serviço configuradas no painel <em>Taxas & Comissões</em> aplicadas sobre cada transação aprovada de lojas não isentas.
+                    </li>
+                    <li>
+                      <strong>Isenção de Comissão:</strong> Aplicações marcadas como isentas repassam a totalidade do saldo líquido (TPV menos taxas oficiais do MP) à loja, gerando R$ 0,00 de comissão de lucro para a plataforma.
+                    </li>
+                    <li>
+                      <strong>Exportação Contábil:</strong> O arquivo CSV exportado utiliza delimitador ponto e vírgula (<code>;</code>) e codificação UTF-8 com BOM para abertura automática e sem desconfigurações no Microsoft Excel e Google Sheets.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- Fechamento Consolidado por Aplicação / Loja -->
+          <section class="section-block">
+            <div class="card">
+              <div class="card-header-clean">
+                <div>
+                  <h2 class="section-title">Fechamento Consolidado por Aplicação / Estabelecimento</h2>
+                  <p class="section-subtitle">Detalhamento individualizado de faturamento, custos de gateway, comissões retidas e valor a repassar.</p>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Aplicação</th>
+                        <th>Estabelecimento</th>
+                        <th>Regime Comercial</th>
+                        <th>Transações</th>
+                        <th>Volume Bruto</th>
+                        <th>Custo MP</th>
+                        <th>Comissão CJC</th>
+                        <th>Repasse Líquido</th>
+                        <th>Estornos</th>
+                        <th>Participação</th>
+                      </tr>
+                    </thead>
+                    <tbody id="fin-table-apps-body">
+                      <!-- Preenchido dinamicamente via app.js -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Extrato Analítico de Lançamentos -->
+          <section class="section-block">
+            <div class="card">
+              <div class="card-header-clean">
+                <div>
+                  <h2 class="section-title">Extrato Analítico de Lançamentos</h2>
+                  <p class="section-subtitle">Livro razão de transações que compõem o demonstrativo contábil do período.</p>
+                </div>
+                <span class="badge" id="fin-transactions-count-badge">0 lançamentos</span>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Data/Hora</th>
+                        <th>Ref. Pedido</th>
+                        <th>Aplicação</th>
+                        <th>Método</th>
+                        <th>Status</th>
+                        <th>Valor Bruto</th>
+                        <th>Custo MP</th>
+                        <th>Comissão CJC</th>
+                        <th>Líquido Loja</th>
+                        <th>Pagador</th>
+                      </tr>
+                    </thead>
+                    <tbody id="fin-table-transactions-body">
+                      <!-- Preenchido dinamicamente via app.js -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
 
       </div>

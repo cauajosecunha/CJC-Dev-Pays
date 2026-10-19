@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
 import '../models/application.dart';
 import '../models/fee_settings.dart';
+import '../models/financial_report.dart';
 import '../models/kpi_metrics.dart';
 import '../models/payment.dart';
 import '../models/user.dart';
@@ -590,6 +591,77 @@ class ApiService {
 
       final data = _processResponse(response) as Map<String, dynamic>;
       return FeeSettingsModel.fromJson(data['settings'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  // ==================== RELATÓRIO FINANCEIRO & CONTÁBIL ====================
+
+  /// Obtém o demonstrativo financeiro e contábil consolidado
+  Future<FinancialReportModel> getFinancialReport({
+    int? month,
+    int? year,
+    String? startDate,
+    String? endDate,
+    String? applicationId,
+    String? paymentMethod,
+  }) async {
+    try {
+      final query = <String, String>{};
+      if (month != null) query['month'] = month.toString();
+      if (year != null) query['year'] = year.toString();
+      if (startDate != null && startDate.isNotEmpty) query['startDate'] = startDate;
+      if (endDate != null && endDate.isNotEmpty) query['endDate'] = endDate;
+      if (applicationId != null && applicationId.isNotEmpty && applicationId != 'ALL') {
+        query['applicationId'] = applicationId;
+      }
+      if (paymentMethod != null && paymentMethod.isNotEmpty && paymentMethod != 'ALL') {
+        query['paymentMethod'] = paymentMethod;
+      }
+
+      final response = await http
+          .get(_uri('/api/admin/financial/report', query), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return FinancialReportModel.fromJson(data['report'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Retorna o conteúdo CSV do relatório financeiro
+  Future<String> downloadFinancialCsv({
+    int? month,
+    int? year,
+    String? startDate,
+    String? endDate,
+    String? applicationId,
+    String? paymentMethod,
+  }) async {
+    try {
+      final query = <String, String>{};
+      if (month != null) query['month'] = month.toString();
+      if (year != null) query['year'] = year.toString();
+      if (startDate != null && startDate.isNotEmpty) query['startDate'] = startDate;
+      if (endDate != null && endDate.isNotEmpty) query['endDate'] = endDate;
+      if (applicationId != null && applicationId.isNotEmpty && applicationId != 'ALL') {
+        query['applicationId'] = applicationId;
+      }
+      if (paymentMethod != null && paymentMethod.isNotEmpty && paymentMethod != 'ALL') {
+        query['paymentMethod'] = paymentMethod;
+      }
+
+      final response = await http
+          .get(_uri('/api/admin/financial/export/csv', query), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      if (response.statusCode == 200) {
+        return utf8.decode(response.bodyBytes);
+      } else {
+        throw ApiException('Falha ao exportar CSV (HTTP ${response.statusCode})');
+      }
     } on SocketException {
       throw ApiException('Sem conexão com o servidor.');
     }

@@ -13,6 +13,7 @@ import { logger } from '../lib/logger.js';
 import { expirationService } from '../services/expirationService.js';
 import { isSafeUrl } from '../lib/urlValidator.js';
 import { feeService } from '../services/feeService.js';
+import { financialService } from '../services/financialService.js';
 import axios from 'axios';
 
 export class AdminController {
@@ -1055,6 +1056,58 @@ export class AdminController {
         simulation,
         message: 'Taxas e comissões atualizadas com sucesso.',
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/admin/financial/report
+   */
+  async getFinancialReport(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { startDate, endDate, month, year, applicationId, paymentMethod } = req.query;
+
+      const report = await financialService.getFinancialReport({
+        startDate: startDate ? String(startDate) : undefined,
+        endDate: endDate ? String(endDate) : undefined,
+        month: month ? parseInt(String(month), 10) : undefined,
+        year: year ? parseInt(String(year), 10) : undefined,
+        applicationId: applicationId ? String(applicationId) : undefined,
+        paymentMethod: paymentMethod ? String(paymentMethod) : undefined,
+      });
+
+      res.json({
+        success: true,
+        report,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/admin/financial/export/csv
+   */
+  async exportFinancialCsv(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { startDate, endDate, month, year, applicationId, paymentMethod } = req.query;
+
+      const report = await financialService.getFinancialReport({
+        startDate: startDate ? String(startDate) : undefined,
+        endDate: endDate ? String(endDate) : undefined,
+        month: month ? parseInt(String(month), 10) : undefined,
+        year: year ? parseInt(String(year), 10) : undefined,
+        applicationId: applicationId ? String(applicationId) : undefined,
+        paymentMethod: paymentMethod ? String(paymentMethod) : undefined,
+      });
+
+      const csvContent = financialService.generateFinancialCsv(report);
+      const filename = `cjc-pays-financeiro-${new Date().toISOString().slice(0, 10)}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.status(200).send(csvContent);
     } catch (error) {
       next(error);
     }

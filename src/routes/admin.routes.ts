@@ -54,3 +54,7 @@ adminRouter.post('/simulator/approve-payment/:id', (req, res, next) => adminCont
 adminRouter.get('/settings/fees', (req, res, next) => adminController.getFeeSettings(req, res, next));
 adminRouter.put('/settings/fees', (req, res, next) => adminController.updateFeeSettings(req, res, next));
 
+// Relatório Financeiro e Contábil
+adminRouter.get('/financial/report', (req, res, next) => adminController.getFinancialReport(req, res, next));
+adminRouter.get('/financial/export/csv', (req, res, next) => adminController.exportFinancialCsv(req, res, next));
+

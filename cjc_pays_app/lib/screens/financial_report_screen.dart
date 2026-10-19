@@ -1,0 +1,826 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import '../constants/app_colors.dart';
+import '../models/application.dart';
+import '../models/financial_report.dart';
+import '../services/api_service.dart';
+
+class FinancialReportScreen extends StatefulWidget {
+  const FinancialReportScreen({super.key});
+
+  @override
+  State<FinancialReportScreen> createState() => _FinancialReportScreenState();
+}
+
+class _FinancialReportScreenState extends State<FinancialReportScreen> {
+  final _api = ApiService();
+  final _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$ ');
+  final _percentFormat = NumberFormat.decimalPattern('pt_BR');
+
+  bool _isLoading = true;
+  String? _errorMessage;
+  FinancialReportModel? _report;
+  List<ApplicationModel> _applications = [];
+
+  // Filtros
+  String _selectedRange = 'this_month';
+  int? _selectedMonth = DateTime.now().month;
+  int? _selectedYear = DateTime.now().year;
+  String? _startDate;
+  String? _endDate;
+  String _selectedAppId = 'ALL';
+  String _selectedMethod = 'ALL';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadApplications();
+    _loadReport();
+  }
+
+  Future<void> _loadApplications() async {
+    try {
+      final apps = await _api.getApplications();
+      if (mounted) {
+        setState(() {
+          _applications = apps;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadReport() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final report = await _api.getFinancialReport(
+        month: _selectedMonth,
+        year: _selectedYear,
+        startDate: _startDate,
+        endDate: _endDate,
+        applicationId: _selectedAppId == 'ALL' ? null : _selectedAppId,
+        paymentMethod: _selectedMethod == 'ALL' ? null : _selectedMethod,
+      );
+
+      if (mounted) {
+        setState(() {
+          _report = report;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _setRange(String range) {
+    final now = DateTime.now();
+    setState(() {
+      _selectedRange = range;
+      if (range == 'today') {
+        final str = DateFormat('yyyy-MM-dd').format(now);
+        _startDate = str;
+        _endDate = str;
+        _selectedMonth = null;
+        _selectedYear = now.year;
+      } else if (range == '7d') {
+        _startDate = DateFormat('yyyy-MM-dd').format(now.subtract(const Duration(days: 6)));
+        _endDate = DateFormat('yyyy-MM-dd').format(now);
+        _selectedMonth = null;
+        _selectedYear = now.year;
+      } else if (range == 'this_month') {
+        _startDate = null;
+        _endDate = null;
+        _selectedMonth = now.month;
+        _selectedYear = now.year;
+      } else if (range == 'last_month') {
+        final lastMonth = DateTime(now.year, now.month - 1, 1);
+        _startDate = null;
+        _endDate = null;
+        _selectedMonth = lastMonth.month;
+        _selectedYear = lastMonth.year;
+      } else if (range == 'this_year') {
+        _startDate = null;
+        _endDate = null;
+        _selectedMonth = null;
+        _selectedYear = now.year;
+      }
+    });
+
+    _loadReport();
+  }
+
+  Future<void> _exportCsv() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Gerando planilha CSV contábil...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      final csv = await _api.downloadFinancialCsv(
+        month: _selectedMonth,
+        year: _selectedYear,
+        startDate: _startDate,
+        endDate: _endDate,
+        applicationId: _selectedAppId == 'ALL' ? null : _selectedAppId,
+        paymentMethod: _selectedMethod == 'ALL' ? null : _selectedMethod,
+      );
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Row(
+            children: [
+              Icon(Icons.table_chart_rounded, color: AppColors.primary),
+              SizedBox(width: 10),
+              Text('Planilha CSV Contábil', style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'A planilha foi gerada no formato brasileiro (UTF-8 com BOM e delimitador ponto e vírgula ";") compatível com Microsoft Excel e Google Sheets.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                constraints: const BoxConstraints(maxHeight: 180),
+                child: SingleChildScrollView(
+                  child: Text(
+                    csv.split('\n').take(12).join('\n'),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Fechar'),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.black),
+              label: const Text('Copiar Planilha', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: csv));
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Planilha CSV copiada para a área de transferência!'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Falha ao exportar CSV: $e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Financeiro & Contábil'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined, color: AppColors.primary),
+            tooltip: 'Exportar Planilha CSV',
+            onPressed: _exportCsv,
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Atualizar',
+            onPressed: _loadReport,
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : _errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 48),
+                        const SizedBox(height: 16),
+                        Text(
+                          _errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _loadReport,
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Tentar Novamente'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _report == null
+                  ? const Center(child: Text('Nenhum dado disponível'))
+                  : RefreshIndicator(
+                      onRefresh: _loadReport,
+                      color: AppColors.primary,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          _buildFilterCard(),
+                          const SizedBox(height: 16),
+                          _buildKpiGrid(_report!.kpis),
+                          const SizedBox(height: 20),
+                          _buildDreCard(_report!.dre),
+                          const SizedBox(height: 20),
+                          _buildMethodsBreakdown(_report!.byMethod),
+                          const SizedBox(height: 20),
+                          _buildAppsBreakdown(_report!.byApplication),
+                          const SizedBox(height: 20),
+                          _buildAnalyticalLedger(_report!.transactions),
+                          const SizedBox(height: 30),
+                        ],
+                      ),
+                    ),
+    );
+  }
+
+  Widget _buildFilterCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.filter_list_rounded, size: 18, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Text(
+                      'Período & Filtros',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withAlpha(25),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withAlpha(50)),
+                  ),
+                  child: Text(
+                    _report?.periodLabel ?? 'Período',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildRangeChip('Hoje', 'today'),
+                  _buildRangeChip('7 Dias', '7d'),
+                  _buildRangeChip('Mês Atual', 'this_month'),
+                  _buildRangeChip('Mês Anterior', 'last_month'),
+                  _buildRangeChip('Ano Atual', 'this_year'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _selectedAppId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Aplicação',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    ),
+                    items: [
+                      const DropdownMenuItem(value: 'ALL', child: Text('Todas as Lojas')),
+                      ..._applications.map(
+                        (app) => DropdownMenuItem(
+                          value: app.id,
+                          child: Text(app.name, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _selectedAppId = val);
+                        _loadReport();
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _selectedMethod,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Meio',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'ALL', child: Text('Todos Meios')),
+                      DropdownMenuItem(value: 'pix', child: Text('Pix')),
+                      DropdownMenuItem(value: 'credit_card', child: Text('Crédito')),
+                      DropdownMenuItem(value: 'debit_card', child: Text('Débito')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _selectedMethod = val);
+                        _loadReport();
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRangeChip(String label, String range) {
+    final isSelected = _selectedRange == range;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        selectedColor: AppColors.primary,
+        backgroundColor: AppColors.surfaceAlt,
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.black : AppColors.textSecondary,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          fontSize: 12,
+        ),
+        onSelected: (_) => _setRange(range),
+      ),
+    );
+  }
+
+  Widget _buildKpiGrid(FinancialKpisModel kpis) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildKpiCard(
+                title: 'Faturamento Bruto (TPV)',
+                value: _currencyFormat.format(kpis.totalGrossVolume),
+                subtitle: '${kpis.approvedCount} aprovadas de ${kpis.totalCount}',
+                color: AppColors.primary,
+                icon: Icons.payments_rounded,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildKpiCard(
+                title: 'Custos Mercado Pago',
+                value: _currencyFormat.format(kpis.totalMpFees),
+                subtitle: 'Taxas de gateway',
+                color: AppColors.danger,
+                icon: Icons.account_balance_rounded,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildKpiCard(
+                title: 'Lucro Líquido CJC',
+                value: _currencyFormat.format(kpis.totalCjcCommission),
+                subtitle: 'Retenção média: ${_percentFormat.format(kpis.averageRetentionPercent)}%',
+                color: AppColors.success,
+                icon: Icons.trending_up_rounded,
+                isHighlight: true,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildKpiCard(
+                title: 'Repasse Líquido Lojas',
+                value: _currencyFormat.format(kpis.totalNetPayout),
+                subtitle: 'Saldo líquido clientes',
+                color: AppColors.warning,
+                icon: Icons.store_rounded,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKpiCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required Color color,
+    required IconData icon,
+    bool isHighlight = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isHighlight ? color.withAlpha(20) : AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isHighlight ? color.withAlpha(100) : AppColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(icon, size: 16, color: color),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isHighlight ? color : AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDreCard(DreModel dre) {
+    final gross = dre.receitaBrutaTotal;
+    String getPct(double val) => gross > 0 ? '${(val / gross * 100).toStringAsFixed(1)}%' : '0,0%';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Demonstrativo do Resultado (DRE)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                Text(
+                  'Sintético',
+                  style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _buildDreRow('(+) Receita Bruta (TPV)', _currencyFormat.format(dre.receitaBrutaTotal), '100%', AppColors.primary, isBold: true),
+            const Divider(height: 16),
+            _buildDreRow('(-) Custos Mercado Pago', '(${_currencyFormat.format(dre.custoMercadoPago)})', getPct(dre.custoMercadoPago), AppColors.danger),
+            const Divider(height: 16),
+            _buildDreRow('(=) Margem Operacional Bruta', _currencyFormat.format(dre.margemBruta), getPct(dre.margemBruta), AppColors.textPrimary, isBold: true),
+            const Divider(height: 16),
+            _buildDreRow('(-) Repasses às Lojas', '(${_currencyFormat.format(dre.repassesLojas)})', getPct(dre.repassesLojas), AppColors.warning),
+            const Divider(height: 16),
+            _buildDreRow('(=) Lucro CJC Dev Pays', _currencyFormat.format(dre.lucroLiquidoCJC), getPct(dre.lucroLiquidoCJC), AppColors.success, isBold: true),
+            const Divider(height: 16),
+            _buildDreRow('(-) Estornos Realizados', '(${_currencyFormat.format(dre.estornosRealizados)})', getPct(dre.estornosRealizados), AppColors.danger),
+            const Divider(height: 16),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(25),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.primary.withAlpha(80)),
+              ),
+              child: _buildDreRow(
+                '★ RESULTADO FINAL',
+                _currencyFormat.format(dre.resultadoOperacionalFinal),
+                getPct(dre.resultadoOperacionalFinal),
+                AppColors.primary,
+                isBold: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDreRow(String label, String value, String pct, Color color, {bool isBold = false}) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 5,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: isBold ? AppColors.textPrimary : AppColors.textSecondary,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 2,
+          child: Text(
+            pct,
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontFamily: 'monospace'),
+          ),
+        ),
+        Expanded(
+          flex: 4,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+              color: color,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMethodsBreakdown(List<MethodFinancialModel> methods) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Conciliação por Meio de Pagamento',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            if (methods.isEmpty)
+              const Text('Nenhum dado no período.', style: TextStyle(color: AppColors.textMuted, fontSize: 12))
+            else
+              ...methods.map(
+                (m) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(m.label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(
+                            _currencyFormat.format(m.grossVolume),
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('${m.count} txs | Custo MP: ${_currencyFormat.format(m.mpFeeVolume)}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                          Text('Lucro: ${_currencyFormat.format(m.commissionVolume)}', style: const TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: (m.sharePercent / 100).clamp(0.0, 1.0),
+                          backgroundColor: AppColors.surfaceAlt,
+                          valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                          minHeight: 5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppsBreakdown(List<AppFinancialModel> apps) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Fechamento por Aplicação / Loja',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            if (apps.isEmpty)
+              const Text('Nenhuma transação no período.', style: TextStyle(color: AppColors.textMuted, fontSize: 12))
+            else
+              ...apps.map(
+                (app) => Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceAlt,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(app.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: app.isCommissionExempt ? AppColors.textMuted.withAlpha(30) : AppColors.success.withAlpha(30),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              app.isCommissionExempt ? 'Isenta' : 'Comissão Padrão',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: app.isCommissionExempt ? AppColors.textMuted : AppColors.success,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Estabelecimento: ${app.establishmentId}', style: const TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Bruto: ${_currencyFormat.format(app.grossVolume)}', style: const TextStyle(fontSize: 11, color: AppColors.textPrimary)),
+                          Text('Repasse: ${_currencyFormat.format(app.netPayoutVolume)}', style: const TextStyle(fontSize: 11, color: AppColors.warning, fontWeight: FontWeight.w600)),
+                          Text('Lucro: ${_currencyFormat.format(app.commissionVolume)}', style: const TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnalyticalLedger(List<FinancialTransactionModel> txs) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Extrato Analítico',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                Text(
+                  '${txs.length} registros',
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (txs.isEmpty)
+              const Text('Nenhum lançamento no período.', style: TextStyle(color: AppColors.textMuted, fontSize: 12))
+            else
+              ...txs.take(15).map(
+                (tx) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: tx.status == 'APPROVED' ? AppColors.success.withAlpha(20) : AppColors.danger.withAlpha(20),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          tx.status == 'APPROVED' ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                          size: 14,
+                          color: tx.status == 'APPROVED' ? AppColors.success : AppColors.danger,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(tx.applicationName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            Text(
+                              '${DateFormat('dd/MM HH:mm').format(tx.createdAt ?? DateTime.now())} • ${tx.paymentMethod}',
+                              style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            _currencyFormat.format(tx.amount),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.textPrimary),
+                          ),
+                          Text(
+                            'Lucro: ${_currencyFormat.format(tx.cjcCommission)}',
+                            style: const TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}

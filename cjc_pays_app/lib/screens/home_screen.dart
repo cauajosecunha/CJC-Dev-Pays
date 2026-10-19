@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import 'applications_tab.dart';
 import 'dashboard_tab.dart';
 import 'fees_settings_screen.dart';
+import 'financial_report_screen.dart';
 import 'login_screen.dart';
 import 'payments_tab.dart';
 import 'server_settings_screen.dart';
@@ -143,6 +144,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
+                title: const Text('Financeiro & Contábil'),
+                subtitle: const Text('DRE, conciliação e exportação CSV', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FinancialReportScreen()),
+                  );
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.percent_rounded, color: AppColors.primary),
                 title: const Text('Taxas & Comissões'),
                 trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
@@ -230,6 +244,16 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_rounded, size: 20, color: AppColors.primary),
+            tooltip: 'Financeiro & Contábil',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FinancialReportScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.percent_rounded, size: 20, color: AppColors.textSecondary),
             tooltip: 'Taxas & Comissões',
