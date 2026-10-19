@@ -396,6 +396,68 @@ class CJCPaysApp {
     document.getElementById('btn-close-webhook-modal')?.addEventListener('click', () => this.closeModal('modal-webhook-details'));
     document.getElementById('btn-modal-close-webhook')?.addEventListener('click', () => this.closeModal('modal-webhook-details'));
 
+    // Delegação de eventos dinâmica para Fila de Webhooks (imune a bloqueios de CSP)
+    document.getElementById('webhooks-tbody')?.addEventListener('click', (e) => {
+      const inspectBtn = e.target.closest('.btn-inspect-webhook, [data-action="inspect-webhook"]');
+      if (inspectBtn) {
+        e.preventDefault();
+        const id = inspectBtn.getAttribute('data-delivery-id');
+        if (id) {
+          this.viewWebhookDetails(id, inspectBtn);
+        }
+        return;
+      }
+
+      const retryBtn = e.target.closest('.btn-retry-webhook, [data-action="retry-webhook"]');
+      if (retryBtn) {
+        e.preventDefault();
+        const id = retryBtn.getAttribute('data-delivery-id');
+        if (id) {
+          this.retryWebhookDelivery(id);
+        }
+        return;
+      }
+    });
+
+    // Delegação de eventos dinâmica para Tabelas de Pagamento
+    ['payments-tbody', 'all-payments-tbody'].forEach((tbodyId) => {
+      document.getElementById(tbodyId)?.addEventListener('click', (e) => {
+        const detailBtn = e.target.closest('.btn-details-payment, [data-action="inspect-payment"]');
+        if (detailBtn) {
+          e.preventDefault();
+          const id = detailBtn.getAttribute('data-payment-id');
+          if (id) {
+            this.viewPaymentDetails(id);
+          }
+        }
+      });
+    });
+
+    // Delegação de cliques internos no Modal de Webhook
+    document.getElementById('modal-webhook-footer')?.addEventListener('click', (e) => {
+      const closeBtn = e.target.closest('[data-action="close-modal"]');
+      if (closeBtn) {
+        e.preventDefault();
+        this.closeModal('modal-webhook-details');
+        return;
+      }
+      const retryBtn = e.target.closest('[data-action="retry-delivery-modal"]');
+      if (retryBtn) {
+        e.preventDefault();
+        const id = retryBtn.getAttribute('data-delivery-id');
+        if (id) this.retryWebhookDelivery(id, true);
+        return;
+      }
+    });
+
+    document.getElementById('modal-webhook-body')?.addEventListener('click', (e) => {
+      const copyBtn = e.target.closest('[data-action="copy-payload"]');
+      if (copyBtn) {
+        e.preventDefault();
+        this.copyCurrentWebhookPayload();
+      }
+    });
+
     // Modal Criar Administrador
     document.getElementById('btn-open-create-user')?.addEventListener('click', () => this.openCreateUserModal());
     document.getElementById('btn-close-create-user-modal')?.addEventListener('click', () => this.closeModal('modal-create-user'));
@@ -649,7 +711,7 @@ class CJCPaysApp {
               <td class="col-amount" style="font-weight: 600; color: #ffffff;">${this.formatCurrency(p.amount)}</td>
               <td class="col-status">${this.renderStatusBadge(p.status, p.statusDetail)}</td>
               <td class="col-action" style="text-align: right;">
-                <button class="btn btn-secondary btn-sm" onclick="app.viewPaymentDetails('${p.id}')">
+                <button type="button" class="btn btn-secondary btn-sm btn-details-payment" data-action="inspect-payment" data-payment-id="${p.id}" onclick="app.viewPaymentDetails('${p.id}')">
                   Detalhes
                 </button>
               </td>
@@ -774,7 +836,7 @@ class CJCPaysApp {
             <td class="col-amount" style="font-weight: 600; color: #ffffff;">${this.formatCurrency(p.amount)}</td>
             <td class="col-status">${this.renderStatusBadge(p.status, p.statusDetail)}</td>
             <td class="col-action" style="text-align: right;">
-              <button class="btn btn-secondary btn-sm" onclick="app.viewPaymentDetails('${p.id}')">
+              <button type="button" class="btn btn-secondary btn-sm btn-details-payment" data-action="inspect-payment" data-payment-id="${p.id}" onclick="app.viewPaymentDetails('${p.id}')">
                 Detalhes
               </button>
             </td>
@@ -1639,10 +1701,10 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
             <td class="col-http">${this.renderHttpStatusBadge(d.httpStatus)}</td>
             <td class="col-status">${this.renderWebhookStatusBadge(d.status)}</td>
             <td class="col-action" style="text-align: right; white-space: nowrap;">
-              <button type="button" class="btn btn-secondary btn-sm btn-inspect-webhook" onclick="app.viewWebhookDetails('${d.id}', this)" title="Inspecionar Payload e Resposta">
+              <button type="button" class="btn btn-secondary btn-sm btn-inspect-webhook" data-action="inspect-webhook" data-delivery-id="${d.id}" onclick="app.viewWebhookDetails('${d.id}', this)" title="Inspecionar Payload e Resposta">
                 Inspecionar
               </button>
-              <button type="button" class="btn btn-ghost btn-sm btn-retry-webhook" onclick="app.retryWebhookDelivery('${d.id}')" title="Forçar reenvio agora">
+              <button type="button" class="btn btn-ghost btn-sm btn-retry-webhook" data-action="retry-webhook" data-delivery-id="${d.id}" onclick="app.retryWebhookDelivery('${d.id}')" title="Forçar reenvio agora">
                 ⚡
               </button>
             </td>
@@ -1768,7 +1830,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
         <div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <span class="modal-row-label">Carga Útil Entregue (JSON Payload Assinado):</span>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="app.copyCurrentWebhookPayload()">
+            <button type="button" class="btn btn-ghost btn-sm" data-action="copy-payload" onclick="app.copyCurrentWebhookPayload()">
               📋 Copiar JSON
             </button>
           </div>
@@ -1783,10 +1845,10 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
 
       if (modalFooter) {
         modalFooter.innerHTML = `
-          <button type="button" class="btn btn-primary btn-sm" onclick="app.retryWebhookDelivery('${d.id}', true)">
+          <button type="button" class="btn btn-primary btn-sm" data-action="retry-delivery-modal" data-delivery-id="${d.id}" onclick="app.retryWebhookDelivery('${d.id}', true)">
             ⚡ Reenviar Agora
           </button>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="app.closeModal('modal-webhook-details')">Fechar</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-action="close-modal" onclick="app.closeModal('modal-webhook-details')">Fechar</button>
         `;
       }
 
