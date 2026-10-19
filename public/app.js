@@ -1439,11 +1439,19 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
   }
 
   openModal(id) {
-    document.getElementById(id)?.classList.add('active');
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.add('active');
+      el.style.display = 'flex';
+    }
   }
 
   closeModal(id) {
-    document.getElementById(id)?.classList.remove('active');
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.remove('active');
+      el.style.display = 'none';
+    }
   }
 
   // ==================== UTILITÁRIOS ====================
@@ -1631,10 +1639,10 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
             <td class="col-http">${this.renderHttpStatusBadge(d.httpStatus)}</td>
             <td class="col-status">${this.renderWebhookStatusBadge(d.status)}</td>
             <td class="col-action" style="text-align: right; white-space: nowrap;">
-              <button class="btn btn-secondary btn-sm" onclick="app.viewWebhookDetails('${d.id}')" title="Inspecionar Payload e Resposta">
+              <button type="button" class="btn btn-secondary btn-sm btn-inspect-webhook" onclick="app.viewWebhookDetails('${d.id}', this)" title="Inspecionar Payload e Resposta">
                 Inspecionar
               </button>
-              <button class="btn btn-ghost btn-sm btn-retry-webhook" onclick="app.retryWebhookDelivery('${d.id}')" title="Forçar reenvio agora">
+              <button type="button" class="btn btn-ghost btn-sm btn-retry-webhook" onclick="app.retryWebhookDelivery('${d.id}')" title="Forçar reenvio agora">
                 ⚡
               </button>
             </td>
@@ -1660,10 +1668,17 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
   }
 
   // ==================== MODAL DE DETALHES DE WEBHOOK ====================
-  async viewWebhookDetails(deliveryId) {
+  async viewWebhookDetails(deliveryId, btnEl = null) {
     if (!deliveryId) {
       this.showToast('Identificador de entrega de webhook inválido.', 'warning');
       return;
+    }
+
+    const button = btnEl || (window.event?.target?.closest ? window.event.target.closest('button') : null);
+    const originalText = button ? button.innerText : null;
+    if (button) {
+      button.disabled = true;
+      button.innerText = 'Carregando...';
     }
 
     try {
@@ -1685,7 +1700,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
       const modalBody = document.getElementById('modal-webhook-body');
       const modalFooter = document.getElementById('modal-webhook-footer');
       if (!modalBody) {
-        console.error('Elemento #modal-webhook-body não encontrado no DOM.');
+        this.showToast('Erro interno: contêiner do modal não localizado.', 'danger');
         return;
       }
 
@@ -1778,7 +1793,12 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
       this.openModal('modal-webhook-details');
     } catch (e) {
       console.error('Erro ao inspecionar webhook:', e);
-      this.showToast('Erro ao carregar detalhes do webhook.', 'warning');
+      this.showToast('Erro de comunicação ao carregar detalhes do webhook.', 'warning');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.innerText = originalText || 'Inspecionar';
+      }
     }
   }
 

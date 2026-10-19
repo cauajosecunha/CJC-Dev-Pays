@@ -54,6 +54,38 @@ class WebhookDispatcher {
 
     const payloadString = JSON.stringify(payloadObject);
 
+    // Trava de Idempotência 1: Se este evento já foi entregue com sucesso para este pagamento, não reenvia
+    const alreadyDelivered = await prisma.webhookDelivery.findFirst({
+      where: {
+        paymentId: payment.id,
+        event: eventName,
+        status: 'DELIVERED',
+      },
+    });
+
+    if (alreadyDelivered) {
+      logger.info(
+        `[WebhookDispatcher] Evento "${eventName}" para o pagamento ${payment.externalReference} já foi entregue com sucesso anteriormente (Delivery ID: ${alreadyDelivered.id}). Despacho duplicado ignorado.`
+      );
+      return;
+    }
+
+    // Trava de Idempotência 2: Se já existe uma entrega PENDING em processo de retentativas para este mesmo evento e pagamento
+    const pendingDelivery = await prisma.webhookDelivery.findFirst({
+      where: {
+        paymentId: payment.id,
+        event: eventName,
+        status: 'PENDING',
+      },
+    });
+
+    if (pendingDelivery) {
+      logger.info(
+        `[WebhookDispatcher] Evento "${eventName}" para o pagamento ${payment.externalReference} já possui entrega pendente em retentativa ativa (Delivery ID: ${pendingDelivery.id}, Tentativa: ${pendingDelivery.attempts}). Despacho concorrente ignorado.`
+      );
+      return;
+    }
+
     // Cria registro inicial de entrega
     const delivery = await prisma.webhookDelivery.create({
       data: {

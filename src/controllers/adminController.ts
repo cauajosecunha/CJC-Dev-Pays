@@ -621,8 +621,12 @@ export class AdminController {
       const delivery = await prisma.webhookDelivery.findUnique({
         where: { id },
         include: {
-          application: true,
-          payment: true,
+          application: {
+            select: { id: true, name: true, slug: true, webhookUrl: true },
+          },
+          payment: {
+            select: { id: true, externalReference: true, amount: true, status: true, statusDetail: true },
+          },
         },
       });
 
@@ -632,8 +636,9 @@ export class AdminController {
       }
 
       res.json({ success: true, delivery });
-    } catch (error) {
-      next(error);
+    } catch (error: any) {
+      logger.error(`[AdminController] Erro ao carregar detalhes da entrega ${req.params.id}:`, error);
+      res.status(500).json({ success: false, error: 'Falha ao buscar detalhes da entrega do webhook.' });
     }
   }
 
