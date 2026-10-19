@@ -17,8 +17,9 @@ model Application {
   apiKeyHash    String
   webhookUrl    String?
   webhookSecret String
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
+  isActive           Boolean   @default(true)
+  isCommissionExempt Boolean   @default(false)
+  createdAt          DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   payments      Payment[]
@@ -104,3 +105,17 @@ model AdminUser {
 
   @@map("admin_users")
 }
+
+model PlatformSettings {
+  id                      String   @id @default("default")
+  mpPixFeePercent         Float    @default(0.99)
+  mpCreditFeePercent      Float    @default(4.99)
+  mpDebitFeePercent       Float    @default(1.99)
+  commissionPixPercent    Float    @default(1.00)
+  commissionCreditPercent Float    @default(2.00)
+  commissionDebitPercent  Float    @default(1.50)
+  updatedAt               DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+

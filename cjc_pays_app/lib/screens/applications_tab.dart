@@ -105,6 +105,7 @@ ID_ESTABELECIMENTO=$establishmentId''';
     final slugCtrl = TextEditingController();
     final webhookCtrl = TextEditingController();
     bool isAutoSlug = true;
+    bool isCommissionExempt = false;
 
     showModalBottomSheet(
       context: context,
@@ -175,6 +176,15 @@ ID_ESTABELECIMENTO=$establishmentId''';
                   ),
                   keyboardType: TextInputType.url,
                 ),
+                const SizedBox(height: 14),
+                SwitchListTile(
+                  title: const Text('Isenta de Comissão', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Apenas taxas diretas do Mercado Pago serão retidas (0% CJC)', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  value: isCommissionExempt,
+                  activeThumbColor: AppColors.success,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (val) => setModalState(() => isCommissionExempt = val),
+                ),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () async {
@@ -193,6 +203,7 @@ ID_ESTABELECIMENTO=$establishmentId''';
                         name: name,
                         slug: slug,
                         webhookUrl: webhookCtrl.text.trim().isNotEmpty ? webhookCtrl.text.trim() : null,
+                        isCommissionExempt: isCommissionExempt,
                       );
                       if (!mounted) return;
                       messenger.showSnackBar(
@@ -221,6 +232,7 @@ ID_ESTABELECIMENTO=$establishmentId''';
     final nameCtrl = TextEditingController(text: app.name);
     final webhookCtrl = TextEditingController(text: app.webhookUrl ?? '');
     bool isActive = app.isActive;
+    bool isCommissionExempt = app.isCommissionExempt;
 
     showModalBottomSheet(
       context: context,
@@ -274,6 +286,15 @@ ID_ESTABELECIMENTO=$establishmentId''';
                   contentPadding: EdgeInsets.zero,
                   onChanged: (val) => setModalState(() => isActive = val),
                 ),
+                const SizedBox(height: 10),
+                SwitchListTile(
+                  title: const Text('Isenta de Comissão', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Apenas taxas diretas do Mercado Pago serão retidas (0% CJC)', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  value: isCommissionExempt,
+                  activeThumbColor: AppColors.success,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (val) => setModalState(() => isCommissionExempt = val),
+                ),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () async {
@@ -285,6 +306,7 @@ ID_ESTABELECIMENTO=$establishmentId''';
                         name: nameCtrl.text.trim(),
                         webhookUrl: webhookCtrl.text.trim(),
                         isActive: isActive,
+                        isCommissionExempt: isCommissionExempt,
                       );
                       if (!mounted) return;
                       messenger.showSnackBar(
@@ -508,6 +530,32 @@ ID_ESTABELECIMENTO=$establishmentId''';
               ),
               Row(
                 children: [
+                  if (app.isCommissionExempt) ...[
+                    Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.successBg.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shield_outlined, size: 12, color: AppColors.success),
+                          SizedBox(width: 4),
+                          Text(
+                            'Isenta',
+                            style: TextStyle(
+                              color: AppColors.success,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(

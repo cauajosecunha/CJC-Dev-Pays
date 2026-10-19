@@ -12,6 +12,7 @@ import { appEvents, EVENTS } from '../lib/eventEmitter.js';
 import { logger } from '../lib/logger.js';
 import { expirationService } from '../services/expirationService.js';
 import { isSafeUrl } from '../lib/urlValidator.js';
+import { feeService } from '../services/feeService.js';
 import axios from 'axios';
 
 export class AdminController {
@@ -307,7 +308,7 @@ export class AdminController {
    */
   async createApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { name, slug, webhookUrl } = req.body;
+      const { name, slug, webhookUrl, isCommissionExempt } = req.body;
 
       if (!name || !slug) {
         res.status(400).json({ success: false, error: 'Nome e slug são obrigatórios.' });
@@ -345,6 +346,7 @@ export class AdminController {
           webhookUrl: webhookUrl || null,
           webhookSecret,
           isActive: true,
+          isCommissionExempt: Boolean(isCommissionExempt),
         },
       });
 
@@ -360,7 +362,7 @@ export class AdminController {
   async updateApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = String(req.params.id);
-      const { name, webhookUrl, isActive } = req.body;
+      const { name, webhookUrl, isActive, isCommissionExempt } = req.body;
 
       if (webhookUrl !== undefined && webhookUrl !== null && webhookUrl !== '' && !isSafeUrl(webhookUrl)) {
         res.status(400).json({
@@ -376,6 +378,7 @@ export class AdminController {
           ...(name ? { name } : {}),
           ...(webhookUrl !== undefined ? { webhookUrl } : {}),
           ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
+          ...(isCommissionExempt !== undefined ? { isCommissionExempt: Boolean(isCommissionExempt) } : {}),
         },
       });
 
@@ -682,6 +685,12 @@ export class AdminController {
         payer: { email: 'sandbox@cjcdev.com.br', firstName: 'Cliente', lastName: 'Teste' },
       });
 
+      const feeCalc = await feeService.calculateFees({
+        amount: numAmount,
+        paymentMethod: 'PIX',
+        isCommissionExempt: Boolean(app.isCommissionExempt),
+      });
+
       const payment = await prisma.payment.create({
         data: {
           applicationId: app.id,
@@ -691,8 +700,8 @@ export class AdminController {
           status: autoApprove ? 'APPROVED' : 'PENDING',
           statusDetail: autoApprove ? 'accredited' : 'pending_waiting_transfer',
           amount: numAmount,
-          feeAmount: Number((numAmount * 0.0099).toFixed(2)),
-          netReceivedAmount: Number((numAmount * 0.9901).toFixed(2)),
+          feeAmount: feeCalc.totalFeeAmount,
+          netReceivedAmount: feeCalc.netReceivedAmount,
           description: description || `Cobrança de Teste - ${app.name}`,
           payerEmail: 'sandbox@cjcdev.com.br',
           payerName: 'Cliente Teste',
@@ -988,6 +997,63 @@ export class AdminController {
         success: true,
         deletedCount: result.deletedCount,
         message: `${result.deletedCount} pagamento(s) não pago(s)/expirado(s) removido(s) do histórico com sucesso.`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ==================== CONFIGURAÇÃO DE TAXAS E COMISSÕES ====================
+
+  /**
+   * GET /api/admin/settings/fees
+   */
+  async getFeeSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const settings = await feeService.getSettings();
+      const amount = Number(req.query.amount) || 100;
+      const simulation = await feeService.simulateBreakdown(amount);
+
+      res.json({
+        success: true,
+        settings,
+        simulation,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /api/admin/settings/fees
+   */
+  async updateFeeSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const {
+        mpPixFeePercent,
+        mpCreditFeePercent,
+        mpDebitFeePercent,
+        commissionPixPercent,
+        commissionCreditPercent,
+        commissionDebitPercent,
+      } = req.body;
+
+      const updated = await feeService.updateSettings({
+        mpPixFeePercent,
+        mpCreditFeePercent,
+        mpDebitFeePercent,
+        commissionPixPercent,
+        commissionCreditPercent,
+        commissionDebitPercent,
+      });
+
+      const simulation = await feeService.simulateBreakdown(100);
+
+      res.json({
+        success: true,
+        settings: updated,
+        simulation,
+        message: 'Taxas e comissões atualizadas com sucesso.',
       });
     } catch (error) {
       next(error);

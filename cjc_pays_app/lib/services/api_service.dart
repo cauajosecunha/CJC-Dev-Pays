@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
 import '../models/application.dart';
+import '../models/fee_settings.dart';
 import '../models/kpi_metrics.dart';
 import '../models/payment.dart';
 import '../models/user.dart';
@@ -316,6 +317,7 @@ class ApiService {
     required String name,
     required String slug,
     String? webhookUrl,
+    bool isCommissionExempt = false,
   }) async {
     try {
       final response = await http
@@ -326,6 +328,7 @@ class ApiService {
               'name': name.trim(),
               'slug': slug.trim().toLowerCase(),
               if (webhookUrl != null && webhookUrl.trim().isNotEmpty) 'webhookUrl': webhookUrl.trim(),
+              'isCommissionExempt': isCommissionExempt,
             }),
           )
           .timeout(AppConstants.connectTimeout);
@@ -343,12 +346,14 @@ class ApiService {
     String? name,
     String? webhookUrl,
     bool? isActive,
+    bool? isCommissionExempt,
   }) async {
     try {
       final payload = <String, dynamic>{};
       if (name != null) payload['name'] = name.trim();
       if (webhookUrl != null) payload['webhookUrl'] = webhookUrl.trim();
       if (isActive != null) payload['isActive'] = isActive;
+      if (isCommissionExempt != null) payload['isCommissionExempt'] = isCommissionExempt;
 
       final response = await http
           .put(
@@ -550,6 +555,41 @@ class ApiService {
           .timeout(AppConstants.connectTimeout);
 
       _processResponse(response);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  // ==================== CONFIGURAÇÃO DE TAXAS E COMISSÕES ====================
+
+  /// Obtém as taxas da plataforma configuradas
+  Future<FeeSettingsModel> getFeeSettings({double? amount}) async {
+    try {
+      final query = amount != null ? {'amount': amount.toString()} : null;
+      final response = await http
+          .get(_uri('/api/admin/settings/fees', query), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return FeeSettingsModel.fromJson(data['settings'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Salva as taxas e comissões da plataforma
+  Future<FeeSettingsModel> updateFeeSettings(FeeSettingsModel settings) async {
+    try {
+      final response = await http
+          .put(
+            _uri('/api/admin/settings/fees'),
+            headers: _headers,
+            body: jsonEncode(settings.toJson()),
+          )
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return FeeSettingsModel.fromJson(data['settings'] as Map<String, dynamic>);
     } on SocketException {
       throw ApiException('Sem conexão com o servidor.');
     }

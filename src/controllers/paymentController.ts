@@ -10,6 +10,7 @@ import { whatsappService } from '../services/whatsappService.js';
 import { config } from '../config/env.js';
 import { expirationService } from '../services/expirationService.js';
 import { isSafeUrl } from '../lib/urlValidator.js';
+import { feeService } from '../services/feeService.js';
 
 const createPixSchema = z.object({
   external_reference: z.string().min(1, 'external_reference é obrigatório'),
@@ -154,6 +155,13 @@ export class PaymentController {
         throw mpError;
       }
 
+      // Calcula taxas parametrizadas considerando a isenção da aplicação
+      const feeCalc = await feeService.calculateFees({
+        amount: mpResult.amount,
+        paymentMethod: 'PIX',
+        isCommissionExempt: Boolean(app.isCommissionExempt),
+      });
+
       // Atualiza dados consolidados recebidos do Mercado Pago
       payment = await prisma.payment.update({
         where: { id: payment.id },
@@ -162,8 +170,8 @@ export class PaymentController {
           status: mpResult.status,
           statusDetail: mpResult.statusDetail,
           amount: mpResult.amount,
-          feeAmount: mpResult.feeAmount,
-          netReceivedAmount: mpResult.netReceivedAmount,
+          feeAmount: feeCalc.totalFeeAmount,
+          netReceivedAmount: feeCalc.netReceivedAmount,
           qrCode: mpResult.qrCode,
           qrCodeBase64: mpResult.qrCodeBase64,
           ticketUrl: mpResult.ticketUrl,
@@ -278,6 +286,13 @@ export class PaymentController {
         throw mpError;
       }
 
+      // Calcula taxas parametrizadas considerando a isenção da aplicação
+      const feeCalc = await feeService.calculateFees({
+        amount: mpResult.amount,
+        paymentMethod: payment.paymentMethod,
+        isCommissionExempt: Boolean(app.isCommissionExempt),
+      });
+
       payment = await prisma.payment.update({
         where: { id: payment.id },
         data: {
@@ -285,8 +300,8 @@ export class PaymentController {
           status: mpResult.status,
           statusDetail: mpResult.statusDetail,
           amount: mpResult.amount,
-          feeAmount: mpResult.feeAmount,
-          netReceivedAmount: mpResult.netReceivedAmount,
+          feeAmount: feeCalc.totalFeeAmount,
+          netReceivedAmount: feeCalc.netReceivedAmount,
           paidAt: mpResult.status === 'APPROVED' ? new Date() : null,
         },
       });

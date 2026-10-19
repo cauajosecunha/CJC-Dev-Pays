@@ -49,3 +49,8 @@ adminRouter.delete('/users/:id', (req, res, next) => adminController.deleteAdmin
 // Simulador Sandbox para testes
 adminRouter.post('/simulator/simulate-payment', (req, res, next) => adminController.simulatePayment(req, res, next));
 adminRouter.post('/simulator/approve-payment/:id', (req, res, next) => adminController.approveSimulatedPayment(req, res, next));
+
+// Configurações de taxas da plataforma e do Mercado Pago
+adminRouter.get('/settings/fees', (req, res, next) => adminController.getFeeSettings(req, res, next));
+adminRouter.put('/settings/fees', (req, res, next) => adminController.updateFeeSettings(req, res, next));
+

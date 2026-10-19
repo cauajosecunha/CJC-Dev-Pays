@@ -167,6 +167,7 @@ class CJCPaysApp {
       'applications-view': 'Aplicações & Chaves',
       'webhooks-view': 'Fila de Webhooks',
       'users-view': 'Administradores',
+      'fees-view': 'Taxas & Comissões',
     };
     const tag = document.getElementById('topbar-current-page-tag');
     if (tag) {
@@ -187,6 +188,8 @@ class CJCPaysApp {
       this.loadAllWebhooks();
     } else if (viewId === 'users-view') {
       this.loadAdminUsersCRUD();
+    } else if (viewId === 'fees-view') {
+      this.loadFeeSettings();
     }
   }
 
@@ -481,6 +484,25 @@ class CJCPaysApp {
     document.getElementById('form-edit-user')?.addEventListener('submit', (e) => {
       e.preventDefault();
       this.handleEditUser();
+    });
+
+    // Configurações de Taxas & Comissões
+    document.getElementById('btn-refresh-fees')?.addEventListener('click', () => this.loadFeeSettings());
+    document.getElementById('btn-save-fees')?.addEventListener('click', () => this.handleSaveFees());
+    document.getElementById('form-fees-settings')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleSaveFees();
+    });
+    [
+      'simulation-amount',
+      'fee-mp-pix',
+      'fee-mp-credit',
+      'fee-mp-debit',
+      'fee-comm-pix',
+      'fee-comm-credit',
+      'fee-comm-debit',
+    ].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', () => this.updateLiveFeeSimulation());
     });
   }
 
@@ -903,9 +925,12 @@ class CJCPaysApp {
                 <code style="font-size: 0.76rem;">slug: ${app.slug}</code>
               </div>
             </div>
-            <span class="badge ${app.isActive ? 'badge-approved' : 'badge-rejected'}">
-              ${app.isActive ? 'Ativa' : 'Inativa'}
-            </span>
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+              ${app.isCommissionExempt ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🛡️ Isenta de Comissão</span>' : ''}
+              <span class="badge ${app.isActive ? 'badge-approved' : 'badge-rejected'}">
+                ${app.isActive ? 'Ativa' : 'Inativa'}
+              </span>
+            </div>
           </div>
 
           <!-- Chave de API -->
@@ -1090,6 +1115,8 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     if (form) form.reset();
     const slugInput = document.getElementById('new-app-slug');
     if (slugInput) delete slugInput.dataset.manualEdited;
+    const exemptCheckbox = document.getElementById('new-app-exempt-commission');
+    if (exemptCheckbox) exemptCheckbox.checked = false;
 
     document.getElementById('modal-create-app')?.classList.add('active');
     document.getElementById('new-app-name')?.focus();
@@ -1099,6 +1126,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     const name = document.getElementById('new-app-name')?.value.trim();
     const slug = document.getElementById('new-app-slug')?.value.trim();
     const webhookUrl = document.getElementById('new-app-webhook')?.value.trim();
+    const isCommissionExempt = Boolean(document.getElementById('new-app-exempt-commission')?.checked);
     const submitBtn = document.getElementById('btn-submit-create-app');
 
     if (!name || !slug) {
@@ -1115,7 +1143,12 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
       const res = await fetch('/api/admin/applications', {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({ name, slug, webhookUrl: webhookUrl || undefined }),
+        body: JSON.stringify({
+          name,
+          slug,
+          webhookUrl: webhookUrl || undefined,
+          isCommissionExempt,
+        }),
       });
 
       const data = await res.json();
@@ -1145,6 +1178,8 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     document.getElementById('edit-app-name').value = app.name;
     document.getElementById('edit-app-webhook').value = app.webhookUrl || '';
     document.getElementById('edit-app-active').checked = Boolean(app.isActive);
+    const exemptCheckbox = document.getElementById('edit-app-exempt-commission');
+    if (exemptCheckbox) exemptCheckbox.checked = Boolean(app.isCommissionExempt);
 
     document.getElementById('modal-edit-app')?.classList.add('active');
     document.getElementById('edit-app-name')?.focus();
@@ -1155,6 +1190,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     const name = document.getElementById('edit-app-name')?.value.trim();
     const webhookUrl = document.getElementById('edit-app-webhook')?.value.trim();
     const isActive = document.getElementById('edit-app-active')?.checked;
+    const isCommissionExempt = Boolean(document.getElementById('edit-app-exempt-commission')?.checked);
     const submitBtn = document.getElementById('btn-submit-edit-app');
 
     if (!appId || !name) return;
@@ -1172,6 +1208,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
           name,
           webhookUrl: webhookUrl || null,
           isActive,
+          isCommissionExempt,
         }),
       });
 
@@ -2150,6 +2187,220 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
       }
     } catch (e) {
       this.showToast('Erro ao solicitar remoção do usuário.', 'warning');
+    }
+  }
+
+  // ==================== CONFIGURAÇÃO DE TAXAS & COMISSÕES ====================
+  async loadFeeSettings() {
+    try {
+      const amount = parseFloat(document.getElementById('simulation-amount')?.value) || 100;
+      const res = await fetch(`/api/admin/settings/fees?amount=${amount}`, {
+        headers: this.getHeaders(),
+      });
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        return;
+      }
+      const data = await res.json();
+      if (data.success && data.settings) {
+        const s = data.settings;
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.value = Number(val).toFixed(2);
+        };
+        setVal('fee-mp-pix', s.mpPixFeePercent);
+        setVal('fee-mp-credit', s.mpCreditFeePercent);
+        setVal('fee-mp-debit', s.mpDebitFeePercent);
+        setVal('fee-comm-pix', s.commissionPixPercent);
+        setVal('fee-comm-credit', s.commissionCreditPercent);
+        setVal('fee-comm-debit', s.commissionDebitPercent);
+
+        if (data.simulation) {
+          this.renderFeeSimulation(data.simulation);
+        } else {
+          this.updateLiveFeeSimulation();
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao carregar taxas:', e);
+      this.showToast('Erro ao carregar configurações de taxas.', 'warning');
+    }
+  }
+
+  updateLiveFeeSimulation() {
+    const amount = Math.max(0.01, parseFloat(document.getElementById('simulation-amount')?.value) || 100);
+    const mpPix = parseFloat(document.getElementById('fee-mp-pix')?.value) || 0;
+    const mpCredit = parseFloat(document.getElementById('fee-mp-credit')?.value) || 0;
+    const mpDebit = parseFloat(document.getElementById('fee-mp-debit')?.value) || 0;
+    const commPix = parseFloat(document.getElementById('fee-comm-pix')?.value) || 0;
+    const commCredit = parseFloat(document.getElementById('fee-comm-credit')?.value) || 0;
+    const commDebit = parseFloat(document.getElementById('fee-comm-debit')?.value) || 0;
+
+    const calc = (mName, mpPercent, commPercent) => {
+      const mpAmount = (amount * mpPercent) / 100;
+      const commAmount = (amount * commPercent) / 100;
+      const totalFee = mpAmount + commAmount;
+      const net = Math.max(0, amount - totalFee);
+      return {
+        paymentMethod: mName,
+        amount,
+        mpFeePercent: mpPercent,
+        mpFeeAmount: mpAmount,
+        commissionPercent: commPercent,
+        commissionAmount: commAmount,
+        totalFeeAmount: totalFee,
+        netReceivedAmount: net,
+      };
+    };
+
+    const simData = {
+      simulatedAmount: amount,
+      regular: {
+        PIX: calc('PIX', mpPix, commPix),
+        CREDIT_CARD: calc('CREDIT_CARD', mpCredit, commCredit),
+        DEBIT_CARD: calc('DEBIT_CARD', mpDebit, commDebit),
+      },
+      exempt: {
+        PIX: calc('PIX', mpPix, 0),
+        CREDIT_CARD: calc('CREDIT_CARD', mpCredit, 0),
+        DEBIT_CARD: calc('DEBIT_CARD', mpDebit, 0),
+      },
+    };
+
+    this.renderFeeSimulation(simData);
+  }
+
+  renderFeeSimulation(sim) {
+    const tbody = document.getElementById('fees-simulation-tbody');
+    if (!tbody || !sim) return;
+
+    const formatCurrency = (val) =>
+      Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    const methods = [
+      { key: 'PIX', label: '💠 Pix Instantâneo', icon: '💠' },
+      { key: 'CREDIT_CARD', label: '💳 Cartão de Crédito', icon: '💳' },
+      { key: 'DEBIT_CARD', label: '💳 Cartão de Débito', icon: '💳' },
+    ];
+
+    let html = '';
+
+    methods.forEach((m) => {
+      const reg = sim.regular?.[m.key];
+      const ex = sim.exempt?.[m.key];
+
+      if (reg) {
+        html += `
+          <tr>
+            <td rowspan="2" style="font-weight: 600; color: var(--text-primary); vertical-align: middle; border-bottom: 2px solid var(--border-subtle);">
+              ${m.label}
+            </td>
+            <td>
+              <span class="badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8;">Padrão</span>
+            </td>
+            <td style="color: #f87171;">
+              ${reg.mpFeePercent.toFixed(2)}% <span style="font-size: 0.76rem; color: var(--text-muted);">(${formatCurrency(reg.mpFeeAmount)})</span>
+            </td>
+            <td style="color: #38bdf8; font-weight: 600;">
+              +${reg.commissionPercent.toFixed(2)}% <span style="font-size: 0.76rem; color: var(--text-muted);">(${formatCurrency(reg.commissionAmount)})</span>
+            </td>
+            <td style="color: #f59e0b; font-weight: 600;">
+              ${(reg.mpFeePercent + reg.commissionPercent).toFixed(2)}% <span style="font-size: 0.76rem; color: var(--text-muted);">(${formatCurrency(reg.totalFeeAmount)})</span>
+            </td>
+            <td style="color: #22c55e; font-weight: 700;">
+              ${formatCurrency(reg.netReceivedAmount)}
+            </td>
+          </tr>
+        `;
+      }
+
+      if (ex) {
+        html += `
+          <tr style="border-bottom: 2px solid var(--border-subtle); background: rgba(16, 185, 129, 0.02);">
+            <td>
+              <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🛡️ Isenta</span>
+            </td>
+            <td style="color: #f87171;">
+              ${ex.mpFeePercent.toFixed(2)}% <span style="font-size: 0.76rem; color: var(--text-muted);">(${formatCurrency(ex.mpFeeAmount)})</span>
+            </td>
+            <td style="color: #94a3b8; font-style: italic;">
+              0.00% <span style="font-size: 0.76rem; color: var(--text-muted);">(R$ 0,00)</span>
+            </td>
+            <td style="color: #f59e0b; font-weight: 600;">
+              ${ex.mpFeePercent.toFixed(2)}% <span style="font-size: 0.76rem; color: var(--text-muted);">(${formatCurrency(ex.totalFeeAmount)})</span>
+            </td>
+            <td style="color: #22c55e; font-weight: 700;">
+              ${formatCurrency(ex.netReceivedAmount)}
+            </td>
+          </tr>
+        `;
+      }
+    });
+
+    tbody.innerHTML = html;
+  }
+
+  async handleSaveFees() {
+    const submitBtn = document.getElementById('btn-save-fees');
+    const mpPixFeePercent = parseFloat(document.getElementById('fee-mp-pix')?.value);
+    const mpCreditFeePercent = parseFloat(document.getElementById('fee-mp-credit')?.value);
+    const mpDebitFeePercent = parseFloat(document.getElementById('fee-mp-debit')?.value);
+    const commissionPixPercent = parseFloat(document.getElementById('fee-comm-pix')?.value);
+    const commissionCreditPercent = parseFloat(document.getElementById('fee-comm-credit')?.value);
+    const commissionDebitPercent = parseFloat(document.getElementById('fee-comm-debit')?.value);
+
+    if (
+      [
+        mpPixFeePercent,
+        mpCreditFeePercent,
+        mpDebitFeePercent,
+        commissionPixPercent,
+        commissionCreditPercent,
+        commissionDebitPercent,
+      ].some(isNaN)
+    ) {
+      this.showToast('Por favor, preencha todos os campos com percentuais válidos.', 'warning');
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Salvando...';
+    }
+
+    try {
+      const res = await fetch('/api/admin/settings/fees', {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          mpPixFeePercent,
+          mpCreditFeePercent,
+          mpDebitFeePercent,
+          commissionPixPercent,
+          commissionCreditPercent,
+          commissionDebitPercent,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('✅ Taxas e comissões atualizadas com sucesso!', 'success');
+        if (data.simulation) {
+          this.renderFeeSimulation(data.simulation);
+        } else {
+          this.updateLiveFeeSimulation();
+        }
+      } else {
+        this.showToast(data.error || 'Falha ao salvar taxas.', 'warning');
+      }
+    } catch (e) {
+      this.showToast('Erro de comunicação ao salvar taxas.', 'warning');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>💾</span> Salvar Configurações';
+      }
     }
   }
 }

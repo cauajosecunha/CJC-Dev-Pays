@@ -3,6 +3,7 @@ import '../constants/app_colors.dart';
 import '../services/auth_service.dart';
 import 'applications_tab.dart';
 import 'dashboard_tab.dart';
+import 'fees_settings_screen.dart';
 import 'login_screen.dart';
 import 'payments_tab.dart';
 import 'server_settings_screen.dart';
@@ -142,6 +143,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.percent_rounded, color: AppColors.primary),
+                title: const Text('Taxas & Comissões'),
+                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FeesSettingsScreen()),
+                  );
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.settings_outlined, color: AppColors.primary),
                 title: const Text('Configurações do Servidor'),
                 trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
@@ -217,6 +230,16 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.percent_rounded, size: 20, color: AppColors.textSecondary),
+            tooltip: 'Taxas & Comissões',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FeesSettingsScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.dns_rounded, size: 20, color: AppColors.textSecondary),
             tooltip: 'Servidor',

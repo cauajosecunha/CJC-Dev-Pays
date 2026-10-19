@@ -60,6 +60,49 @@ export async function initDatabase(): Promise<void> {
       logger.success(`Usuário administrador inicial criado (${defaultEmail}).`);
       logger.warn('⚠️ AVISO DE SEGURANÇA: Administrador inicial criado com a senha padrão "admin123". Altere imediatamente no painel!');
     }
+
+    // 3. Garantir coluna isCommissionExempt na tabela applications
+    const appColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA table_info(applications)');
+    const appColumnNames = appColumns.map((c) => c.name);
+
+    if (appColumns.length > 0 && !appColumnNames.includes('isCommissionExempt')) {
+      logger.info('Migração automática: Adicionando coluna `isCommissionExempt` na tabela `applications`...');
+      await prisma.$executeRawUnsafe('ALTER TABLE applications ADD COLUMN isCommissionExempt BOOLEAN NOT NULL DEFAULT 0;');
+      logger.success('Coluna `isCommissionExempt` adicionada com sucesso em `applications`.');
+    }
+
+    // 4. Garantir tabela platform_settings e registro padrão
+    const settingsColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA table_info(platform_settings)');
+    if (settingsColumns.length === 0) {
+      logger.info('Criando tabela `platform_settings` no SQLite...');
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS platform_settings (
+          id TEXT PRIMARY KEY NOT NULL DEFAULT 'default',
+          mpPixFeePercent REAL NOT NULL DEFAULT 0.99,
+          mpCreditFeePercent REAL NOT NULL DEFAULT 4.99,
+          mpDebitFeePercent REAL NOT NULL DEFAULT 1.99,
+          commissionPixPercent REAL NOT NULL DEFAULT 1.00,
+          commissionCreditPercent REAL NOT NULL DEFAULT 2.00,
+          commissionDebitPercent REAL NOT NULL DEFAULT 1.50,
+          updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await prisma.$executeRawUnsafe(`
+        INSERT OR IGNORE INTO platform_settings (
+          id, mpPixFeePercent, mpCreditFeePercent, mpDebitFeePercent,
+          commissionPixPercent, commissionCreditPercent, commissionDebitPercent, updatedAt
+        ) VALUES ('default', 0.99, 4.99, 1.99, 1.00, 2.00, 1.50, CURRENT_TIMESTAMP);
+      `);
+      logger.success('Tabela `platform_settings` criada e configurada com valores padrão.');
+    } else {
+      // Garantir que a linha 'default' exista
+      await prisma.$executeRawUnsafe(`
+        INSERT OR IGNORE INTO platform_settings (
+          id, mpPixFeePercent, mpCreditFeePercent, mpDebitFeePercent,
+          commissionPixPercent, commissionCreditPercent, commissionDebitPercent, updatedAt
+        ) VALUES ('default', 0.99, 4.99, 1.99, 1.00, 2.00, 1.50, CURRENT_TIMESTAMP);
+      `);
+    }
   } catch (error) {
     logger.error('Erro na inicialização/migração automática do banco SQLite:', error);
   }

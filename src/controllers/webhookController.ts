@@ -6,6 +6,7 @@ import { whatsappService } from '../services/whatsappService.js';
 import { logger } from '../lib/logger.js';
 import { appEvents, EVENTS } from '../lib/eventEmitter.js';
 import { config } from '../config/env.js';
+import { feeService } from '../services/feeService.js';
 
 export class WebhookController {
   /**
@@ -121,6 +122,18 @@ export class WebhookController {
         payment.status !== 'CHARGED_BACK' &&
         (mpStatus === 'REFUNDED' || mpStatus === 'CHARGED_BACK');
 
+      // Calcula taxas parametrizadas e comissão da plataforma considerando isenção
+      const rawTxAmount = Number(mpData.transaction_amount || payment.amount);
+      const feeCalc = await feeService.calculateFees({
+        amount: rawTxAmount,
+        paymentMethod: payment.paymentMethod || 'PIX',
+        isCommissionExempt: Boolean(payment.application?.isCommissionExempt),
+      });
+
+      const actualMpFee = fee > 0 ? fee : feeCalc.mpFeeAmount;
+      const actualTotalFee = Number((actualMpFee + feeCalc.commissionAmount).toFixed(2));
+      const actualNetReceived = Number((rawTxAmount - actualTotalFee).toFixed(2));
+
       // Atualiza pagamento no banco de dados
       const updatedPayment = await prisma.payment.update({
         where: { id: payment.id },
@@ -128,8 +141,8 @@ export class WebhookController {
           mpPaymentId: String(dataId),
           status: mpStatus,
           statusDetail: statusDetail || payment.statusDetail,
-          feeAmount: fee,
-          netReceivedAmount: netReceived,
+          feeAmount: actualTotalFee,
+          netReceivedAmount: actualNetReceived,
           paidAt: mpStatus === 'APPROVED' ? (payment.paidAt || new Date()) : payment.paidAt,
           updatedAt: new Date(),
         },

@@ -109,6 +109,10 @@
           <span class="nav-icon">👥</span>
           <span class="nav-text">Administradores</span>
         </button>
+        <button class="drawer-nav-item" data-view="fees-view" id="nav-item-fees">
+          <span class="nav-icon">📈</span>
+          <span class="nav-text">Taxas & Comissões</span>
+        </button>
       </nav>
 
       <div class="drawer-footer">
@@ -556,6 +560,146 @@
           </section>
         </div>
 
+        <!-- ==================== VIEW 6: TAXAS & COMISSÕES ==================== -->
+        <div id="fees-view" class="view-panel" style="display: none;">
+          <!-- Header da Página -->
+          <section class="page-header">
+            <div>
+              <h1 class="page-title">Taxas & Comissões da Plataforma</h1>
+              <p class="page-subtitle">Configure as taxas de custo do Mercado Pago e as margens de lucro/comissão retidas pelo CJC Dev Pays.</p>
+            </div>
+            <div class="page-header-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-refresh-fees" type="button" title="Recarregar taxas">
+                <span>🔄</span> Recarregar
+              </button>
+              <button class="btn btn-primary btn-sm" id="btn-save-fees" type="button">
+                <span>💾</span> Salvar Configurações
+              </button>
+            </div>
+          </section>
+
+          <form id="form-fees-settings">
+            <!-- Grid de Configuração -->
+            <div class="fees-grid">
+              <!-- Card 1: Custos do Mercado Pago -->
+              <div class="card fee-card">
+                <div class="fee-card-header">
+                  <div class="fee-card-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">🏦</div>
+                  <div>
+                    <h3 class="fee-card-title">Taxas do Mercado Pago (Custos)</h3>
+                    <p class="fee-card-subtitle">Percentual cobrado pelo adquirente em cada método</p>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="field-group">
+                    <label class="field-label" for="fee-mp-pix">Taxa Pix (%)</label>
+                    <div class="input-addon-wrapper">
+                      <input type="number" step="0.01" min="0" max="100" id="fee-mp-pix" class="input-control" placeholder="0.99" required>
+                      <span class="input-addon">%</span>
+                    </div>
+                    <small class="field-hint" style="color: var(--text-muted); font-size: 0.74rem;">Custo oficial aproximado do MP para Pix no Brasil (~0.99%).</small>
+                  </div>
+
+                  <div class="field-group" style="margin-top: 14px;">
+                    <label class="field-label" for="fee-mp-credit">Taxa Cartão de Crédito à Vista (%)</label>
+                    <div class="input-addon-wrapper">
+                      <input type="number" step="0.01" min="0" max="100" id="fee-mp-credit" class="input-control" placeholder="4.99" required>
+                      <span class="input-addon">%</span>
+                    </div>
+                    <small class="field-hint" style="color: var(--text-muted); font-size: 0.74rem;">Custo de intermediação para recebimento imediato no crédito.</small>
+                  </div>
+
+                  <div class="field-group" style="margin-top: 14px;">
+                    <label class="field-label" for="fee-mp-debit">Taxa Cartão de Débito (%)</label>
+                    <div class="input-addon-wrapper">
+                      <input type="number" step="0.01" min="0" max="100" id="fee-mp-debit" class="input-control" placeholder="1.99" required>
+                      <span class="input-addon">%</span>
+                    </div>
+                    <small class="field-hint" style="color: var(--text-muted); font-size: 0.74rem;">Custo para processamento de transações com cartão de débito.</small>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2: Margem de Lucro / Comissão CJC Dev Pays -->
+              <div class="card fee-card">
+                <div class="fee-card-header">
+                  <div class="fee-card-icon" style="background: rgba(34, 197, 94, 0.15); color: #22c55e;">💼</div>
+                  <div>
+                    <h3 class="fee-card-title">Comissão CJC Dev Pays (Lucro)</h3>
+                    <p class="fee-card-subtitle">Spread retido pela sua central sobre o faturamento transacionado</p>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="field-group">
+                    <label class="field-label" for="fee-comm-pix">Comissão sobre Pix (%)</label>
+                    <div class="input-addon-wrapper">
+                      <input type="number" step="0.01" min="0" max="100" id="fee-comm-pix" class="input-control" placeholder="1.00" required>
+                      <span class="input-addon">%</span>
+                    </div>
+                    <small class="field-hint" style="color: var(--text-muted); font-size: 0.74rem;">Percentual retido como receita em pagamentos via Pix.</small>
+                  </div>
+
+                  <div class="field-group" style="margin-top: 14px;">
+                    <label class="field-label" for="fee-comm-credit">Comissão sobre Cartão de Crédito (%)</label>
+                    <div class="input-addon-wrapper">
+                      <input type="number" step="0.01" min="0" max="100" id="fee-comm-credit" class="input-control" placeholder="2.00" required>
+                      <span class="input-addon">%</span>
+                    </div>
+                    <small class="field-hint" style="color: var(--text-muted); font-size: 0.74rem;">Percentual retido em transações no crédito.</small>
+                  </div>
+
+                  <div class="field-group" style="margin-top: 14px;">
+                    <label class="field-label" for="fee-comm-debit">Comissão sobre Cartão de Débito (%)</label>
+                    <div class="input-addon-wrapper">
+                      <input type="number" step="0.01" min="0" max="100" id="fee-comm-debit" class="input-control" placeholder="1.50" required>
+                      <span class="input-addon">%</span>
+                    </div>
+                    <small class="field-hint" style="color: var(--text-muted); font-size: 0.74rem;">Percentual retido em transações no débito.</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3: Calculadora & Simulador em Tempo Real -->
+            <section class="section-block" style="margin-top: 24px;">
+              <div class="card">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);">
+                  <div>
+                    <h3 class="card-title" style="margin: 0; font-size: 1.05rem;">🧮 Decomposição Financeira em Tempo Real</h3>
+                    <p class="card-subtitle" style="margin: 2px 0 0 0; font-size: 0.8rem; color: var(--text-muted);">Veja a simulação de retenção entre Custo Mercado Pago, Lucro da Plataforma e Repasse à Loja.</p>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="simulation-amount" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Valor da Cobrança:</label>
+                    <div class="input-addon-wrapper" style="width: 140px;">
+                      <input type="number" step="10" min="1" id="simulation-amount" class="input-control" value="100.00">
+                      <span class="input-addon">R$</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body" style="padding: 0;">
+                  <div class="table-responsive">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Meio de Pagamento</th>
+                          <th>Cenário da Loja</th>
+                          <th>Taxa MP (Custo)</th>
+                          <th>Comissão CJC (Seu Lucro)</th>
+                          <th>Taxa Total Retida</th>
+                          <th>Líquido Repassado à Loja</th>
+                        </tr>
+                      </thead>
+                      <tbody id="fees-simulation-tbody">
+                        <!-- Preenchido via app.js -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </form>
+        </div>
+
       </div>
     </main>
   </div>
@@ -624,6 +768,22 @@
               placeholder="https://meusite.com/api/webhook/cjc-pays.php"
             >
           </div>
+
+          <div class="field-group" style="flex-direction: row; align-items: flex-start; gap: 10px; margin-top: 10px; padding: 10px 12px; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px;">
+            <input 
+              type="checkbox" 
+              id="new-app-exempt-commission" 
+              style="width: 18px; height: 18px; accent-color: var(--accent-cyan); cursor: pointer; margin-top: 2px;"
+            >
+            <div>
+              <label for="new-app-exempt-commission" style="font-size: 0.86rem; cursor: pointer; color: var(--text-primary); font-weight: 600;">
+                🛡️ Isentar esta aplicação da taxa de comissão da plataforma
+              </label>
+              <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">
+                Quando ativado, apenas a taxa direta do Mercado Pago será descontada das cobranças desta aplicação (0% de comissão).
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="modal-footer">
@@ -675,6 +835,22 @@
             <label for="edit-app-active" style="font-size: 0.86rem; cursor: pointer; color: var(--text-primary);">
               Aplicação Ativa (pode gerar pagamentos e receber webhooks)
             </label>
+          </div>
+
+          <div class="field-group" style="flex-direction: row; align-items: flex-start; gap: 10px; margin-top: 10px; padding: 10px 12px; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px;">
+            <input 
+              type="checkbox" 
+              id="edit-app-exempt-commission" 
+              style="width: 18px; height: 18px; accent-color: var(--accent-cyan); cursor: pointer; margin-top: 2px;"
+            >
+            <div>
+              <label for="edit-app-exempt-commission" style="font-size: 0.86rem; cursor: pointer; color: var(--text-primary); font-weight: 600;">
+                🛡️ Isentar esta aplicação da taxa de comissão da plataforma
+              </label>
+              <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">
+                Quando ativado, apenas a taxa direta do Mercado Pago será descontada das cobranças desta aplicação (0% de comissão).
+              </div>
+            </div>
           </div>
         </div>
 
