@@ -229,6 +229,15 @@ class CJCPaysApp {
       }
     });
 
+    // Clique no backdrop fecha o modal ativo
+    document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) {
+          backdrop.classList.remove('active');
+        }
+      });
+    });
+
     // Navegação nos itens do menu
     document.querySelectorAll('.drawer-nav-item').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1269,10 +1278,25 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
 
   // ==================== MODAL DE PAGAMENTO (DETALHES & ESTORNO) ====================
   async viewPaymentDetails(paymentId) {
+    if (!paymentId) {
+      this.showToast('Identificador de pagamento inválido.', 'warning');
+      return;
+    }
+
     try {
       const res = await fetch(`/api/admin/payments/${paymentId}`, { headers: this.getHeaders() });
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        this.showToast('Sessão expirada. Faça login novamente.', 'warning');
+        return;
+      }
+
       const data = await res.json();
-      if (!data.success || !data.payment) return;
+      if (!data.success || !data.payment) {
+        this.showToast(data.error || 'Não foi possível carregar os detalhes do pagamento.', 'warning');
+        return;
+      }
 
       const p = data.payment;
       const modalBody = document.getElementById('modal-payment-body');
@@ -1637,26 +1661,50 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
 
   // ==================== MODAL DE DETALHES DE WEBHOOK ====================
   async viewWebhookDetails(deliveryId) {
+    if (!deliveryId) {
+      this.showToast('Identificador de entrega de webhook inválido.', 'warning');
+      return;
+    }
+
     try {
       const res = await fetch(`/api/admin/webhooks/deliveries/${deliveryId}`, { headers: this.getHeaders() });
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        this.showToast('Sessão expirada. Faça login novamente.', 'warning');
+        return;
+      }
+
       const data = await res.json();
-      if (!data.success || !data.delivery) return;
+      if (!data.success || !data.delivery) {
+        this.showToast(data.error || 'Não foi possível carregar os detalhes do webhook.', 'warning');
+        return;
+      }
 
       const d = data.delivery;
       const modalBody = document.getElementById('modal-webhook-body');
       const modalFooter = document.getElementById('modal-webhook-footer');
-      if (!modalBody) return;
+      if (!modalBody) {
+        console.error('Elemento #modal-webhook-body não encontrado no DOM.');
+        return;
+      }
 
       let formattedPayload = d.payload;
       try {
-        formattedPayload = JSON.stringify(JSON.parse(d.payload), null, 2);
+        if (typeof d.payload === 'string') {
+          formattedPayload = JSON.stringify(JSON.parse(d.payload), null, 2);
+        } else if (typeof d.payload === 'object' && d.payload !== null) {
+          formattedPayload = JSON.stringify(d.payload, null, 2);
+        }
       } catch (err) {}
+
+      this.currentWebhookPayload = formattedPayload;
 
       modalBody.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);">
           <div>
             <div class="modal-row-label">Evento Notificado</div>
-            <code style="font-size: 0.95rem; font-weight: 600; color: var(--accent-cyan);">${d.event}</code>
+            <code style="font-size: 0.95rem; font-weight: 600; color: var(--accent-cyan);">${this.escapeHtml(d.event)}</code>
           </div>
           <div>${this.renderWebhookStatusBadge(d.status)}</div>
         </div>
@@ -1664,11 +1712,11 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
         <div class="modal-grid">
           <div>
             <div class="modal-row-label">Aplicação Destinatária</div>
-            <div class="modal-row-val">${d.application?.name || 'N/A'} (${d.application?.slug || ''})</div>
+            <div class="modal-row-val">${this.escapeHtml(d.application?.name || 'N/A')} (${this.escapeHtml(d.application?.slug || '')})</div>
           </div>
           <div>
             <div class="modal-row-label">Pedido / Referência</div>
-            <div class="modal-row-val"><code>${d.payment?.externalReference || 'N/A'}</code></div>
+            <div class="modal-row-val"><code>${this.escapeHtml(d.payment?.externalReference || 'N/A')}</code></div>
           </div>
           <div>
             <div class="modal-row-label">Código HTTP Recebido</div>
@@ -1688,7 +1736,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
           </div>
           <div style="grid-column: 1 / -1;">
             <div class="modal-row-label">Endpoint de Destino (URL)</div>
-            <div class="modal-row-val"><code style="word-break: break-all;">${d.targetUrl}</code></div>
+            <div class="modal-row-val"><code style="word-break: break-all;">${this.escapeHtml(d.targetUrl)}</code></div>
           </div>
           ${
             d.nextRetryAt
@@ -1705,7 +1753,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
         <div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <span class="modal-row-label">Carga Útil Entregue (JSON Payload Assinado):</span>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="app.copyToClipboard(app.currentWebhookPayload)">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="app.copyCurrentWebhookPayload()">
               📋 Copiar JSON
             </button>
           </div>
@@ -1717,8 +1765,6 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
           <pre class="code-box-preview" style="max-height: 120px;"><code>${this.escapeHtml(d.responseBody || 'Nenhuma resposta retornada.')}</code></pre>
         </div>
       `;
-
-      this.currentWebhookPayload = formattedPayload;
 
       if (modalFooter) {
         modalFooter.innerHTML = `
@@ -1734,6 +1780,14 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
       console.error('Erro ao inspecionar webhook:', e);
       this.showToast('Erro ao carregar detalhes do webhook.', 'warning');
     }
+  }
+
+  copyCurrentWebhookPayload() {
+    if (!this.currentWebhookPayload) {
+      this.showToast('Nenhum payload disponível para cópia.', 'warning');
+      return;
+    }
+    this.copyToClipboard(this.currentWebhookPayload);
   }
 
   async retryWebhookDelivery(deliveryId, keepModalOpen = false) {
@@ -1762,8 +1816,9 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
   }
 
   escapeHtml(str) {
-    if (!str) return '';
-    return str
+    if (str === null || str === undefined) return '';
+    const text = typeof str === 'string' ? str : String(str);
+    return text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
