@@ -236,7 +236,7 @@ class CJCPaysApp {
     document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
       backdrop.addEventListener('click', (e) => {
         if (e.target === backdrop) {
-          backdrop.classList.remove('active');
+          this.closeModal(backdrop.id);
         }
       });
     });
@@ -1118,7 +1118,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     const exemptCheckbox = document.getElementById('new-app-exempt-commission');
     if (exemptCheckbox) exemptCheckbox.checked = false;
 
-    document.getElementById('modal-create-app')?.classList.add('active');
+    this.openModal('modal-create-app');
     document.getElementById('new-app-name')?.focus();
   }
 
@@ -1181,7 +1181,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     const exemptCheckbox = document.getElementById('edit-app-exempt-commission');
     if (exemptCheckbox) exemptCheckbox.checked = Boolean(app.isCommissionExempt);
 
-    document.getElementById('modal-edit-app')?.classList.add('active');
+    this.openModal('modal-edit-app');
     document.getElementById('edit-app-name')?.focus();
   }
 
