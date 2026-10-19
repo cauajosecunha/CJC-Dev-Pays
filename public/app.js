@@ -27,13 +27,10 @@ class CJCPaysApp {
     this.dashboardMonth = String(new Date().getMonth() + 1);
     this.dashboardYear = new Date().getFullYear();
 
-    // Filtros e estado do Módulo Financeiro & Contábil
+    // Filtros e estado do Módulo Financeiro & Contábil (Filtro único baseado em Mês)
     this.financialFilters = {
-      range: 'this_month',
-      month: String(new Date().getMonth() + 1),
+      month: String(new Date().getMonth() + 1), // Mês atual pré-selecionado (1 a 12)
       year: new Date().getFullYear(),
-      startDate: '',
-      endDate: '',
       applicationId: '',
       paymentMethod: '',
     };
@@ -198,6 +195,7 @@ class CJCPaysApp {
       this.loadApplicationsCRUD();
     } else if (viewId === 'financial-view') {
       this.populateFinancialAppOptions();
+      this.syncFinancialMonthUI();
       this.loadFinancialReport();
     } else if (viewId === 'webhooks-view') {
       this.populateWebhooksAppFilterOptions();
@@ -521,16 +519,27 @@ class CJCPaysApp {
       document.getElementById(id)?.addEventListener('input', () => this.updateLiveFeeSimulation());
     });
 
-    // Eventos do Módulo Financeiro & Contábil
-    document.querySelectorAll('.btn-range-pill').forEach((btn) => {
+    // Eventos do Módulo Financeiro & Contábil (Filtro Único Baseado em Mêses)
+    document.querySelectorAll('.btn-month-pill').forEach((btn) => {
       btn.addEventListener('click', (e) => {
-        const range = e.currentTarget.getAttribute('data-range');
-        if (range) this.setFinancialRange(range);
+        const month = e.currentTarget.getAttribute('data-month');
+        if (month) this.setFinancialMonth(month);
       });
     });
 
-    document.getElementById('btn-apply-financial-filter')?.addEventListener('click', () => {
-      this.applyFinancialFilters();
+    document.getElementById('fin-filter-year')?.addEventListener('change', (e) => {
+      this.financialFilters.year = e.target.value;
+      this.loadFinancialReport();
+    });
+
+    document.getElementById('fin-filter-app')?.addEventListener('change', (e) => {
+      this.financialFilters.applicationId = e.target.value;
+      this.loadFinancialReport();
+    });
+
+    document.getElementById('fin-filter-method')?.addEventListener('change', (e) => {
+      this.financialFilters.paymentMethod = e.target.value;
+      this.loadFinancialReport();
     });
 
     document.getElementById('btn-refresh-financial')?.addEventListener('click', () => {
@@ -2475,127 +2484,43 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     if (currentVal) select.value = currentVal;
   }
 
-  setFinancialRange(range) {
-    this.financialFilters.range = range;
+  setFinancialMonth(month) {
+    this.financialFilters.month = String(month);
 
-    document.querySelectorAll('.btn-range-pill').forEach((pill) => {
-      pill.classList.toggle('active', pill.getAttribute('data-range') === range);
+    // Atualiza classes ativas nas pílulas de meses
+    document.querySelectorAll('.btn-month-pill').forEach((pill) => {
+      pill.classList.toggle('active', pill.getAttribute('data-month') === String(month));
     });
-
-    const startGroup = document.getElementById('fin-custom-date-start-group');
-    const endGroup = document.getElementById('fin-custom-date-end-group');
-    const monthSelect = document.getElementById('fin-filter-month');
-    const yearSelect = document.getElementById('fin-filter-year');
-
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-
-    const formatDateInput = (d) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    if (range === 'custom') {
-      if (startGroup) startGroup.style.display = 'block';
-      if (endGroup) endGroup.style.display = 'block';
-      return;
-    } else {
-      if (startGroup) startGroup.style.display = 'none';
-      if (endGroup) endGroup.style.display = 'none';
-    }
-
-    if (range === 'today') {
-      const todayStr = formatDateInput(now);
-      this.financialFilters.startDate = todayStr;
-      this.financialFilters.endDate = todayStr;
-      this.financialFilters.month = '';
-      this.financialFilters.year = currentYear;
-      if (monthSelect) monthSelect.value = '';
-      if (yearSelect) yearSelect.value = currentYear;
-    } else if (range === 'yesterday') {
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      const yesterdayStr = formatDateInput(yesterday);
-      this.financialFilters.startDate = yesterdayStr;
-      this.financialFilters.endDate = yesterdayStr;
-      this.financialFilters.month = '';
-      this.financialFilters.year = yesterday.getFullYear();
-      if (monthSelect) monthSelect.value = '';
-      if (yearSelect) yearSelect.value = yesterday.getFullYear();
-    } else if (range === '7d') {
-      const sevenDaysAgo = new Date(now);
-      sevenDaysAgo.setDate(now.getDate() - 6);
-      this.financialFilters.startDate = formatDateInput(sevenDaysAgo);
-      this.financialFilters.endDate = formatDateInput(now);
-      this.financialFilters.month = '';
-      this.financialFilters.year = currentYear;
-      if (monthSelect) monthSelect.value = '';
-      if (yearSelect) yearSelect.value = currentYear;
-    } else if (range === 'this_month') {
-      this.financialFilters.startDate = '';
-      this.financialFilters.endDate = '';
-      this.financialFilters.month = String(currentMonth);
-      this.financialFilters.year = currentYear;
-      if (monthSelect) monthSelect.value = String(currentMonth);
-      if (yearSelect) yearSelect.value = currentYear;
-    } else if (range === 'last_month') {
-      const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lastMonthNum = lastMonthDate.getMonth() + 1;
-      const lastMonthYear = lastMonthDate.getFullYear();
-      this.financialFilters.startDate = '';
-      this.financialFilters.endDate = '';
-      this.financialFilters.month = String(lastMonthNum);
-      this.financialFilters.year = lastMonthYear;
-      if (monthSelect) monthSelect.value = String(lastMonthNum);
-      if (yearSelect) yearSelect.value = lastMonthYear;
-    } else if (range === 'this_year') {
-      this.financialFilters.startDate = '';
-      this.financialFilters.endDate = '';
-      this.financialFilters.month = '';
-      this.financialFilters.year = currentYear;
-      if (monthSelect) monthSelect.value = '';
-      if (yearSelect) yearSelect.value = currentYear;
-    }
 
     this.loadFinancialReport();
   }
 
-  applyFinancialFilters() {
-    const range = this.financialFilters.range;
-    const monthSelect = document.getElementById('fin-filter-month');
+  syncFinancialMonthUI() {
+    const currentMonth = this.financialFilters.month || String(new Date().getMonth() + 1);
+    document.querySelectorAll('.btn-month-pill').forEach((pill) => {
+      pill.classList.toggle('active', pill.getAttribute('data-month') === String(currentMonth));
+    });
     const yearSelect = document.getElementById('fin-filter-year');
-    const startDateInput = document.getElementById('fin-filter-start-date');
-    const endDateInput = document.getElementById('fin-filter-end-date');
-    const appSelect = document.getElementById('fin-filter-app');
-    const methodSelect = document.getElementById('fin-filter-method');
-
-    if (range === 'custom') {
-      this.financialFilters.startDate = startDateInput?.value || '';
-      this.financialFilters.endDate = endDateInput?.value || '';
-      this.financialFilters.month = '';
-      this.financialFilters.year = '';
-    } else {
-      this.financialFilters.month = monthSelect?.value || '';
-      this.financialFilters.year = yearSelect?.value || new Date().getFullYear();
+    if (yearSelect && this.financialFilters.year) {
+      yearSelect.value = String(this.financialFilters.year);
     }
-
-    this.financialFilters.applicationId = appSelect?.value || '';
-    this.financialFilters.paymentMethod = methodSelect?.value || '';
-
-    this.loadFinancialReport();
+    const appSelect = document.getElementById('fin-filter-app');
+    if (appSelect) {
+      appSelect.value = this.financialFilters.applicationId || '';
+    }
+    const methodSelect = document.getElementById('fin-filter-method');
+    if (methodSelect) {
+      methodSelect.value = this.financialFilters.paymentMethod || '';
+    }
   }
 
   buildFinancialQueryString() {
     const params = new URLSearchParams();
-    if (this.financialFilters.startDate && this.financialFilters.endDate) {
-      params.append('startDate', this.financialFilters.startDate);
-      params.append('endDate', this.financialFilters.endDate);
-    } else {
-      if (this.financialFilters.month) params.append('month', this.financialFilters.month);
-      if (this.financialFilters.year) params.append('year', this.financialFilters.year);
+    if (this.financialFilters.month && this.financialFilters.month !== 'ALL') {
+      params.append('month', this.financialFilters.month);
+    }
+    if (this.financialFilters.year) {
+      params.append('year', this.financialFilters.year);
     }
     if (this.financialFilters.applicationId) {
       params.append('applicationId', this.financialFilters.applicationId);

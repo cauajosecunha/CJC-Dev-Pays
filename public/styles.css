@@ -2452,13 +2452,13 @@ code {
   font-weight: 600;
 }
 
-.financial-quick-ranges {
+.financial-month-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.btn-range-pill {
+.btn-month-pill {
   background: #161f30;
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
@@ -2468,20 +2468,21 @@ code {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+  user-select: none;
 }
 
-.btn-range-pill:hover {
+.btn-month-pill:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
   border-color: var(--border-strong);
 }
 
-.btn-range-pill.active {
+.btn-month-pill.active {
   background: var(--accent-cyan);
   color: #0b1120;
   border-color: var(--accent-cyan);
-  font-weight: 600;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
 }
 
 .financial-filter-grid {

@@ -23,14 +23,17 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
   FinancialReportModel? _report;
   List<ApplicationModel> _applications = [];
 
-  // Filtros
-  String _selectedRange = 'this_month';
+  // Filtro Único Baseado em Mês (Mês Atual Pré-selecionado)
   int? _selectedMonth = DateTime.now().month;
-  int? _selectedYear = DateTime.now().year;
-  String? _startDate;
-  String? _endDate;
+  final int _selectedYear = DateTime.now().year;
   String _selectedAppId = 'ALL';
   String _selectedMethod = 'ALL';
+
+  final List<String> _months = const [
+    'Ano Todo',
+    'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+  ];
 
   @override
   void initState() {
@@ -60,8 +63,6 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
       final report = await _api.getFinancialReport(
         month: _selectedMonth,
         year: _selectedYear,
-        startDate: _startDate,
-        endDate: _endDate,
         applicationId: _selectedAppId == 'ALL' ? null : _selectedAppId,
         paymentMethod: _selectedMethod == 'ALL' ? null : _selectedMethod,
       );
@@ -82,40 +83,10 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
     }
   }
 
-  void _setRange(String range) {
-    final now = DateTime.now();
+  void _onMonthSelected(int index) {
     setState(() {
-      _selectedRange = range;
-      if (range == 'today') {
-        final str = DateFormat('yyyy-MM-dd').format(now);
-        _startDate = str;
-        _endDate = str;
-        _selectedMonth = null;
-        _selectedYear = now.year;
-      } else if (range == '7d') {
-        _startDate = DateFormat('yyyy-MM-dd').format(now.subtract(const Duration(days: 6)));
-        _endDate = DateFormat('yyyy-MM-dd').format(now);
-        _selectedMonth = null;
-        _selectedYear = now.year;
-      } else if (range == 'this_month') {
-        _startDate = null;
-        _endDate = null;
-        _selectedMonth = now.month;
-        _selectedYear = now.year;
-      } else if (range == 'last_month') {
-        final lastMonth = DateTime(now.year, now.month - 1, 1);
-        _startDate = null;
-        _endDate = null;
-        _selectedMonth = lastMonth.month;
-        _selectedYear = lastMonth.year;
-      } else if (range == 'this_year') {
-        _startDate = null;
-        _endDate = null;
-        _selectedMonth = null;
-        _selectedYear = now.year;
-      }
+      _selectedMonth = index == 0 ? null : index;
     });
-
     _loadReport();
   }
 
@@ -131,8 +102,6 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
       final csv = await _api.downloadFinancialCsv(
         month: _selectedMonth,
         year: _selectedYear,
-        startDate: _startDate,
-        endDate: _endDate,
         applicationId: _selectedAppId == 'ALL' ? null : _selectedAppId,
         paymentMethod: _selectedMethod == 'ALL' ? null : _selectedMethod,
       );
@@ -326,13 +295,24 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: [
-                  _buildRangeChip('Hoje', 'today'),
-                  _buildRangeChip('7 Dias', '7d'),
-                  _buildRangeChip('Mês Atual', 'this_month'),
-                  _buildRangeChip('Mês Anterior', 'last_month'),
-                  _buildRangeChip('Ano Atual', 'this_year'),
-                ],
+                children: List.generate(_months.length, (i) {
+                  final isSelected = (i == 0 && _selectedMonth == null) || (_selectedMonth == i);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(_months[i]),
+                      selected: isSelected,
+                      selectedColor: AppColors.primary,
+                      backgroundColor: AppColors.surfaceAlt,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.black : AppColors.textSecondary,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 12,
+                      ),
+                      onSelected: (_) => _onMonthSelected(i),
+                    ),
+                  );
+                }),
               ),
             ),
             const SizedBox(height: 12),
@@ -392,25 +372,6 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildRangeChip(String label, String range) {
-    final isSelected = _selectedRange == range;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: isSelected,
-        selectedColor: AppColors.primary,
-        backgroundColor: AppColors.surfaceAlt,
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.black : AppColors.textSecondary,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          fontSize: 12,
-        ),
-        onSelected: (_) => _setRange(range),
       ),
     );
   }

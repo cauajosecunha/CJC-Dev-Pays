@@ -725,64 +725,41 @@
             </div>
           </section>
 
-          <!-- Card de Filtros Financeiros -->
+          <!-- Card de Filtros Financeiros (Baseado exclusivamente em Mêses) -->
           <section class="section-block">
             <div class="card financial-filters-card">
               <div class="financial-filters-header">
-                <span class="filter-title"><span>🔍</span> Filtros & Período de Apuração</span>
+                <span class="filter-title"><span>📅</span> Filtrar por Mês</span>
                 <span class="active-period-badge" id="fin-period-badge">Carregando período...</span>
               </div>
 
-              <!-- Atalhos de Período Rápido -->
-              <div class="financial-quick-ranges">
-                <button type="button" class="btn-range-pill" data-range="today">Hoje</button>
-                <button type="button" class="btn-range-pill" data-range="yesterday">Ontem</button>
-                <button type="button" class="btn-range-pill" data-range="7d">Últimos 7 dias</button>
-                <button type="button" class="btn-range-pill active" data-range="this_month">Mês Atual</button>
-                <button type="button" class="btn-range-pill" data-range="last_month">Mês Anterior</button>
-                <button type="button" class="btn-range-pill" data-range="this_year">Ano Atual</button>
-                <button type="button" class="btn-range-pill" data-range="custom">Personalizado</button>
+              <!-- Pílulas dos 12 Mêses com Mês Atual Pré-selecionado -->
+              <div class="financial-month-pills" id="fin-month-pills">
+                <button type="button" class="btn-month-pill" data-month="1">Janeiro</button>
+                <button type="button" class="btn-month-pill" data-month="2">Fevereiro</button>
+                <button type="button" class="btn-month-pill" data-month="3">Março</button>
+                <button type="button" class="btn-month-pill" data-month="4">Abril</button>
+                <button type="button" class="btn-month-pill" data-month="5">Maio</button>
+                <button type="button" class="btn-month-pill" data-month="6">Junho</button>
+                <button type="button" class="btn-month-pill" data-month="7">Julho</button>
+                <button type="button" class="btn-month-pill" data-month="8">Agosto</button>
+                <button type="button" class="btn-month-pill" data-month="9">Setembro</button>
+                <button type="button" class="btn-month-pill active" data-month="10">Outubro</button>
+                <button type="button" class="btn-month-pill" data-month="11">Novembro</button>
+                <button type="button" class="btn-month-pill" data-month="12">Dezembro</button>
+                <button type="button" class="btn-month-pill" data-month="ALL">Ano Todo</button>
               </div>
 
-              <!-- Linha de Controles Avançados -->
+              <!-- Filtros Complementares de Segmentação -->
               <div class="financial-filter-grid">
-                <div class="field-group">
-                  <label class="field-label" for="fin-filter-month">Mês de Referência</label>
-                  <select id="fin-filter-month" class="input-control">
-                    <option value="">Todo o ano</option>
-                    <option value="1">Janeiro</option>
-                    <option value="2">Fevereiro</option>
-                    <option value="3">Março</option>
-                    <option value="4">Abril</option>
-                    <option value="5">Maio</option>
-                    <option value="6">Junho</option>
-                    <option value="7">Julho</option>
-                    <option value="8">Agosto</option>
-                    <option value="9">Setembro</option>
-                    <option value="10">Outubro</option>
-                    <option value="11">Novembro</option>
-                    <option value="12">Dezembro</option>
-                  </select>
-                </div>
-
                 <div class="field-group">
                   <label class="field-label" for="fin-filter-year">Ano</label>
                   <select id="fin-filter-year" class="input-control">
                     <option value="2024">2024</option>
                     <option value="2025">2025</option>
-                    <option value="2026">2026</option>
+                    <option value="2026" selected>2026</option>
                     <option value="2027">2027</option>
                   </select>
-                </div>
-
-                <div class="field-group" id="fin-custom-date-start-group" style="display: none;">
-                  <label class="field-label" for="fin-filter-start-date">Data Inicial</label>
-                  <input type="date" id="fin-filter-start-date" class="input-control">
-                </div>
-
-                <div class="field-group" id="fin-custom-date-end-group" style="display: none;">
-                  <label class="field-label" for="fin-filter-end-date">Data Final</label>
-                  <input type="date" id="fin-filter-end-date" class="input-control">
                 </div>
 
                 <div class="field-group">
@@ -800,12 +777,6 @@
                     <option value="credit_card">Cartão de Crédito</option>
                     <option value="debit_card">Cartão de Débito</option>
                   </select>
-                </div>
-
-                <div class="field-group" style="display: flex; align-items: flex-end;">
-                  <button type="button" class="btn btn-primary btn-block" id="btn-apply-financial-filter">
-                    <span>⚡</span> Filtrar Relatório
-                  </button>
                 </div>
               </div>
             </div>
