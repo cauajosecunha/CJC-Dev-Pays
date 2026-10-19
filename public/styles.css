@@ -1525,12 +1525,15 @@ code {
     align-items: center;
   }
 
-  /* Otimização da Tabela de Transações Recentes para Mobile */
-  #dashboard-view .data-table thead {
+  /* Otimização das Tabelas de Transações (Dashboard e Histórico) para Mobile */
+  #dashboard-view .data-table thead,
+  #payments-view .data-table thead {
     display: none;
   }
   #dashboard-view .data-table,
-  #dashboard-view .data-table tbody {
+  #dashboard-view .data-table tbody,
+  #payments-view .data-table,
+  #payments-view .data-table tbody {
     display: block;
     width: 100%;
   }
@@ -1546,23 +1549,41 @@ code {
     padding: 14px 16px;
     border-bottom: 1px solid var(--border-subtle);
   }
-  #payments-tbody tr:last-child {
+  #all-payments-tbody tr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "app method amount"
+      "payer payer status"
+      "date mpid mpid"
+      "ref ref action";
+    gap: 8px 10px;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  #payments-tbody tr:last-child,
+  #all-payments-tbody tr:last-child {
     border-bottom: none;
   }
-  #payments-tbody tr:hover {
+  #payments-tbody tr:hover,
+  #all-payments-tbody tr:hover {
     background-color: rgba(255, 255, 255, 0.02);
   }
-  #payments-tbody td {
+  #payments-tbody td,
+  #all-payments-tbody td {
     padding: 0;
     border: none;
     white-space: normal;
   }
-  #payments-tbody td.col-app {
+  #payments-tbody td.col-app,
+  #all-payments-tbody td.col-app {
     grid-area: app;
     display: flex;
     align-items: center;
   }
-  #payments-tbody td.col-method {
+  #payments-tbody td.col-method,
+  #all-payments-tbody td.col-method {
     grid-area: method;
     display: flex;
     align-items: center;
@@ -1572,7 +1593,8 @@ code {
     letter-spacing: 0.04em;
     font-weight: 600;
   }
-  #payments-tbody td.col-amount {
+  #payments-tbody td.col-amount,
+  #all-payments-tbody td.col-amount {
     grid-area: amount;
     text-align: right;
     font-size: 1.05rem;
@@ -1580,24 +1602,28 @@ code {
     color: #ffffff;
     font-feature-settings: 'tnum';
   }
-  #payments-tbody td.col-date {
+  #payments-tbody td.col-date,
+  #all-payments-tbody td.col-date {
     grid-area: date;
     font-size: 0.74rem;
     color: var(--text-muted);
   }
-  #payments-tbody td.col-status {
+  #payments-tbody td.col-status,
+  #all-payments-tbody td.col-status {
     grid-area: status;
     display: flex;
     justify-content: flex-end;
   }
-  #payments-tbody td.col-ref {
+  #payments-tbody td.col-ref,
+  #all-payments-tbody td.col-ref {
     grid-area: ref;
     font-size: 0.74rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  #payments-tbody td.col-ref code {
+  #payments-tbody td.col-ref code,
+  #all-payments-tbody td.col-ref code {
     font-size: 0.72rem;
     padding: 2px 6px;
     border-radius: 4px;
@@ -1609,19 +1635,47 @@ code {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  #payments-tbody td.col-action {
+  #payments-tbody td.col-action,
+  #all-payments-tbody td.col-action {
     grid-area: action;
     display: flex;
     justify-content: flex-end;
   }
-  #payments-tbody td.col-action .btn {
+  #payments-tbody td.col-action .btn,
+  #all-payments-tbody td.col-action .btn {
     padding: 5px 12px;
     font-size: 0.76rem;
   }
-  #payments-tbody tr:has(.table-empty-cell) {
+
+  /* Campos específicos da tabela do Histórico */
+  #all-payments-tbody td.col-payer {
+    grid-area: payer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  #all-payments-tbody td.col-payer div {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #all-payments-tbody td.col-mpid {
+    grid-area: mpid;
+    text-align: right;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+  }
+
+  #payments-tbody tr:has(.table-empty-cell),
+  #all-payments-tbody tr:has(.table-empty-cell) {
     display: block;
   }
-  #payments-tbody td.table-empty-cell {
+  #payments-tbody td.table-empty-cell,
+  #all-payments-tbody td.table-empty-cell {
     grid-column: 1 / -1;
     display: block;
     width: 100%;
