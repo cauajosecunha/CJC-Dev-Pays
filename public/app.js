@@ -1,5 +1,5 @@
 /**
- * CJC-Dev-Pays — Minimalist Client Controller, Drawer Menu, Payments & Applications CRUD
+ * CJC Dev Pays — Minimalist Client Controller, Drawer Menu, Payments & Applications CRUD
  */
 
 class CJCPaysApp {

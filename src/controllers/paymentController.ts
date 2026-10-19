@@ -480,7 +480,7 @@ export class PaymentController {
         eventName: 'payment.refunded',
       });
 
-      whatsappService.sendRefundedPayment(updated, app.name, app.slug, 'Estornado via API do CJC-Dev-Pays')
+      whatsappService.sendRefundedPayment(updated, app.name, app.slug, 'Estornado via API do CJC Dev Pays')
         .catch((err: any) => logger.warn(`[PaymentController] Erro ao notificar WhatsApp estorno: ${err?.message || err}`));
 
       res.json({

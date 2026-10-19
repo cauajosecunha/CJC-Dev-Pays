@@ -98,7 +98,7 @@ export class WhatsAppService {
    */
   async sendApprovedPayment(
     payment: WhatsAppPaymentData,
-    appName = 'CJC-Dev-Pays',
+    appName = 'CJC Dev Pays',
     appSlug?: string,
     jid?: string
   ): Promise<{ success: boolean; data?: any; error?: string }> {
@@ -145,7 +145,7 @@ export class WhatsAppService {
    */
   async sendRefundedPayment(
     payment: WhatsAppPaymentData,
-    appName = 'CJC-Dev-Pays',
+    appName = 'CJC Dev Pays',
     appSlug?: string,
     reason = 'Estorno solicitado',
     jid?: string

@@ -11,7 +11,7 @@ webhookRouter.post('/mercadopago', webhookLimiter, (req, res, next) => webhookCo
 webhookRouter.get('/mercadopago', (req, res) => {
   res.json({
     status: 'online',
-    service: 'CJC-Dev-Pays Mercado Pago Webhook Ingestion Point',
+    service: 'CJC Dev Pays Mercado Pago Webhook Ingestion Point',
     timestamp: new Date().toISOString(),
   });
 });

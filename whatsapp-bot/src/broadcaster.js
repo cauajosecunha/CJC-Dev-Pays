@@ -97,7 +97,7 @@ async function enviarMensagem(mensagem, jid = DEFAULT_GROUP_JID) {
 async function enviarNotificacaoAprovado(paymentData) {
     const {
         amount = 0,
-        appName = 'CJC-Dev-Pays',
+        appName = 'CJC Dev Pays',
         appSlug = '',
         paymentMethod = 'PIX',
         externalReference = '',
@@ -163,7 +163,7 @@ async function enviarNotificacaoAprovado(paymentData) {
 async function enviarNotificacaoEstorno(paymentData) {
     const {
         amount = 0,
-        appName = 'CJC-Dev-Pays',
+        appName = 'CJC Dev Pays',
         appSlug = '',
         paymentMethod = 'PIX',
         externalReference = '',

@@ -44,7 +44,7 @@ app.use(
       if (!origin || config.allowedOrigins.includes(origin) || config.nodeEnv !== 'production') {
         callback(null, true);
       } else {
-        callback(new Error('Origem bloqueada pela política de CORS do CJC-Dev-Pays.'));
+        callback(new Error('Origem bloqueada pela política de CORS do CJC Dev Pays.'));
       }
     },
     credentials: true,
@@ -143,7 +143,7 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    service: 'CJC-Dev-Pays',
+    service: 'CJC Dev Pays',
   });
 });
 

@@ -516,7 +516,7 @@ export class AdminController {
       const timestamp = Math.floor(Date.now() / 1000);
       const testPayload = JSON.stringify({
         event: 'system.ping',
-        message: 'Teste de conectividade do CJC-Dev-Pays',
+        message: 'Teste de conectividade do CJC Dev Pays',
         app_slug: app.slug,
         timestamp,
       });
