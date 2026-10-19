@@ -1169,6 +1169,18 @@ input:-webkit-autofill:focus {
   vertical-align: middle;
 }
 
+.webhook-url-text {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  max-width: 220px;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
 .data-table tbody tr {
   transition: background-color 0.15s ease;
 }
@@ -1999,60 +2011,87 @@ code {
       font-size: 0.75rem;
       height: 36px;
     }
+    #payments-tbody tr,
+    #all-payments-tbody tr,
+    #webhooks-tbody tr {
+      padding: 12px 10px;
+      gap: 6px 8px;
+    }
+    #webhooks-tbody td.col-action .btn {
+      padding: 4px 8px;
+      font-size: 0.72rem;
+    }
   }
 
-  /* Modais de Aplicações no Mobile */
-  #modal-create-app .modal-dialog,
-  #modal-edit-app .modal-dialog {
-    max-width: 100%;
-    margin: 12px;
-    border-radius: 12px;
+  /* Modais no Mobile */
+  .modal-dialog {
+    max-width: 100% !important;
+    margin: 12px !important;
+    border-radius: 12px !important;
   }
 
-  #modal-create-app .modal-header,
-  #modal-edit-app .modal-header {
+  .modal-header {
     padding: 14px 16px;
   }
 
-  #modal-create-app .modal-body,
-  #modal-edit-app .modal-body {
+  .modal-body {
     padding: 16px;
     max-height: 72vh;
     gap: 14px;
   }
 
-  #modal-create-app .modal-footer,
-  #modal-edit-app .modal-footer {
+  .modal-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .modal-footer {
     padding: 12px 16px;
     display: flex;
     gap: 8px;
   }
 
-  #modal-create-app .modal-footer .btn,
-  #modal-edit-app .modal-footer .btn {
+  .modal-footer .btn {
     flex: 1;
     height: 40px;
     justify-content: center;
     font-size: 0.84rem;
   }
+
   .filters-grid {
     grid-template-columns: 1fr;
   }
+
+  .filter-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .filter-actions .btn {
+    flex: 1;
+    height: 38px;
+    justify-content: center;
+  }
+
   .pagination-footer {
     flex-direction: column;
     gap: 12px;
     align-items: center;
   }
 
-  /* Otimização das Tabelas de Transações (Dashboard e Histórico) para Mobile */
+  /* Otimização das Tabelas (Dashboard, Histórico e Webhooks) para Mobile */
   #dashboard-view .data-table thead,
-  #payments-view .data-table thead {
+  #payments-view .data-table thead,
+  #webhooks-view .data-table thead {
     display: none;
   }
   #dashboard-view .data-table,
   #dashboard-view .data-table tbody,
   #payments-view .data-table,
-  #payments-view .data-table tbody {
+  #payments-view .data-table tbody,
+  #webhooks-view .data-table,
+  #webhooks-view .data-table tbody {
     display: block;
     width: 100%;
   }
@@ -2081,22 +2120,39 @@ code {
     padding: 14px 16px;
     border-bottom: 1px solid var(--border-subtle);
   }
+  #webhooks-tbody tr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "app event status"
+      "url url url"
+      "ref attempts http"
+      "date action action";
+    gap: 8px 10px;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
   #payments-tbody tr:last-child,
-  #all-payments-tbody tr:last-child {
+  #all-payments-tbody tr:last-child,
+  #webhooks-tbody tr:last-child {
     border-bottom: none;
   }
   #payments-tbody tr:hover,
-  #all-payments-tbody tr:hover {
+  #all-payments-tbody tr:hover,
+  #webhooks-tbody tr:hover {
     background-color: rgba(255, 255, 255, 0.02);
   }
   #payments-tbody td,
-  #all-payments-tbody td {
+  #all-payments-tbody td,
+  #webhooks-tbody td {
     padding: 0;
     border: none;
     white-space: normal;
   }
   #payments-tbody td.col-app,
-  #all-payments-tbody td.col-app {
+  #all-payments-tbody td.col-app,
+  #webhooks-tbody td.col-app {
     grid-area: app;
     display: flex;
     align-items: center;
@@ -2122,27 +2178,34 @@ code {
     font-feature-settings: 'tnum';
   }
   #payments-tbody td.col-date,
-  #all-payments-tbody td.col-date {
+  #all-payments-tbody td.col-date,
+  #webhooks-tbody td.col-date {
     grid-area: date;
     font-size: 0.74rem;
     color: var(--text-muted);
+    display: flex;
+    align-items: center;
   }
   #payments-tbody td.col-status,
-  #all-payments-tbody td.col-status {
+  #all-payments-tbody td.col-status,
+  #webhooks-tbody td.col-status {
     grid-area: status;
     display: flex;
     justify-content: flex-end;
   }
   #payments-tbody td.col-ref,
-  #all-payments-tbody td.col-ref {
+  #all-payments-tbody td.col-ref,
+  #webhooks-tbody td.col-ref {
     grid-area: ref;
     font-size: 0.74rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
   }
   #payments-tbody td.col-ref code,
-  #all-payments-tbody td.col-ref code {
+  #all-payments-tbody td.col-ref code,
+  #webhooks-tbody td.col-ref code {
     font-size: 0.72rem;
     padding: 2px 6px;
     border-radius: 4px;
@@ -2155,13 +2218,17 @@ code {
     white-space: nowrap;
   }
   #payments-tbody td.col-action,
-  #all-payments-tbody td.col-action {
+  #all-payments-tbody td.col-action,
+  #webhooks-tbody td.col-action {
     grid-area: action;
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
   }
   #payments-tbody td.col-action .btn,
-  #all-payments-tbody td.col-action .btn {
+  #all-payments-tbody td.col-action .btn,
+  #webhooks-tbody td.col-action .btn {
     padding: 5px 12px;
     font-size: 0.76rem;
   }
@@ -2189,12 +2256,80 @@ code {
     color: var(--text-muted);
   }
 
+  /* Campos específicos da tabela de Webhooks */
+  #webhooks-tbody td.col-event {
+    grid-area: event;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+  #webhooks-tbody td.col-event code {
+    font-size: 0.74rem;
+    color: var(--accent-cyan);
+    background: rgba(56, 189, 248, 0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  #webhooks-tbody td.col-url {
+    grid-area: url;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  #webhooks-tbody td.col-url .webhook-url-text {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    background: rgba(0, 0, 0, 0.28);
+    padding: 5px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-subtle);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
+  #webhooks-tbody td.col-attempts {
+    grid-area: attempts;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-size: 0.76rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  #webhooks-tbody td.col-attempts span::after {
+    content: ' tent.';
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  #webhooks-tbody td.col-http {
+    grid-area: http;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  #webhooks-tbody td.col-action .btn-retry-webhook {
+    padding: 5px 10px;
+    font-size: 0.85rem;
+  }
+
   #payments-tbody tr:has(.table-empty-cell),
-  #all-payments-tbody tr:has(.table-empty-cell) {
+  #all-payments-tbody tr:has(.table-empty-cell),
+  #webhooks-tbody tr:has(.table-empty-cell) {
     display: block;
   }
   #payments-tbody td.table-empty-cell,
-  #all-payments-tbody td.table-empty-cell {
+  #all-payments-tbody td.table-empty-cell,
+  #webhooks-tbody td.table-empty-cell {
     grid-column: 1 / -1;
     display: block;
     width: 100%;

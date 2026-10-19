@@ -1594,23 +1594,23 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
           .map(
             (d) => `
           <tr>
-            <td>${this.formatDate(d.createdAt)}</td>
-            <td><span class="badge badge-app">${d.application?.name || 'Sistema'}</span></td>
-            <td><code>${d.event}</code></td>
-            <td><code style="font-size: 0.76rem;">${d.payment?.externalReference || '—'}</code></td>
-            <td>
-              <span style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); max-width: 200px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${d.targetUrl}">
+            <td class="col-date">${this.formatDate(d.createdAt)}</td>
+            <td class="col-app"><span class="badge badge-app">${d.application?.name || 'Sistema'}</span></td>
+            <td class="col-event"><code>${d.event}</code></td>
+            <td class="col-ref"><code style="font-size: 0.76rem;">${d.payment?.externalReference || '—'}</code></td>
+            <td class="col-url">
+              <span class="webhook-url-text" title="${d.targetUrl}">
                 ${d.targetUrl}
               </span>
             </td>
-            <td><span style="font-size: 0.8rem; font-weight: 500; font-family: var(--font-mono);">${d.attempts}/${d.maxAttempts}</span></td>
-            <td>${this.renderHttpStatusBadge(d.httpStatus)}</td>
-            <td>${this.renderWebhookStatusBadge(d.status)}</td>
-            <td style="text-align: right; white-space: nowrap;">
+            <td class="col-attempts"><span style="font-size: 0.8rem; font-weight: 500; font-family: var(--font-mono);">${d.attempts}/${d.maxAttempts}</span></td>
+            <td class="col-http">${this.renderHttpStatusBadge(d.httpStatus)}</td>
+            <td class="col-status">${this.renderWebhookStatusBadge(d.status)}</td>
+            <td class="col-action" style="text-align: right; white-space: nowrap;">
               <button class="btn btn-secondary btn-sm" onclick="app.viewWebhookDetails('${d.id}')" title="Inspecionar Payload e Resposta">
                 Inspecionar
               </button>
-              <button class="btn btn-ghost btn-sm" onclick="app.retryWebhookDelivery('${d.id}')" title="Forçar reenvio agora">
+              <button class="btn btn-ghost btn-sm btn-retry-webhook" onclick="app.retryWebhookDelivery('${d.id}')" title="Forçar reenvio agora">
                 ⚡
               </button>
             </td>
