@@ -84,24 +84,96 @@ export async function initDatabase(): Promise<void> {
           commissionPixPercent REAL NOT NULL DEFAULT 1.00,
           commissionCreditPercent REAL NOT NULL DEFAULT 2.00,
           commissionDebitPercent REAL NOT NULL DEFAULT 1.50,
+          companyLegalName TEXT NOT NULL DEFAULT 'CJC Dev Soluções Tecnológicas',
+          companyTradeName TEXT NOT NULL DEFAULT 'CJC Dev Pays',
+          companyCnpj TEXT NOT NULL DEFAULT '',
+          companyStateTaxId TEXT NOT NULL DEFAULT '',
+          companyMunicipalTaxId TEXT NOT NULL DEFAULT '',
+          companyAddress TEXT NOT NULL DEFAULT '',
+          companyCityState TEXT NOT NULL DEFAULT '',
+          companyZipCode TEXT NOT NULL DEFAULT '',
+          companyEmail TEXT NOT NULL DEFAULT 'financeiro@cjcdev.com.br',
+          companyPhone TEXT NOT NULL DEFAULT '',
           updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
       `);
       await prisma.$executeRawUnsafe(`
         INSERT OR IGNORE INTO platform_settings (
           id, mpPixFeePercent, mpCreditFeePercent, mpDebitFeePercent,
-          commissionPixPercent, commissionCreditPercent, commissionDebitPercent, updatedAt
-        ) VALUES ('default', 0.99, 4.99, 1.99, 1.00, 2.00, 1.50, CURRENT_TIMESTAMP);
+          commissionPixPercent, commissionCreditPercent, commissionDebitPercent,
+          companyLegalName, companyTradeName, companyCnpj, companyStateTaxId,
+          companyMunicipalTaxId, companyAddress, companyCityState, companyZipCode,
+          companyEmail, companyPhone, updatedAt
+        ) VALUES (
+          'default', 0.99, 4.99, 1.99, 1.00, 2.00, 1.50,
+          'CJC Dev Soluções Tecnológicas', 'CJC Dev Pays', '', '',
+          '', '', '', '',
+          'financeiro@cjcdev.com.br', '', CURRENT_TIMESTAMP
+        );
       `);
       logger.success('Tabela `platform_settings` criada e configurada com valores padrão.');
     } else {
+      const existingCols = settingsColumns.map((c) => c.name);
+      const companyCols = [
+        { name: 'companyLegalName', sql: "TEXT NOT NULL DEFAULT 'CJC Dev Soluções Tecnológicas'" },
+        { name: 'companyTradeName', sql: "TEXT NOT NULL DEFAULT 'CJC Dev Pays'" },
+        { name: 'companyCnpj', sql: "TEXT NOT NULL DEFAULT ''" },
+        { name: 'companyStateTaxId', sql: "TEXT NOT NULL DEFAULT ''" },
+        { name: 'companyMunicipalTaxId', sql: "TEXT NOT NULL DEFAULT ''" },
+        { name: 'companyAddress', sql: "TEXT NOT NULL DEFAULT ''" },
+        { name: 'companyCityState', sql: "TEXT NOT NULL DEFAULT ''" },
+        { name: 'companyZipCode', sql: "TEXT NOT NULL DEFAULT ''" },
+        { name: 'companyEmail', sql: "TEXT NOT NULL DEFAULT 'financeiro@cjcdev.com.br'" },
+        { name: 'companyPhone', sql: "TEXT NOT NULL DEFAULT ''" },
+      ];
+
+      for (const col of companyCols) {
+        if (!existingCols.includes(col.name)) {
+          logger.info(`Migração automática: Adicionando coluna \`${col.name}\` na tabela \`platform_settings\`...`);
+          await prisma.$executeRawUnsafe(`ALTER TABLE platform_settings ADD COLUMN ${col.name} ${col.sql};`);
+        }
+      }
+
       // Garantir que a linha 'default' exista
       await prisma.$executeRawUnsafe(`
         INSERT OR IGNORE INTO platform_settings (
           id, mpPixFeePercent, mpCreditFeePercent, mpDebitFeePercent,
-          commissionPixPercent, commissionCreditPercent, commissionDebitPercent, updatedAt
-        ) VALUES ('default', 0.99, 4.99, 1.99, 1.00, 2.00, 1.50, CURRENT_TIMESTAMP);
+          commissionPixPercent, commissionCreditPercent, commissionDebitPercent,
+          companyLegalName, companyTradeName, companyCnpj, companyStateTaxId,
+          companyMunicipalTaxId, companyAddress, companyCityState, companyZipCode,
+          companyEmail, companyPhone, updatedAt
+        ) VALUES (
+          'default', 0.99, 4.99, 1.99, 1.00, 2.00, 1.50,
+          'CJC Dev Soluções Tecnológicas', 'CJC Dev Pays', '', '',
+          '', '', '', '',
+          'financeiro@cjcdev.com.br', '', CURRENT_TIMESTAMP
+        );
       `);
+    }
+
+    // 5. Garantir tabela report_audits
+    const auditColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA table_info(report_audits)');
+    if (auditColumns.length === 0) {
+      logger.info('Criando tabela `report_audits` no SQLite...');
+      await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS report_audits (
+          id TEXT PRIMARY KEY NOT NULL,
+          code TEXT NOT NULL,
+          periodLabel TEXT NOT NULL,
+          applicationId TEXT,
+          applicationName TEXT NOT NULL DEFAULT 'Consolidado Geral',
+          grossVolume REAL NOT NULL,
+          mpFeeVolume REAL NOT NULL,
+          commissionVolume REAL NOT NULL,
+          netPayoutVolume REAL NOT NULL,
+          transactionsCount INTEGER NOT NULL DEFAULT 0,
+          dataHash TEXT NOT NULL,
+          issuedBy TEXT NOT NULL DEFAULT 'Administrador',
+          issuedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await prisma.$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS report_audits_code_key ON report_audits(code);');
+      logger.success('Tabela `report_audits` criada com sucesso.');
     }
   } catch (error) {
     logger.error('Erro na inicialização/migração automática do banco SQLite:', error);

@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { prisma } from '../lib/prisma.js';
 import { companyService } from './companyService.js';
 import { logger } from '../lib/logger.js';
+import { initDatabase } from '../lib/dbInit.js';
 
 export interface RegisterAuditParams {
   periodLabel: string;
@@ -73,22 +74,29 @@ export class AuditService {
 
     const dataHash = crypto.createHash('sha256').update(hashPayload).digest('hex');
 
-    const audit = await prisma.reportAudit.create({
-      data: {
-        code,
-        periodLabel: params.periodLabel || 'Período Consolidado',
-        applicationId: params.applicationId || null,
-        applicationName: params.applicationName || 'Consolidado Geral (Todas as Aplicações)',
-        grossVolume: Number(params.grossVolume || 0),
-        mpFeeVolume: Number(params.mpFeeVolume || 0),
-        commissionVolume: Number(params.commissionVolume || 0),
-        netPayoutVolume: Number(params.netPayoutVolume || 0),
-        transactionsCount: Number(params.transactionsCount || 0),
-        dataHash,
-        issuedBy: params.issuedBy || 'Administrador do Sistema',
-        issuedAt: now,
-      },
-    });
+    const auditData = {
+      code,
+      periodLabel: params.periodLabel || 'Período Consolidado',
+      applicationId: params.applicationId || null,
+      applicationName: params.applicationName || 'Consolidado Geral (Todas as Aplicações)',
+      grossVolume: Number(params.grossVolume || 0),
+      mpFeeVolume: Number(params.mpFeeVolume || 0),
+      commissionVolume: Number(params.commissionVolume || 0),
+      netPayoutVolume: Number(params.netPayoutVolume || 0),
+      transactionsCount: Number(params.transactionsCount || 0),
+      dataHash,
+      issuedBy: params.issuedBy || 'Administrador do Sistema',
+      issuedAt: now,
+    };
+
+    let audit;
+    try {
+      audit = await prisma.reportAudit.create({ data: auditData });
+    } catch (error: any) {
+      logger.warn('Erro ao registrar auditoria, acionando auto-migração:', error?.message);
+      await initDatabase();
+      audit = await prisma.reportAudit.create({ data: auditData });
+    }
 
     logger.info(`Relatório contábil registrado para auditoria com código ${code}`);
 
@@ -108,9 +116,18 @@ export class AuditService {
       };
     }
 
-    const audit = await prisma.reportAudit.findUnique({
-      where: { code: cleanCode },
-    });
+    let audit = null;
+    try {
+      audit = await prisma.reportAudit.findUnique({
+        where: { code: cleanCode },
+      });
+    } catch (error: any) {
+      logger.warn('Erro ao consultar relatório de auditoria, acionando auto-migração:', error?.message);
+      await initDatabase();
+      audit = await prisma.reportAudit.findUnique({
+        where: { code: cleanCode },
+      });
+    }
 
     if (!audit) {
       return {

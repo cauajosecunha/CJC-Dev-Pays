@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
+import { initDatabase } from '../lib/dbInit.js';
 
 export interface CompanySettings {
   companyLegalName: string;
@@ -55,8 +56,31 @@ export class CompanyService {
         companyPhone: record.companyPhone || '',
         updatedAt: record.updatedAt,
       };
-    } catch (error) {
-      logger.error('Erro ao buscar dados fiscais da empresa:', error);
+    } catch (error: any) {
+      logger.warn('Erro ao buscar dados fiscais da empresa, acionando auto-migração:', error?.message);
+      try {
+        await initDatabase();
+        const record = await prisma.platformSettings.findUnique({
+          where: { id: 'default' },
+        });
+        if (record) {
+          return {
+            companyLegalName: record.companyLegalName || this.defaultCompany.companyLegalName,
+            companyTradeName: record.companyTradeName || this.defaultCompany.companyTradeName,
+            companyCnpj: record.companyCnpj || '',
+            companyStateTaxId: record.companyStateTaxId || '',
+            companyMunicipalTaxId: record.companyMunicipalTaxId || '',
+            companyAddress: record.companyAddress || '',
+            companyCityState: record.companyCityState || '',
+            companyZipCode: record.companyZipCode || '',
+            companyEmail: record.companyEmail || this.defaultCompany.companyEmail,
+            companyPhone: record.companyPhone || '',
+            updatedAt: record.updatedAt,
+          };
+        }
+      } catch (retryError) {
+        logger.error('Falha ao obter dados fiscais após auto-migração:', retryError);
+      }
       return this.defaultCompany;
     }
   }
@@ -80,18 +104,36 @@ export class CompanyService {
       companyPhone: String(data.companyPhone ?? current.companyPhone).trim(),
     };
 
-    const updated = await prisma.platformSettings.upsert({
-      where: { id: 'default' },
-      update: {
-        ...sanitized,
-        updatedAt: new Date(),
-      },
-      create: {
-        id: 'default',
-        ...sanitized,
-        updatedAt: new Date(),
-      },
-    });
+    let updated;
+    try {
+      updated = await prisma.platformSettings.upsert({
+        where: { id: 'default' },
+        update: {
+          ...sanitized,
+          updatedAt: new Date(),
+        },
+        create: {
+          id: 'default',
+          ...sanitized,
+          updatedAt: new Date(),
+        },
+      });
+    } catch (error: any) {
+      logger.warn('Erro ao atualizar configurações fiscais, acionando auto-migração do SQLite:', error?.message);
+      await initDatabase();
+      updated = await prisma.platformSettings.upsert({
+        where: { id: 'default' },
+        update: {
+          ...sanitized,
+          updatedAt: new Date(),
+        },
+        create: {
+          id: 'default',
+          ...sanitized,
+          updatedAt: new Date(),
+        },
+      });
+    }
 
     logger.success('Dados cadastrais e fiscais da empresa atualizados com sucesso.');
 
