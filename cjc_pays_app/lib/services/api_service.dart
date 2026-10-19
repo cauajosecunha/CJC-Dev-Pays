@@ -70,7 +70,7 @@ class ApiService {
     return Uri.parse('$base$path$queryString');
   }
 
-  Future<dynamic> _processResponse(http.Response response) {
+  dynamic _processResponse(http.Response response) {
     if (response.statusCode == 401) {
       _auth.logout();
       throw ApiException('Sessão expirada. Faça login novamente.', 401);
