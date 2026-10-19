@@ -12,15 +12,15 @@ const isSandbox = String(process.env.MP_SANDBOX || '').trim().toLowerCase() === 
 
 const isProduction = (process.env.NODE_ENV || 'development').toLowerCase() === 'production';
 
-// Validação estrita de segredos críticos em produção
+// Alertas de segurança para segredos críticos
 const jwtSecret = process.env.JWT_SECRET;
 if (isProduction && (!jwtSecret || jwtSecret === 'cjc_dev_pays_super_secret_jwt_token_2026')) {
-  throw new Error('CRITICAL SECURITY: Defina uma variável JWT_SECRET forte e única no arquivo .env em produção!');
+  console.warn('⚠️ [AVISO DE SEGURANÇA] JWT_SECRET não configurado ou utilizando valor padrão em produção. Recomenda-se definir um segredo forte no .env!');
 }
 
 const adminPassword = process.env.ADMIN_PASSWORD;
-if (isProduction && adminPassword === 'admin123') {
-  throw new Error('CRITICAL SECURITY: Altere a senha padrão do administrador (ADMIN_PASSWORD) no .env de produção!');
+if (isProduction && (!adminPassword || adminPassword === 'admin123')) {
+  console.warn('⚠️ [AVISO DE SEGURANÇA] ADMIN_PASSWORD está utilizando o valor padrão "admin123". Recomenda-se alterá-la no .env de produção ou pelo painel!');
 }
 
 // Configuração de origens permitidas para CORS
