@@ -2838,21 +2838,44 @@ code {
 
 .app-detail-layout-grid {
   display: grid;
-  grid-template-columns: 420px 1fr;
-  gap: 20px;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 24px;
   align-items: flex-start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .app-detail-layout-grid {
     grid-template-columns: 1fr;
   }
 }
 
+.app-detail-column {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.app-detail-column .card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .merchant-kpis-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .merchant-kpi-card {
@@ -2863,6 +2886,8 @@ code {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .merchant-kpi-highlight {
@@ -2896,6 +2921,9 @@ code {
   gap: 16px;
   flex-wrap: wrap;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .app-detail-brand-row {
@@ -3085,16 +3113,153 @@ code {
     font-size: 0.85rem !important;
   }
 
-  /* Tabela de Vendas Aprovadas do Extrato */
-  #application-detail-view .table-responsive {
+  /* ==================== TABELA DO EXTRATO NO MOBILE (ESTILO CARDS IDÊNTICO ÀS DEMAIS PÁGINAS) ==================== */
+  #merchant-report-table thead {
+    display: none !important;
+  }
+
+  #merchant-report-table,
+  #merchant-report-tbody {
+    display: block !important;
     width: 100% !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
+  }
+
+  #application-detail-view .table-responsive {
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    width: 100% !important;
+  }
+
+  #merchant-report-tbody tr {
+    display: grid !important;
+    grid-template-columns: auto 1fr auto !important;
+    grid-template-areas:
+      "method ref amount"
+      "date payer payer"
+      "mpfee cjcfee net" !important;
+    gap: 8px 10px !important;
+    align-items: center !important;
+    padding: 14px 16px !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+
+  #merchant-report-tbody tr:last-child {
+    border-bottom: none !important;
+  }
+
+  #merchant-report-tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+  }
+
+  #merchant-report-tbody td {
+    padding: 0 !important;
+    border: none !important;
+    white-space: normal !important;
+  }
+
+  #merchant-report-tbody td.col-method {
+    grid-area: method;
+    display: flex;
+    align-items: center;
+  }
+
+  #merchant-report-tbody td.col-ref {
+    grid-area: ref;
+    font-size: 0.74rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  #merchant-report-tbody td.col-ref code {
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(56, 189, 248, 0.08);
+    color: var(--accent-cyan);
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #merchant-report-tbody td.col-amount {
+    grid-area: amount;
+    text-align: right;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #ffffff;
+    font-feature-settings: 'tnum';
+  }
+
+  #merchant-report-tbody td.col-date {
+    grid-area: date;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+  }
+
+  #merchant-report-tbody td.col-payer {
+    grid-area: payer;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #merchant-report-tbody td.col-mpfee {
+    grid-area: mpfee;
+    font-size: 0.74rem;
+    color: #f87171;
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  #merchant-report-tbody td.col-cjcfee {
+    grid-area: cjcfee;
+    font-size: 0.74rem;
+    color: #fbbf24;
+    font-family: var(--font-mono);
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  #merchant-report-tbody td.col-net {
+    grid-area: net;
+    text-align: right;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: #34d399;
+    font-family: var(--font-mono);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  #merchant-report-tbody tr:has(.table-empty-cell) {
     display: block !important;
   }
 
-  #application-detail-view .data-table {
-    min-width: 650px !important;
+  #merchant-report-tbody td.table-empty-cell {
+    grid-column: 1 / -1 !important;
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    padding: 28px 16px !important;
   }
 
   /* Cards Compactos da Lista de Aplicações */
