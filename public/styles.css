@@ -2816,143 +2816,611 @@ code {
   gap: 8px;
 }
 
-.app-detail-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: var(--bg-surface-elevated);
+/* ==================== TELA DE DETALHES DA APLICAÇÃO (REDESIGN PREMIUM COM ABAS) ==================== */
+
+#application-detail-view {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* 1. Top Navigation & Ações Rápidas */
+.app-detail-top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.app-detail-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 2. Hero Card da Aplicação */
+.app-hero-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%);
   border: 1px solid var(--border-subtle);
+  border-top: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.app-hero-main {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  min-width: 0;
+}
+
+.app-hero-avatar {
+  width: 68px;
+  height: 68px;
+  min-width: 68px;
+  border-radius: 18px;
+  background: var(--bg-surface-elevated);
+  border: 1.5px solid rgba(56, 189, 248, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.6rem;
+  font-size: 2.2rem;
   overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   flex-shrink: 0;
 }
 
-.app-detail-avatar img {
+.app-hero-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.app-detail-layout-grid {
-  display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 24px;
-  align-items: flex-start;
-  width: 100%;
-  max-width: 100%;
+.app-hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   min-width: 0;
+}
+
+.app-hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.app-hero-title {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.02em;
+  word-break: break-word;
+}
+
+.badge-exempt {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-hero-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.app-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.meta-label {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.meta-code {
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--accent-cyan);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.meta-divider {
+  color: var(--border-subtle);
+  font-size: 0.85rem;
+}
+
+.meta-highlight {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+/* Hero Contacts (E-mail & WhatsApp) */
+.app-hero-contacts {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.contact-pill {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.contact-pill:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.contact-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.contact-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.contact-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.contact-value {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* 3. Abas de Navegação Interna */
+.app-detail-tabs-bar {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 24px;
+  width: 100%;
   box-sizing: border-box;
 }
 
-@media (max-width: 1180px) {
-  .app-detail-layout-grid {
-    grid-template-columns: 1fr;
-  }
+.app-tab-btn {
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 12px 20px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  transition: all 0.2s ease;
+  border-radius: 8px 8px 0 0;
 }
 
-.app-detail-column {
+.app-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.app-tab-btn.active {
+  color: var(--accent-cyan);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.app-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+}
+
+.app-tab-btn .tab-icon {
+  font-size: 1.1rem;
+}
+
+.app-tab-content {
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
   box-sizing: border-box;
-  overflow: hidden;
 }
 
-.app-detail-column .card {
+/* 4. Aba 1: Extrato do Lojista */
+.app-card-section {
+  padding: 24px;
+  margin-bottom: 24px;
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
   box-sizing: border-box;
 }
 
+.section-card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-card-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 4px 0 0 0;
+}
+
+/* Filtro de Mês/Ano */
+.merchant-filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.merchant-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.month-filter-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.month-filter-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.month-select {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.month-select:focus {
+  border-color: var(--accent-cyan);
+}
+
+/* 4 KPIs do Lojista */
 .merchant-kpis-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
   box-sizing: border-box;
 }
 
 .merchant-kpi-card {
-  background: var(--bg-surface-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
-.merchant-kpi-highlight {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.3);
+.merchant-kpi-card.highlight-profit {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08);
 }
 
-.merchant-kpi-label {
-  font-size: 0.72rem;
+/* Barra de Ações (PDF, CSV, WhatsApp) */
+.merchant-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.btn-whatsapp {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: 1px solid rgba(16, 185, 129, 0.4);
   font-weight: 600;
-  color: var(--text-muted);
+}
+
+.btn-whatsapp:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+  color: #ffffff;
+}
+
+/* Tabela de Vendas Aprovadas da Loja */
+.merchant-table-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#merchant-report-table {
+  width: 100%;
+}
+
+#merchant-report-table th,
+#merchant-report-table td {
+  padding: 12px 16px;
+}
+
+#merchant-report-table th {
+  font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: rgba(15, 23, 42, 0.5);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.merchant-kpi-value {
-  font-size: 1.35rem;
-  font-weight: 800;
+#merchant-report-table td {
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.84rem;
   color: var(--text-primary);
+}
+
+#merchant-report-table tr:last-child td {
+  border-bottom: none;
+}
+
+#merchant-report-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Estilos de colunas da tabela de extrato no desktop */
+#merchant-report-tbody td.col-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+#merchant-report-tbody td.col-ref code {
+  font-size: 0.78rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--accent-cyan);
   font-family: var(--font-mono);
 }
 
-.merchant-kpi-sub {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+#merchant-report-tbody td.col-payer {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.app-detail-header-top {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+#merchant-report-tbody td.col-amount {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+#merchant-report-tbody td.col-mpfee {
+  color: #f87171;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+#merchant-report-tbody td.col-cjcfee {
+  color: #fbbf24;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+#merchant-report-tbody td.col-net {
+  font-weight: 700;
+  color: #34d399;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+/* 5. Aba 2: Credenciais & Integração */
+.credentials-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: stretch;
   width: 100%;
-  max-width: 100%;
-  min-width: 0;
   box-sizing: border-box;
 }
 
-.app-detail-brand-row {
+.card-inner-form {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  flex: 1;
-  min-width: 0;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px;
 }
 
-.app-detail-title-col {
-  flex: 1;
-  min-width: 0;
+.crud-field-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.app-detail-title-row {
+.field-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.crud-field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.input-action-group {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  width: 100%;
 }
 
-.app-detail-actions {
+.input-action-group .input-control {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+/* Terminal .env */
+.env-terminal-box {
+  background: #090d16;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-/* ==================== RESPONSIVIDADE MOBILE: DETALHES DA APLICAÇÃO & EXTRATO ==================== */
+.env-terminal-header {
+  background: #0f172a;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 12px;
+}
+
+.terminal-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.red { background: #ef4444; }
+.dot.yellow { background: #f59e0b; }
+.dot.green { background: #10b981; }
+
+.terminal-title {
+  font-size: 0.74rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.crud-env-pre {
+  margin: 0;
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: #38bdf8;
+  background: transparent;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+}
+
+/* ==================== RESPONSIVIDADE (TABLETS E TELAS INTERMEDIÁRIAS) ==================== */
+@media (max-width: 1100px) {
+  .merchant-kpis-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .credentials-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-hero-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+
+  .app-hero-contacts {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* ==================== RESPONSIVIDADE MOBILE (SMARTPHONES <= 768px) ==================== */
 @media (max-width: 768px) {
   #application-detail-view {
     width: 100%;
@@ -2960,23 +3428,13 @@ code {
     min-width: 0;
     box-sizing: border-box;
     overflow-x: hidden;
-    gap: 16px;
   }
 
-  /* Cabeçalho da tela de detalhes no mobile */
-  #application-detail-view .page-header {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 14px !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-  }
-
-  .app-detail-header-top {
+  /* Barra Superior no Mobile */
+  .app-detail-top-nav {
     flex-direction: column !important;
     align-items: stretch !important;
     gap: 12px !important;
-    width: 100% !important;
   }
 
   #btn-back-to-apps {
@@ -2986,28 +3444,7 @@ code {
     font-size: 0.85rem !important;
   }
 
-  .app-detail-brand-row {
-    display: flex !important;
-    align-items: center !important;
-    gap: 12px !important;
-    width: 100% !important;
-  }
-
-  .app-detail-avatar {
-    width: 48px !important;
-    height: 48px !important;
-    min-width: 48px !important;
-    border-radius: 12px !important;
-    font-size: 1.4rem !important;
-  }
-
-  #app-detail-name {
-    font-size: 1.15rem !important;
-    line-height: 1.25 !important;
-    word-break: break-word !important;
-  }
-
-  .app-detail-actions {
+  .app-detail-top-actions {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 8px !important;
@@ -3027,80 +3464,127 @@ code {
     justify-content: center !important;
   }
 
-  /* Layout em coluna única fluida */
-  .app-detail-layout-grid {
-    grid-template-columns: 100% !important;
+  /* Hero Card no Mobile */
+  .app-hero-card {
+    padding: 18px 16px !important;
+    border-radius: var(--radius-md) !important;
     gap: 16px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
   }
 
-  .app-detail-column {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
+  .app-hero-main {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 14px !important;
   }
 
-  .app-detail-column .card {
+  .app-hero-avatar {
+    width: 58px !important;
+    height: 58px !important;
+    min-width: 58px !important;
+    border-radius: 14px !important;
+    font-size: 1.8rem !important;
+  }
+
+  .app-hero-title-row {
+    justify-content: center !important;
+  }
+
+  .app-hero-title {
+    font-size: 1.25rem !important;
+  }
+
+  .app-hero-meta-row {
+    justify-content: center !important;
+  }
+
+  .app-hero-contacts {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .contact-pill {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    justify-content: flex-start !important;
+  }
+
+  /* Abas no Mobile */
+  .app-detail-tabs-bar {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    width: 100% !important;
+    padding-bottom: 2px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-tab-btn {
+    flex-shrink: 0 !important;
+    padding: 10px 14px !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* Seções e Cards no Mobile */
+  .app-card-section {
     padding: 16px 12px !important;
     border-radius: var(--radius-md) !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
   }
 
-  /* KPIs do Lojista: 2 colunas perfeitas no mobile */
+  /* KPIs do Lojista: 2 colunas no mobile */
   .merchant-kpis-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
   }
 
   .merchant-kpi-card {
     padding: 12px 10px !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
   }
 
-  .merchant-kpi-label {
+  .merchant-kpi-card .kpi-label {
     font-size: 0.65rem !important;
-    line-height: 1.2 !important;
   }
 
-  .merchant-kpi-value {
+  .merchant-kpi-card .kpi-value {
     font-size: 1.15rem !important;
-    word-break: break-all !important;
   }
 
-  .merchant-kpi-sub {
+  .merchant-kpi-card .kpi-meta {
     font-size: 0.65rem !important;
   }
 
-  /* Filtro de Mês/Ano do Extrato */
+  /* Filtro de Mês/Ano */
   .merchant-filter-header {
     flex-direction: column !important;
     align-items: stretch !important;
-    gap: 10px !important;
+    gap: 12px !important;
   }
 
   .merchant-filter-controls {
     display: flex !important;
-    gap: 6px !important;
+    flex-direction: column !important;
+    gap: 8px !important;
     width: 100% !important;
   }
 
-  .merchant-filter-controls .select-control {
+  .month-filter-container {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+  }
+
+  .month-filter-container .month-select {
     flex: 1 !important;
-    min-width: 0 !important;
-    font-size: 0.8rem !important;
+  }
+
+  #btn-refresh-merchant-report {
+    width: 100% !important;
+    justify-content: center !important;
+    height: 38px !important;
   }
 
   /* Barra de Ações: PDF, CSV, WhatsApp */
   .merchant-actions-bar {
-    display: flex !important;
     flex-direction: column !important;
     gap: 8px !important;
     width: 100% !important;
@@ -3261,6 +3745,7 @@ code {
     text-align: center !important;
     padding: 28px 16px !important;
   }
+
 
   /* Cards Compactos da Lista de Aplicações */
   .app-compact-grid {

@@ -813,6 +813,15 @@ class CJCPaysApp {
       this.sendMerchantWhatsApp();
     });
 
+    // Alternância de Abas na Tela de Detalhes da Aplicação
+    document.getElementById('btn-tab-detail-settlement')?.addEventListener('click', () => {
+      this.switchDetailTab('tab-settlement');
+    });
+
+    document.getElementById('btn-tab-detail-credentials')?.addEventListener('click', () => {
+      this.switchDetailTab('tab-credentials');
+    });
+
     // Preview de Logo e Máscara de Telefone nos Modais
     const setupAppModalFields = (logoId, previewId, phoneId) => {
       const logoInput = document.getElementById(logoId);
@@ -1413,8 +1422,30 @@ class CJCPaysApp {
     this.navigate('application-detail-view', pushHistory, app.id);
     document.title = `${app.name} (Detalhes) — CJC Dev Pays`;
 
+    // Redefine a aba ativa para o Extrato do Lojista
+    this.switchDetailTab('tab-settlement');
+
     // Carrega o extrato do lojista parceiro
     await this.loadMerchantReport(app.id);
+  }
+
+  switchDetailTab(tabId) {
+    const tabSettlementBtn = document.getElementById('btn-tab-detail-settlement');
+    const tabCredentialsBtn = document.getElementById('btn-tab-detail-credentials');
+    const tabSettlementContent = document.getElementById('tab-detail-settlement');
+    const tabCredentialsContent = document.getElementById('tab-detail-credentials');
+
+    if (tabId === 'tab-settlement') {
+      tabSettlementBtn?.classList.add('active');
+      tabCredentialsBtn?.classList.remove('active');
+      if (tabSettlementContent) tabSettlementContent.style.display = 'block';
+      if (tabCredentialsContent) tabCredentialsContent.style.display = 'none';
+    } else {
+      tabCredentialsBtn?.classList.add('active');
+      tabSettlementBtn?.classList.remove('active');
+      if (tabCredentialsContent) tabCredentialsContent.style.display = 'block';
+      if (tabSettlementContent) tabSettlementContent.style.display = 'none';
+    }
   }
 
   toggleDetailKeyVisibility() {
@@ -1523,14 +1554,14 @@ class CJCPaysApp {
 
               return `
               <tr>
-                <td class="col-date" style="font-size: 0.76rem; color: var(--text-muted);">${dt}</td>
-                <td class="col-ref"><code style="font-size: 0.76rem; font-family: var(--font-mono);">${this.escapeHtml(tx.externalReference)}</code></td>
-                <td class="col-method"><span class="badge badge-app" style="font-size: 0.7rem;">${this.escapeHtml(tx.paymentMethod)}</span></td>
-                <td class="col-amount" style="font-weight: 600; color: var(--text-primary); font-family: var(--font-mono);">R$ ${this.formatMoney(tx.amount)}</td>
-                <td class="col-mpfee" style="color: #f87171; font-family: var(--font-mono);">- R$ ${this.formatMoney(tx.mpFee)}</td>
-                <td class="col-cjcfee" style="color: #fbbf24; font-family: var(--font-mono);">- R$ ${this.formatMoney(tx.cjcCommission)}</td>
-                <td class="col-net" style="font-weight: 700; color: #34d399; font-family: var(--font-mono);">R$ ${this.formatMoney(tx.netPayout)}</td>
-                <td class="col-payer" style="font-size: 0.76rem; color: var(--text-muted);">${this.escapeHtml(tx.payerName || tx.payerEmail || 'Cliente Final')}</td>
+                <td class="col-date">${dt}</td>
+                <td class="col-ref"><code>${this.escapeHtml(tx.externalReference)}</code></td>
+                <td class="col-method"><span class="badge badge-app">${this.escapeHtml(tx.paymentMethod)}</span></td>
+                <td class="col-amount">R$ ${this.formatMoney(tx.amount)}</td>
+                <td class="col-mpfee">- R$ ${this.formatMoney(tx.mpFee)}</td>
+                <td class="col-cjcfee">- R$ ${this.formatMoney(tx.cjcCommission)}</td>
+                <td class="col-net">R$ ${this.formatMoney(tx.netPayout)}</td>
+                <td class="col-payer">${this.escapeHtml(tx.payerName || tx.payerEmail || 'Cliente Final')}</td>
               </tr>
             `;
             })
