@@ -61,7 +61,7 @@ export async function initDatabase(): Promise<void> {
       logger.warn('⚠️ AVISO DE SEGURANÇA: Administrador inicial criado com a senha padrão "admin123". Altere imediatamente no painel!');
     }
 
-    // 3. Garantir coluna isCommissionExempt na tabela applications
+    // 3. Garantir colunas na tabela applications
     const appColumns = await prisma.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA table_info(applications)');
     const appColumnNames = appColumns.map((c) => c.name);
 
@@ -69,6 +69,24 @@ export async function initDatabase(): Promise<void> {
       logger.info('Migração automática: Adicionando coluna `isCommissionExempt` na tabela `applications`...');
       await prisma.$executeRawUnsafe('ALTER TABLE applications ADD COLUMN isCommissionExempt BOOLEAN NOT NULL DEFAULT 0;');
       logger.success('Coluna `isCommissionExempt` adicionada com sucesso em `applications`.');
+    }
+
+    if (appColumns.length > 0 && !appColumnNames.includes('logoUrl')) {
+      logger.info('Migração automática: Adicionando coluna `logoUrl` na tabela `applications`...');
+      await prisma.$executeRawUnsafe('ALTER TABLE applications ADD COLUMN logoUrl TEXT;');
+      logger.success('Coluna `logoUrl` adicionada com sucesso em `applications`.');
+    }
+
+    if (appColumns.length > 0 && !appColumnNames.includes('contactEmail')) {
+      logger.info('Migração automática: Adicionando coluna `contactEmail` na tabela `applications`...');
+      await prisma.$executeRawUnsafe('ALTER TABLE applications ADD COLUMN contactEmail TEXT;');
+      logger.success('Coluna `contactEmail` adicionada com sucesso em `applications`.');
+    }
+
+    if (appColumns.length > 0 && !appColumnNames.includes('contactPhone')) {
+      logger.info('Migração automática: Adicionando coluna `contactPhone` na tabela `applications`...');
+      await prisma.$executeRawUnsafe('ALTER TABLE applications ADD COLUMN contactPhone TEXT;');
+      logger.success('Coluna `contactPhone` adicionada com sucesso em `applications`.');
     }
 
     // 4. Garantir tabela platform_settings e registro padrão

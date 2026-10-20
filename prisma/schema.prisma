@@ -19,6 +19,9 @@ model Application {
   webhookSecret String
   isActive           Boolean   @default(true)
   isCommissionExempt Boolean   @default(false)
+  logoUrl            String?
+  contactEmail       String?
+  contactPhone       String?
   createdAt          DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

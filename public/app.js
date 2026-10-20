@@ -174,6 +174,7 @@ class CJCPaysApp {
       'dashboard-view': 'Visão Geral',
       'payments-view': 'Transações',
       'applications-view': 'Aplicações & Chaves',
+      'application-detail-view': 'Detalhes da Aplicação',
       'financial-view': 'Financeiro & Contábil',
       'webhooks-view': 'Fila de Webhooks',
       'users-view': 'Administradores',
@@ -590,6 +591,117 @@ class CJCPaysApp {
     document.getElementById('btn-print-financial')?.addEventListener('click', () => {
       this.printFinancialReport();
     });
+
+    // Navegação e Ações da Tela de Detalhes da Aplicação
+    document.getElementById('btn-back-to-apps')?.addEventListener('click', () => {
+      this.navigateTo('applications-view');
+    });
+
+    document.getElementById('btn-detail-toggle-key')?.addEventListener('click', () => {
+      this.toggleDetailKeyVisibility();
+    });
+
+    document.getElementById('btn-detail-copy-key')?.addEventListener('click', () => {
+      const val = document.getElementById('detail-key-input')?.value;
+      if (val) this.copyToClipboard(val);
+    });
+
+    document.getElementById('btn-detail-regen-key')?.addEventListener('click', () => {
+      if (this.currentDetailAppId) this.regenerateApiKey(this.currentDetailAppId, true);
+    });
+
+    document.getElementById('btn-detail-copy-secret')?.addEventListener('click', () => {
+      const val = document.getElementById('detail-secret-box')?.innerText;
+      if (val) this.copyToClipboard(val);
+    });
+
+    document.getElementById('btn-detail-save-webhook')?.addEventListener('click', () => {
+      this.saveDetailWebhook();
+    });
+
+    document.getElementById('btn-detail-ping-webhook')?.addEventListener('click', () => {
+      if (this.currentDetailAppId) this.pingWebhook(this.currentDetailAppId);
+    });
+
+    document.getElementById('btn-detail-copy-env')?.addEventListener('click', () => {
+      const val = document.getElementById('detail-env-pre')?.innerText;
+      if (val) this.copyToClipboard(val);
+    });
+
+    document.getElementById('btn-detail-clear-tx')?.addEventListener('click', () => {
+      if (this.currentDetailAppId) this.clearApplicationTransactions(this.currentDetailAppId, true);
+    });
+
+    document.getElementById('btn-detail-edit-app')?.addEventListener('click', () => {
+      if (this.currentDetailAppId) this.openEditAppModal(this.currentDetailAppId);
+    });
+
+    document.getElementById('btn-detail-delete-app')?.addEventListener('click', () => {
+      if (this.currentDetailAppId) this.deleteApplication(this.currentDetailAppId, true);
+    });
+
+    // Controles do Extrato do Lojista
+    document.getElementById('merchant-report-month')?.addEventListener('change', () => {
+      if (this.currentDetailAppId) this.loadMerchantReport(this.currentDetailAppId);
+    });
+
+    document.getElementById('merchant-report-year')?.addEventListener('change', () => {
+      if (this.currentDetailAppId) this.loadMerchantReport(this.currentDetailAppId);
+    });
+
+    document.getElementById('btn-refresh-merchant-report')?.addEventListener('click', () => {
+      if (this.currentDetailAppId) {
+        this.loadMerchantReport(this.currentDetailAppId);
+        this.showToast('Extrato do lojista atualizado!', 'info');
+      }
+    });
+
+    document.getElementById('btn-print-merchant-pdf')?.addEventListener('click', () => {
+      this.printMerchantReport();
+    });
+
+    document.getElementById('btn-export-merchant-csv')?.addEventListener('click', () => {
+      this.exportMerchantCsv();
+    });
+
+    document.getElementById('btn-send-merchant-whatsapp')?.addEventListener('click', () => {
+      this.sendMerchantWhatsApp();
+    });
+
+    // Preview de Logo e Máscara de Telefone nos Modais
+    const setupAppModalFields = (logoId, previewId, phoneId) => {
+      const logoInput = document.getElementById(logoId);
+      const previewBox = document.getElementById(previewId);
+      if (logoInput && previewBox) {
+        logoInput.addEventListener('input', (e) => {
+          const val = e.target.value.trim();
+          if (val && (val.startsWith('http://') || val.startsWith('https://'))) {
+            previewBox.innerHTML = `<img src="${this.escapeHtml(val)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🏢';">`;
+          } else {
+            previewBox.innerHTML = '🏢';
+          }
+        });
+      }
+
+      const phoneInput = document.getElementById(phoneId);
+      if (phoneInput) {
+        phoneInput.addEventListener('input', (e) => {
+          let v = e.target.value.replace(/\D/g, '');
+          if (v.length > 11) v = v.slice(0, 11);
+          if (v.length > 10) {
+            v = v.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+          } else if (v.length > 6) {
+            v = v.replace(/^(\d{2})(\d{4})(\d{0,4})$/, '($1) $2-$3');
+          } else if (v.length > 2) {
+            v = v.replace(/^(\d{2})(\d{0,5})$/, '($1) $2');
+          }
+          e.target.value = v;
+        });
+      }
+    };
+
+    setupAppModalFields('new-app-logo', 'new-app-logo-preview', 'new-app-phone');
+    setupAppModalFields('edit-app-logo', 'edit-app-logo-preview', 'edit-app-phone');
   }
 
   slugify(text) {
@@ -969,7 +1081,7 @@ class CJCPaysApp {
     }
   }
 
-  // ==================== CRUD DE APLICAÇÕES ====================
+  // ==================== CRUD DE APLICAÇÕES & TELA DE DETALHES ====================
   async loadApplicationsCRUD() {
     const container = document.getElementById('crud-apps-container');
     if (!container) return;
@@ -1000,184 +1112,40 @@ class CJCPaysApp {
         return;
       }
 
+      // Grid de cards compactos com Logo, Nome, Slug e Botão Visualizar
+      container.className = 'app-compact-grid';
       container.innerHTML = this.applicationsCache
         .map(
           (app) => `
-        <div class="crud-app-card" id="app-card-${app.id}">
-          <div class="crud-app-header">
-            <div>
-              <h3 class="crud-app-title">${app.name}</h3>
-              <div style="margin-top: 3px;">
-                <code style="font-size: 0.76rem;">slug: ${app.slug}</code>
+        <div class="app-compact-card" id="app-card-${app.id}">
+          <div class="app-compact-header">
+            <div class="app-compact-logo">
+              ${app.logoUrl ? `<img src="${this.escapeHtml(app.logoUrl)}" alt="${this.escapeHtml(app.name)}" onerror="this.onerror=null; this.parentElement.innerHTML='🏢';">` : '🏢'}
+            </div>
+            <div class="app-compact-info">
+              <h3 class="app-compact-name" title="${this.escapeHtml(app.name)}">${this.escapeHtml(app.name)}</h3>
+              <div class="app-compact-slug">slug: <code>${this.escapeHtml(app.slug)}</code></div>
+              <div class="app-compact-badges">
+                ${app.isCommissionExempt ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🛡️ Isenta</span>' : ''}
+                <span class="badge ${app.isActive ? 'badge-approved' : 'badge-rejected'}">
+                  ${app.isActive ? 'Ativa' : 'Inativa'}
+                </span>
               </div>
             </div>
-            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-              ${app.isCommissionExempt ? '<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🛡️ Isenta de Comissão</span>' : ''}
-              <span class="badge ${app.isActive ? 'badge-approved' : 'badge-rejected'}">
-                ${app.isActive ? 'Ativa' : 'Inativa'}
-              </span>
-            </div>
           </div>
 
-          <!-- Chave de API -->
-          <div class="crud-field-box">
-            <span class="crud-field-label">Chave de API (X-Api-Key)</span>
-            <div class="input-action-group">
-              <input 
-                type="password" 
-                id="key-input-${app.id}" 
-                class="input-control" 
-                value="${app.apiKey}" 
-                readonly
-              >
-              <button 
-                type="button" 
-                class="btn btn-secondary btn-sm" 
-                onclick="app.toggleKeyVisibility('${app.id}')" 
-                title="Mostrar/Ocultar Chave"
-              >
-                👁️
-              </button>
-              <button 
-                type="button" 
-                class="btn btn-secondary btn-sm" 
-                onclick="app.copyToClipboard('${app.apiKey}')" 
-                title="Copiar Chave de API"
-              >
-                📋
-              </button>
-              <button 
-                type="button" 
-                class="btn btn-secondary btn-sm" 
-                onclick="app.regenerateApiKey('${app.id}')" 
-                title="Regenerar Chave de API"
-              >
-                🔄
-              </button>
-            </div>
-          </div>
-
-          <!-- Endpoint de Webhook -->
-          <div class="crud-field-box">
-            <span class="crud-field-label">Endpoint de Webhook (Fan-Out)</span>
-            <div class="input-action-group">
-              <input 
-                type="url" 
-                id="webhook-input-${app.id}" 
-                class="input-control" 
-                placeholder="https://meusite.com/webhook.php" 
-                value="${app.webhookUrl || ''}"
-              >
-              <button 
-                type="button" 
-                class="btn btn-secondary btn-sm" 
-                onclick="app.saveInlineWebhook('${app.id}')" 
-                title="Salvar Webhook"
-              >
-                💾
-              </button>
-              <button 
-                type="button" 
-                class="btn btn-secondary btn-sm" 
-                onclick="app.pingWebhook('${app.id}')" 
-                title="Testar Conexão (Ping)"
-              >
-                📡
-              </button>
-            </div>
-          </div>
-
-          <!-- Segredo HMAC -->
-          <div class="crud-field-box">
-            <span class="crud-field-label">Segredo HMAC (X-CJC-Signature)</span>
-            <div class="input-action-group">
-              <div class="code-secret-box" title="${app.webhookSecret}">
-                ${app.webhookSecret}
-              </div>
-              <button 
-                type="button" 
-                class="btn btn-secondary btn-sm" 
-                onclick="app.copyToClipboard('${app.webhookSecret}')" 
-                title="Copiar Segredo HMAC"
-              >
-                📋
-              </button>
-            </div>
-          </div>
-
-          <!-- ID do Estabelecimento (Automático) -->
-          <div class="crud-field-box">
-            <div class="crud-field-header">
-              <span class="crud-field-label">ID do Estabelecimento Contábil</span>
-              <span style="font-size: 0.7rem; color: var(--accent-cyan); font-weight: 500;">Automático</span>
-            </div>
-            <div class="input-action-group">
-              <input 
-                type="text" 
-                class="input-control" 
-                value="${app.establishmentId || app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-')}" 
-                readonly 
-                style="font-family: var(--font-mono); font-weight: 600; color: var(--accent-cyan);"
-              >
-              <button 
-                type="button" 
-                class="btn btn-secondary btn-sm" 
-                onclick="app.copyToClipboard('${app.establishmentId || app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-')}')" 
-                title="Copiar ID do Estabelecimento"
-              >
-                📋
-              </button>
-            </div>
-          </div>
-
-          <!-- Bloco de Integração .env da Loja -->
-          <div class="crud-field-box crud-env-box">
-            <div class="crud-env-header">
-              <span class="crud-field-label crud-env-label">Configuração .env desta Loja</span>
-              <button 
-                type="button" 
-                class="btn btn-primary btn-sm btn-copy-env" 
-                onclick="app.copyEnvSnippet('${app.apiKey}', '${app.webhookSecret}')" 
-                title="Copiar variáveis para o .env da loja"
-              >
-                📋 Copiar .env
-              </button>
-            </div>
-            <pre class="crud-env-pre">CJC_PAYS_BASE_URL=https://pays.cjcdev.site
-CJC_PAYS_API_KEY=${app.apiKey}
-CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
-          </div>
-
-          <!-- Rodapé de Ações do Card -->
-          <div class="crud-app-actions-bar">
-            <div class="crud-app-counters">
-              <span>💳 ${app._count?.payments || 0} pagamentos</span> • 
-              <span>🔀 ${app._count?.deliveries || 0} entregas</span>
-            </div>
-            <div class="crud-app-buttons">
-              <button 
-                type="button" 
-                class="btn btn-warning btn-sm" 
-                onclick="app.clearApplicationTransactions('${app.id}')"
-                title="Limpar transações de teste desta aplicação"
-              >
-                🧹 Limpar Transações
-              </button>
-              <button 
-                type="button" 
-                class="btn btn-secondary btn-sm" 
-                onclick="app.openEditAppModal('${app.id}')"
-              >
-                ✏️ Editar
-              </button>
-              <button 
-                type="button" 
-                class="btn btn-danger btn-sm" 
-                onclick="app.deleteApplication('${app.id}')"
-              >
-                🗑️ Excluir
-              </button>
-            </div>
+          <div class="app-compact-footer">
+            <span style="font-size: 0.74rem; color: var(--text-muted);">
+              💳 ${app._count?.payments || 0} transações
+            </span>
+            <button 
+              type="button" 
+              class="btn btn-primary btn-sm" 
+              onclick="app.openApplicationDetail('${app.id}')"
+              style="display: inline-flex; align-items: center; gap: 6px;"
+            >
+              <span>🔍</span> Visualizar
+            </button>
           </div>
         </div>
       `
@@ -1189,20 +1157,671 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     }
   }
 
-  toggleKeyVisibility(appId) {
-    const input = document.getElementById(`key-input-${appId}`);
+  // ==================== TELA DE DETALHES DA APLICAÇÃO ====================
+  async openApplicationDetail(appId) {
+    let app = this.applicationsCache?.find((a) => a.id === appId);
+
+    if (!app) {
+      try {
+        const res = await fetch(`/api/admin/applications/${appId}`, { headers: this.getHeaders() });
+        const data = await res.json();
+        if (data.success && data.application) {
+          app = data.application;
+        }
+      } catch (err) {
+        console.error('Erro ao buscar aplicação:', err);
+      }
+    }
+
+    if (!app) {
+      this.showToast('Aplicação não encontrada.', 'warning');
+      return;
+    }
+
+    this.currentDetailAppId = app.id;
+
+    // Atualiza cabeçalho da tela de detalhes
+    const logoBox = document.getElementById('app-detail-logo-container');
+    if (logoBox) {
+      if (app.logoUrl) {
+        logoBox.innerHTML = `<img src="${this.escapeHtml(app.logoUrl)}" alt="${this.escapeHtml(app.name)}" onerror="this.onerror=null; this.parentElement.innerHTML='🏢';">`;
+      } else {
+        logoBox.innerHTML = '🏢';
+      }
+    }
+
+    const nameEl = document.getElementById('app-detail-name');
+    if (nameEl) nameEl.innerText = app.name;
+
+    const slugEl = document.getElementById('app-detail-slug');
+    if (slugEl) slugEl.innerText = app.slug;
+
+    const estabEl = document.getElementById('app-detail-estab-id');
+    if (estabEl) estabEl.innerText = app.establishmentId || app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-');
+
+    const exemptBadge = document.getElementById('app-detail-exempt-badge');
+    if (exemptBadge) exemptBadge.style.display = app.isCommissionExempt ? 'inline-block' : 'none';
+
+    const statusBadge = document.getElementById('app-detail-status-badge');
+    if (statusBadge) {
+      statusBadge.className = `badge ${app.isActive ? 'badge-approved' : 'badge-rejected'}`;
+      statusBadge.innerText = app.isActive ? 'Ativa' : 'Inativa';
+    }
+
+    // Preenche credenciais
+    const keyInput = document.getElementById('detail-key-input');
+    if (keyInput) {
+      keyInput.type = 'password';
+      keyInput.value = app.apiKey;
+    }
+
+    const secretBox = document.getElementById('detail-secret-box');
+    if (secretBox) secretBox.innerText = app.webhookSecret;
+
+    const webhookInput = document.getElementById('detail-webhook-input');
+    if (webhookInput) webhookInput.value = app.webhookUrl || '';
+
+    const envPre = document.getElementById('detail-env-pre');
+    if (envPre) {
+      envPre.innerText = `CJC_PAYS_BASE_URL=https://pays.cjcdev.site\nCJC_PAYS_API_KEY=${app.apiKey}\nCJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}`;
+    }
+
+    // Contatos do responsável
+    const emailEl = document.getElementById('detail-contact-email');
+    if (emailEl) emailEl.innerText = app.contactEmail || 'Não informado';
+
+    const phoneContainer = document.getElementById('detail-contact-phone-container');
+    if (phoneContainer) {
+      if (app.contactPhone) {
+        const cleanPhone = app.contactPhone.replace(/\D/g, '');
+        const ddiPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+        phoneContainer.innerHTML = `
+          <a href="https://wa.me/${ddiPhone}" target="_blank" rel="noopener noreferrer" style="color: #34d399; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+            <span>💬</span> ${this.escapeHtml(app.contactPhone)}
+          </a>
+        `;
+      } else {
+        phoneContainer.innerHTML = `<strong id="detail-contact-phone" style="color: var(--text-primary);">Não informado</strong>`;
+      }
+    }
+
+    // Sincroniza selects de mês e ano com o mês atual
+    const now = new Date();
+    const monthSelect = document.getElementById('merchant-report-month');
+    if (monthSelect) monthSelect.value = String(now.getMonth() + 1);
+
+    const yearSelect = document.getElementById('merchant-report-year');
+    if (yearSelect) yearSelect.value = String(now.getFullYear());
+
+    // Navega para a view de detalhes
+    this.navigateTo('application-detail-view');
+
+    // Carrega o extrato do lojista parceiro
+    await this.loadMerchantReport(app.id);
+  }
+
+  toggleDetailKeyVisibility() {
+    const input = document.getElementById('detail-key-input');
     if (input) {
       input.type = input.type === 'password' ? 'text' : 'password';
     }
   }
 
+  async saveDetailWebhook() {
+    if (!this.currentDetailAppId) return;
+    const input = document.getElementById('detail-webhook-input');
+    if (!input) return;
+
+    const webhookUrl = input.value.trim();
+
+    try {
+      const res = await fetch(`/api/admin/applications/${this.currentDetailAppId}`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ webhookUrl: webhookUrl || null }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('URL de Webhook salva com sucesso!', 'success');
+        const target = this.applicationsCache?.find((a) => a.id === this.currentDetailAppId);
+        if (target) target.webhookUrl = webhookUrl || null;
+      } else {
+        this.showToast(data.error || 'Falha ao salvar URL de webhook.', 'warning');
+      }
+    } catch (e) {
+      this.showToast('Erro ao salvar URL de webhook.', 'warning');
+    }
+  }
+
+  // ==================== EXTRATO DE REPASSE DO LOJISTA ====================
+  async loadMerchantReport(appId) {
+    if (!appId) return;
+
+    const monthSelect = document.getElementById('merchant-report-month');
+    const yearSelect = document.getElementById('merchant-report-year');
+    const month = monthSelect ? monthSelect.value : new Date().getMonth() + 1;
+    const year = yearSelect ? yearSelect.value : new Date().getFullYear();
+
+    const tbody = document.getElementById('merchant-report-tbody');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="8" class="table-empty-cell">Consultando extrato consolidado do lojista...</td></tr>`;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/financial/merchant/${appId}?month=${month}&year=${year}`, {
+        headers: this.getHeaders(),
+      });
+
+      if (res.status === 401) {
+        this.clearSession();
+        this.showLogin();
+        return;
+      }
+
+      const data = await res.json();
+      if (!data.success || !data.report) {
+        this.showToast(data.error || 'Falha ao consultar extrato do lojista.', 'warning');
+        return;
+      }
+
+      const report = data.report;
+      this.merchantReportCache = report;
+
+      // Atualiza os KPIs
+      const grossEl = document.getElementById('merchant-kpi-gross');
+      if (grossEl) grossEl.innerText = `R$ ${this.formatMoney(report.metrics.totalGross)}`;
+
+      const salesCountEl = document.getElementById('merchant-kpi-sales-count');
+      if (salesCountEl) salesCountEl.innerText = `${report.metrics.approvedCount} vendas aprovadas`;
+
+      const mpFeeEl = document.getElementById('merchant-kpi-mp-fee');
+      if (mpFeeEl) mpFeeEl.innerText = `- R$ ${this.formatMoney(report.metrics.totalMpFee)}`;
+
+      const cjcFeeEl = document.getElementById('merchant-kpi-cjc-fee');
+      if (cjcFeeEl) cjcFeeEl.innerText = `- R$ ${this.formatMoney(report.metrics.totalCjcFee)}`;
+
+      const cjcSubEl = document.getElementById('merchant-kpi-cjc-sub');
+      if (cjcSubEl) {
+        cjcSubEl.innerText = report.application.isCommissionExempt ? '🛡️ Isenta de comissão (0%)' : 'Intermediação tecnológica';
+      }
+
+      const netPayoutEl = document.getElementById('merchant-kpi-net-payout');
+      if (netPayoutEl) netPayoutEl.innerText = `R$ ${this.formatMoney(report.metrics.totalNetPayout)}`;
+
+      // Atualiza tabela de vendas aprovadas
+      if (tbody) {
+        if (!report.transactions || report.transactions.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" class="table-empty-cell" style="padding: 24px; color: var(--text-muted);">Nenhuma venda aprovada registrada para esta aplicação em ${report.periodLabel}.</td></tr>`;
+        } else {
+          tbody.innerHTML = report.transactions
+            .map((tx) => {
+              const dt = new Date(tx.createdAt).toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              return `
+              <tr>
+                <td style="font-size: 0.76rem; color: var(--text-muted);">${dt}</td>
+                <td><code style="font-size: 0.76rem; font-family: var(--font-mono);">${this.escapeHtml(tx.externalReference)}</code></td>
+                <td><span class="badge" style="font-size: 0.7rem;">${this.escapeHtml(tx.paymentMethod)}</span></td>
+                <td style="font-weight: 600; color: var(--text-primary); font-family: var(--font-mono);">R$ ${this.formatMoney(tx.amount)}</td>
+                <td style="color: #f87171; font-family: var(--font-mono);">- R$ ${this.formatMoney(tx.mpFee)}</td>
+                <td style="color: #fbbf24; font-family: var(--font-mono);">- R$ ${this.formatMoney(tx.cjcCommission)}</td>
+                <td style="font-weight: 700; color: #34d399; font-family: var(--font-mono);">R$ ${this.formatMoney(tx.netPayout)}</td>
+                <td style="font-size: 0.76rem; color: var(--text-muted);">${this.escapeHtml(tx.payerName || tx.payerEmail || 'Cliente Final')}</td>
+              </tr>
+            `;
+            })
+            .join('');
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao carregar extrato do lojista:', e);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="8" class="table-empty-cell">Erro de comunicação com o servidor ao consultar extrato.</td></tr>`;
+      }
+    }
+  }
+
+  // Geração e Impressão de PDF de Repasse do Lojista
+  async printMerchantReport() {
+    if (!this.currentDetailAppId) return;
+    this.showToast('Preparando Extrato do Lojista para impressão/PDF...', 'info');
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      this.showToast('Por favor, permita popups neste site para abrir o extrato do lojista.', 'warning');
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <title>Gerando Extrato do Lojista...</title>
+          <style>
+            body {
+              margin: 0; padding: 0;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              background: #0f172a; color: #f8fafc;
+              display: flex; align-items: center; justify-content: center; height: 100vh;
+            }
+            .loader-box {
+              text-align: center; padding: 32px; background: #1e293b;
+              border: 1px solid #334155; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            }
+            .spinner {
+              width: 44px; height: 44px; border: 3px solid rgba(56, 189, 248, 0.2);
+              border-top-color: #38bdf8; border-radius: 50%;
+              animation: spin 0.8s linear infinite; margin: 0 auto 16px auto;
+            }
+            @keyframes spin { to { transform: rotate(360deg); } }
+          </style>
+        </head>
+        <body>
+          <div class="loader-box">
+            <div class="spinner"></div>
+            <h3 style="margin: 0 0 8px 0; font-size: 1.15rem; color: #ffffff;">Gerando Extrato de Repasse do Lojista</h3>
+            <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">Formatando demonstrativo de liquidação em padrão executivo A4...</p>
+          </div>
+        </body>
+      </html>
+    `);
+
+    try {
+      let report = this.merchantReportCache;
+      if (!report || report.application?.id !== this.currentDetailAppId) {
+        const monthSelect = document.getElementById('merchant-report-month');
+        const yearSelect = document.getElementById('merchant-report-year');
+        const month = monthSelect ? monthSelect.value : new Date().getMonth() + 1;
+        const year = yearSelect ? yearSelect.value : new Date().getFullYear();
+
+        const res = await fetch(`/api/admin/financial/merchant/${this.currentDetailAppId}?month=${month}&year=${year}`, {
+          headers: this.getHeaders(),
+        });
+        const data = await res.json();
+        if (data.success && data.report) {
+          report = data.report;
+        } else {
+          printWindow.close();
+          this.showToast('Erro ao obter dados para impressão do extrato.', 'warning');
+          return;
+        }
+      }
+
+      const formatBRL = (val) =>
+        (Number(val) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      const txRowsHtml = (report.transactions || [])
+        .map(
+          (tx) => `
+        <tr>
+          <td>${new Date(tx.createdAt).toLocaleDateString('pt-BR')} ${new Date(tx.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
+          <td style="font-family: monospace; font-size: 8.5pt;">${tx.externalReference}</td>
+          <td>${tx.paymentMethod}</td>
+          <td style="text-align: right; font-weight: 600;">R$ ${formatBRL(tx.amount)}</td>
+          <td style="text-align: right; color: #dc2626;">- R$ ${formatBRL(tx.mpFee)}</td>
+          <td style="text-align: right; color: #d97706;">- R$ ${formatBRL(tx.cjcCommission)}</td>
+          <td style="text-align: right; font-weight: 700; color: #059669;">R$ ${formatBRL(tx.netPayout)}</td>
+          <td>${tx.payerName || tx.payerEmail || 'Cliente Final'}</td>
+        </tr>
+      `
+        )
+        .join('');
+
+      const methodRowsHtml = (report.byMethod || [])
+        .map(
+          (m) => `
+        <tr>
+          <td><strong>${m.label}</strong></td>
+          <td style="text-align: center;">${m.count}</td>
+          <td style="text-align: right; font-weight: 600;">R$ ${formatBRL(m.gross)}</td>
+          <td style="text-align: right; color: #dc2626;">- R$ ${formatBRL(m.mpFee)}</td>
+          <td style="text-align: right; color: #d97706;">- R$ ${formatBRL(m.cjcCommission)}</td>
+          <td style="text-align: right; font-weight: 700; color: #059669;">R$ ${formatBRL(m.netPayout)}</td>
+        </tr>
+      `
+        )
+        .join('');
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <title>Extrato de Repasse - ${report.application.name} - ${report.periodLabel}</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 14mm 16mm 14mm 16mm;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+              color: #0f172a;
+              background: #ffffff;
+              margin: 0;
+              padding: 0;
+              font-size: 9.5pt;
+              line-height: 1.35;
+            }
+            .header-bar {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2px solid #0284c7;
+              padding-bottom: 12px;
+              margin-bottom: 14px;
+            }
+            .company-info h1 {
+              font-size: 15pt;
+              color: #0f172a;
+              margin: 0 0 2px 0;
+              font-weight: 800;
+            }
+            .company-info p {
+              margin: 0;
+              font-size: 8.5pt;
+              color: #475569;
+            }
+            .report-title-box {
+              text-align: right;
+            }
+            .report-title-box h2 {
+              margin: 0 0 4px 0;
+              font-size: 13pt;
+              color: #0284c7;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+            }
+            .merchant-profile-card {
+              background: #f8fafc;
+              border: 1px solid #cbd5e1;
+              border-radius: 6px;
+              padding: 10px 14px;
+              margin-bottom: 14px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              flex-wrap: wrap;
+              gap: 10px;
+            }
+            .merchant-title {
+              font-size: 12pt;
+              font-weight: 700;
+              color: #0f172a;
+              margin: 0 0 2px 0;
+            }
+            .merchant-meta {
+              font-size: 8.5pt;
+              color: #64748b;
+            }
+            .settlement-box {
+              background: #f0fdf4;
+              border: 2px solid #059669;
+              border-radius: 8px;
+              padding: 14px 18px;
+              margin-bottom: 16px;
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 12px;
+              text-align: center;
+            }
+            .settle-item span {
+              display: block;
+              font-size: 7.5pt;
+              text-transform: uppercase;
+              font-weight: 700;
+              color: #475569;
+              margin-bottom: 3px;
+            }
+            .settle-item strong {
+              display: block;
+              font-size: 13pt;
+              font-family: monospace;
+              font-weight: 800;
+            }
+            .table-heading {
+              font-size: 10pt;
+              font-weight: 700;
+              color: #0f172a;
+              margin: 14px 0 6px 0;
+              border-bottom: 1px solid #cbd5e1;
+              padding-bottom: 4px;
+              display: flex;
+              justify-content: space-between;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 14px;
+              font-size: 8.5pt;
+            }
+            th {
+              background: #f1f5f9;
+              color: #0f172a;
+              font-weight: 700;
+              text-align: left;
+              padding: 6px 8px;
+              border-bottom: 1.5px solid #94a3b8;
+              font-size: 8pt;
+              text-transform: uppercase;
+            }
+            td {
+              padding: 5px 8px;
+              border-bottom: 1px solid #e2e8f0;
+              color: #1e293b;
+            }
+            tr:nth-child(even) td {
+              background: #fafafa;
+            }
+            .footer-sign {
+              margin-top: 24px;
+              border-top: 1px solid #cbd5e1;
+              padding-top: 10px;
+              font-size: 7.5pt;
+              color: #64748b;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            @media print {
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .no-print { display: none !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-bar">
+            <div class="company-info">
+              <h1>${report.company.tradeName || 'CJC Dev Pays'}</h1>
+              <p><strong>${report.company.legalName}</strong> • CNPJ: ${report.company.cnpj || '00.000.000/0001-00'}</p>
+              <p>${report.company.address} • ${report.company.cityState} • ${report.company.email}</p>
+            </div>
+            <div class="report-title-box">
+              <h2>Extrato de Repasse</h2>
+              <div style="font-size: 9pt; font-weight: 700; color: #0f172a;">${report.periodLabel}</div>
+              <div style="font-size: 7.5pt; color: #64748b;">Emissão: ${new Date(report.generatedAt).toLocaleString('pt-BR')}</div>
+            </div>
+          </div>
+
+          <div class="merchant-profile-card">
+            <div>
+              <div class="merchant-title">Loja Parceira: ${report.application.name}</div>
+              <div class="merchant-meta">
+                ID Estabelecimento: <strong>${report.application.establishmentId}</strong> • 
+                Slug: <code>${report.application.slug}</code> • 
+                Regime: <strong>${report.application.isCommissionExempt ? 'Isenta de Comissão CJC' : 'Padrão com Intermediação'}</strong>
+              </div>
+            </div>
+            <div style="text-align: right; font-size: 8.5pt;">
+              ${report.application.contactEmail ? `<div>📧 ${report.application.contactEmail}</div>` : ''}
+              ${report.application.contactPhone ? `<div>📱 ${report.application.contactPhone}</div>` : ''}
+            </div>
+          </div>
+
+          <!-- Demonstrativo de Liquidação e Repasse -->
+          <div class="settlement-box">
+            <div class="settle-item">
+              <span>Faturamento Bruto</span>
+              <strong style="color: #0284c7;">R$ ${formatBRL(report.metrics.totalGross)}</strong>
+            </div>
+            <div class="settle-item">
+              <span>Custos Adquirência (MP)</span>
+              <strong style="color: #dc2626;">- R$ ${formatBRL(report.metrics.totalMpFee)}</strong>
+            </div>
+            <div class="settle-item">
+              <span>Taxa CJC Dev Pays</span>
+              <strong style="color: #d97706;">- R$ ${formatBRL(report.metrics.totalCjcFee)}</strong>
+            </div>
+            <div class="settle-item">
+              <span style="color: #047857;">Líquido a Repassar</span>
+              <strong style="color: #059669; font-size: 15pt;">R$ ${formatBRL(report.metrics.totalNetPayout)}</strong>
+            </div>
+          </div>
+
+          <!-- Meios de Pagamento -->
+          <div class="table-heading">
+            <span>Demonstrativo por Meio de Pagamento</span>
+            <span style="font-size: 8pt; font-weight: normal; color: #64748b;">Total de ${report.metrics.approvedCount} vendas aprovadas (Ticket Médio: R$ ${formatBRL(report.metrics.ticketMedio)})</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Meio de Pagamento</th>
+                <th style="text-align: center;">Qtd Vendas</th>
+                <th style="text-align: right;">Faturamento Bruto</th>
+                <th style="text-align: right;">Custo Adquirência (MP)</th>
+                <th style="text-align: right;">Taxa CJC Dev</th>
+                <th style="text-align: right;">Líquido da Loja</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${methodRowsHtml || '<tr><td colspan="6" style="text-align:center;">Nenhum pagamento liquidado no período.</td></tr>'}
+            </tbody>
+          </table>
+
+          <!-- Relação Analítica de Vendas Aprovadas -->
+          <div class="table-heading">
+            <span>Relação Analítica de Vendas Aprovadas</span>
+            <span style="font-size: 8pt; font-weight: normal; color: #64748b;">Lançamentos conciliados no mês</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Pedido Loja</th>
+                <th>Método</th>
+                <th style="text-align: right;">Valor Venda</th>
+                <th style="text-align: right;">Custo MP</th>
+                <th style="text-align: right;">Taxa CJC</th>
+                <th style="text-align: right;">Líquido Loja</th>
+                <th>Pagador</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${txRowsHtml || '<tr><td colspan="8" style="text-align:center;">Nenhuma venda aprovada registrada no período.</td></tr>'}
+            </tbody>
+          </table>
+
+          <div class="footer-sign">
+            <div>
+              Documento de prestação de contas financeira emitido por <strong>${report.company.legalName}</strong>.
+            </div>
+            <div>
+              Página 1 de 1 • CJC Dev Pays
+            </div>
+          </div>
+
+          <script>
+            window.addEventListener('load', () => {
+              setTimeout(() => {
+                window.print();
+              }, 400);
+            });
+          </script>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.open();
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+    } catch (e) {
+      console.error('Erro ao compilar documento do lojista:', e);
+      printWindow.close();
+      this.showToast('Erro ao preparar documento de extrato.', 'warning');
+    }
+  }
+
+  // Exportação CSV do Extrato do Lojista
+  exportMerchantCsv() {
+    if (!this.currentDetailAppId) return;
+    const monthSelect = document.getElementById('merchant-report-month');
+    const yearSelect = document.getElementById('merchant-report-year');
+    const month = monthSelect ? monthSelect.value : new Date().getMonth() + 1;
+    const year = yearSelect ? yearSelect.value : new Date().getFullYear();
+
+    this.showToast('Iniciando download do CSV de prestação de contas...', 'info');
+    window.location.href = `/api/admin/financial/merchant/${this.currentDetailAppId}/csv?month=${month}&year=${year}`;
+  }
+
+  // Envio do Extrato Simplificado via WhatsApp
+  sendMerchantWhatsApp() {
+    const report = this.merchantReportCache;
+    if (!report) {
+      this.showToast('Aguarde o carregamento do extrato para enviar.', 'warning');
+      return;
+    }
+
+    const rawPhone = report.application.contactPhone || '';
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+
+    if (!cleanPhone || cleanPhone.length < 10) {
+      this.showToast('WhatsApp do responsável não cadastrado. Clique em Editar para cadastrar o telefone.', 'warning');
+      this.openEditAppModal(this.currentDetailAppId);
+      return;
+    }
+
+    const ddiPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+    const formatBRL = (val) =>
+      (Number(val) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const message =
+      `*EXTRATO DE REPASSE — CJC DEV PAYS*\n` +
+      `🏪 *Loja:* ${report.application.name} (Ref: ${report.application.establishmentId})\n` +
+      `📅 *Período de Apuração:* ${report.periodLabel}\n\n` +
+      `📈 *Faturamento Bruto:* R$ ${formatBRL(report.metrics.totalGross)}\n` +
+      `💳 *Dedução Mercado Pago:* - R$ ${formatBRL(report.metrics.totalMpFee)}\n` +
+      `🏢 *Taxa CJC Dev Pays:* - R$ ${formatBRL(report.metrics.totalCjcFee)}\n` +
+      `💰 *VALOR LÍQUIDO A REPASSAR:* R$ ${formatBRL(report.metrics.totalNetPayout)}\n\n` +
+      `✅ *Vendas Aprovadas:* ${report.metrics.approvedCount}\n` +
+      `🎯 *Ticket Médio:* R$ ${formatBRL(report.metrics.ticketMedio)}\n\n` +
+      `Emitido por CJC Dev Soluções Tecnológicas.`;
+
+    const waUrl = `https://wa.me/${ddiPhone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+  }
+
+  // ==================== MODAL CRIAR APLICAÇÃO ====================
   openCreateAppModal() {
     const form = document.getElementById('form-create-app');
     if (form) form.reset();
+
     const slugInput = document.getElementById('new-app-slug');
     if (slugInput) delete slugInput.dataset.manualEdited;
+
     const exemptCheckbox = document.getElementById('new-app-exempt-commission');
     if (exemptCheckbox) exemptCheckbox.checked = false;
+
+    const preview = document.getElementById('new-app-logo-preview');
+    if (preview) preview.innerHTML = '🏢';
 
     this.openModal('modal-create-app');
     document.getElementById('new-app-name')?.focus();
@@ -1211,6 +1830,9 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
   async handleCreateApp() {
     const name = document.getElementById('new-app-name')?.value.trim();
     const slug = document.getElementById('new-app-slug')?.value.trim();
+    const logoUrl = document.getElementById('new-app-logo')?.value.trim();
+    const contactEmail = document.getElementById('new-app-email')?.value.trim();
+    const contactPhone = document.getElementById('new-app-phone')?.value.trim();
     const webhookUrl = document.getElementById('new-app-webhook')?.value.trim();
     const isCommissionExempt = Boolean(document.getElementById('new-app-exempt-commission')?.checked);
     const submitBtn = document.getElementById('btn-submit-create-app');
@@ -1232,6 +1854,9 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
         body: JSON.stringify({
           name,
           slug,
+          logoUrl: logoUrl || undefined,
+          contactEmail: contactEmail || undefined,
+          contactPhone: contactPhone || undefined,
           webhookUrl: webhookUrl || undefined,
           isCommissionExempt,
         }),
@@ -1242,7 +1867,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
       if (data.success) {
         this.showToast(`Aplicação '${name}' criada com sucesso!`, 'success');
         this.closeModal('modal-create-app');
-        this.loadApplicationsCRUD();
+        await this.loadApplicationsCRUD();
       } else {
         this.showToast(data.error || 'Falha ao criar aplicação.', 'warning');
       }
@@ -1256,16 +1881,29 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     }
   }
 
+  // ==================== MODAL EDITAR APLICAÇÃO ====================
   openEditAppModal(appId) {
-    const app = this.applicationsCache.find((a) => a.id === appId);
+    const app = this.applicationsCache?.find((a) => a.id === appId);
     if (!app) return;
 
     document.getElementById('edit-app-id').value = app.id;
     document.getElementById('edit-app-name').value = app.name;
+    document.getElementById('edit-app-logo').value = app.logoUrl || '';
+    document.getElementById('edit-app-email').value = app.contactEmail || '';
+    document.getElementById('edit-app-phone').value = app.contactPhone || '';
     document.getElementById('edit-app-webhook').value = app.webhookUrl || '';
     document.getElementById('edit-app-active').checked = Boolean(app.isActive);
     const exemptCheckbox = document.getElementById('edit-app-exempt-commission');
     if (exemptCheckbox) exemptCheckbox.checked = Boolean(app.isCommissionExempt);
+
+    const preview = document.getElementById('edit-app-logo-preview');
+    if (preview) {
+      if (app.logoUrl) {
+        preview.innerHTML = `<img src="${this.escapeHtml(app.logoUrl)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🏢';">`;
+      } else {
+        preview.innerHTML = '🏢';
+      }
+    }
 
     this.openModal('modal-edit-app');
     document.getElementById('edit-app-name')?.focus();
@@ -1274,6 +1912,9 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
   async handleEditApp() {
     const appId = document.getElementById('edit-app-id')?.value;
     const name = document.getElementById('edit-app-name')?.value.trim();
+    const logoUrl = document.getElementById('edit-app-logo')?.value.trim();
+    const contactEmail = document.getElementById('edit-app-email')?.value.trim();
+    const contactPhone = document.getElementById('edit-app-phone')?.value.trim();
     const webhookUrl = document.getElementById('edit-app-webhook')?.value.trim();
     const isActive = document.getElementById('edit-app-active')?.checked;
     const isCommissionExempt = Boolean(document.getElementById('edit-app-exempt-commission')?.checked);
@@ -1292,6 +1933,9 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
         headers: this.getHeaders(),
         body: JSON.stringify({
           name,
+          logoUrl: logoUrl || null,
+          contactEmail: contactEmail || null,
+          contactPhone: contactPhone || null,
           webhookUrl: webhookUrl || null,
           isActive,
           isCommissionExempt,
@@ -1303,7 +1947,12 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
       if (data.success) {
         this.showToast('Aplicação atualizada com sucesso!', 'success');
         this.closeModal('modal-edit-app');
-        this.loadApplicationsCRUD();
+        await this.loadApplicationsCRUD();
+
+        // Se estiver na tela de detalhes desta aplicação, atualiza na hora
+        if (this.currentDetailAppId === appId) {
+          await this.openApplicationDetail(appId);
+        }
       } else {
         this.showToast(data.error || 'Falha ao atualizar.', 'warning');
       }
@@ -1317,8 +1966,8 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     }
   }
 
-  async deleteApplication(appId) {
-    const targetApp = this.applicationsCache.find((a) => a.id === appId);
+  async deleteApplication(appId, isFromDetail = false) {
+    const targetApp = this.applicationsCache?.find((a) => a.id === appId);
     const appName = targetApp ? targetApp.name : 'esta aplicação';
 
     const confirmDelete = confirm(`Tem certeza que deseja excluir a aplicação "${appName}"?\n\nTodas as chaves e registros associados serão removidos.`);
@@ -1334,7 +1983,10 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
 
       if (data.success) {
         this.showToast(`Aplicação '${appName}' excluída com sucesso!`, 'info');
-        this.loadApplicationsCRUD();
+        await this.loadApplicationsCRUD();
+        if (isFromDetail) {
+          this.navigateTo('applications-view');
+        }
       } else {
         this.showToast(data.error || 'Falha ao excluir aplicação.', 'warning');
       }
@@ -1343,22 +1995,15 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     }
   }
 
-  async clearApplicationTransactions(appId) {
-    const targetApp = this.applicationsCache.find((a) => a.id === appId);
+  async clearApplicationTransactions(appId, isFromDetail = false) {
+    const targetApp = this.applicationsCache?.find((a) => a.id === appId);
     const appName = targetApp ? targetApp.name : 'esta aplicação';
     const paymentsCount = targetApp?._count?.payments || 0;
     const deliveriesCount = targetApp?._count?.deliveries || 0;
 
-    if (paymentsCount === 0 && deliveriesCount === 0) {
-      this.showToast(`A aplicação "${appName}" não possui transações para limpar.`, 'info');
-      return;
-    }
-
     const confirmClear = confirm(
       `Deseja realmente limpar as transações da aplicação "${appName}"?\n\n` +
-      `Serão removidos permanentemente:\n` +
-      `• ${paymentsCount} registro(s) de pagamento\n` +
-      `• ${deliveriesCount} log(s) de entrega de webhook associados\n\n` +
+      `Serão removidos permanentemente todos os registros de pagamentos e logs de webhook vinculados.\n\n` +
       `Esta ação é recomendada para limpar testes e NÃO pode ser desfeita.`
     );
     if (!confirmClear) return;
@@ -1369,25 +2014,17 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
         headers: this.getHeaders(),
       });
 
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (parseErr) {
-        // Resposta não JSON (ex: erro de gateway/proxy)
-      }
+      const data = await res.json().catch(() => null);
 
       if (res.ok && data?.success) {
         this.showToast(data.message || `Transações de '${appName}' limpas com sucesso!`, 'success');
-        this.loadApplicationsCRUD();
+        await this.loadApplicationsCRUD();
         this.loadMetrics();
-        if (this.currentView === 'payments-view') {
-          this.loadAllPayments();
-        }
-        if (this.currentView === 'webhooks-view') {
-          this.loadAllWebhooks();
+        if (isFromDetail) {
+          await this.loadMerchantReport(appId);
         }
       } else {
-        this.showToast(data?.error || `Falha ao limpar transações (HTTP ${res.status}).`, 'warning');
+        this.showToast(data?.error || `Falha ao limpar transações.`, 'warning');
       }
     } catch (e) {
       console.error('Erro ao limpar transações:', e);
@@ -1395,31 +2032,7 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
     }
   }
 
-  async saveInlineWebhook(appId) {
-    const input = document.getElementById(`webhook-input-${appId}`);
-    if (!input) return;
-
-    const webhookUrl = input.value.trim();
-
-    try {
-      const res = await fetch(`/api/admin/applications/${appId}`, {
-        method: 'PUT',
-        headers: this.getHeaders(),
-        body: JSON.stringify({ webhookUrl: webhookUrl || null }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        this.showToast('URL de Webhook salva com sucesso!', 'success');
-      } else {
-        this.showToast(data.error || 'Falha ao salvar URL.', 'warning');
-      }
-    } catch (e) {
-      this.showToast('Erro ao salvar URL de webhook.', 'warning');
-    }
-  }
-
-  async regenerateApiKey(appId) {
+  async regenerateApiKey(appId, isFromDetail = false) {
     const confirmRegen = confirm('Atenção: Gerar uma nova chave invalidará a chave anterior imediatamente. Deseja continuar?');
     if (!confirmRegen) return;
 
@@ -1432,7 +2045,16 @@ CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}</pre>
       const data = await res.json();
       if (data.success) {
         this.showToast('Nova Chave de API gerada com sucesso!', 'success');
-        this.loadApplicationsCRUD();
+        await this.loadApplicationsCRUD();
+        if (isFromDetail && data.apiKey) {
+          const keyInput = document.getElementById('detail-key-input');
+          if (keyInput) keyInput.value = data.apiKey;
+          const envPre = document.getElementById('detail-env-pre');
+          const secretBox = document.getElementById('detail-secret-box');
+          if (envPre && secretBox) {
+            envPre.innerText = `CJC_PAYS_BASE_URL=https://pays.cjcdev.site\nCJC_PAYS_API_KEY=${data.apiKey}\nCJC_PAYS_WEBHOOK_SECRET=${secretBox.innerText}`;
+          }
+        }
       } else {
         this.showToast(data.error || 'Falha ao regenerar chave.', 'warning');
       }

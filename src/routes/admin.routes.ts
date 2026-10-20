@@ -27,6 +27,7 @@ adminRouter.post('/payments/:id/refund', (req, res, next) => adminController.ref
 
 // Gestão de aplicações clientes
 adminRouter.get('/applications', (req, res, next) => adminController.getApplications(req, res, next));
+adminRouter.get('/applications/:id', (req, res, next) => adminController.getApplicationById(req, res, next));
 adminRouter.post('/applications', (req, res, next) => adminController.createApplication(req, res, next));
 adminRouter.put('/applications/:id', (req, res, next) => adminController.updateApplication(req, res, next));
 adminRouter.delete('/applications/:id', (req, res, next) => adminController.deleteApplication(req, res, next));
@@ -62,4 +63,6 @@ adminRouter.put('/settings/company', (req, res, next) => adminController.updateC
 adminRouter.get('/financial/report', (req, res, next) => adminController.getFinancialReport(req, res, next));
 adminRouter.get('/financial/export/csv', (req, res, next) => adminController.exportFinancialCsv(req, res, next));
 adminRouter.post('/financial/audit/register', (req, res, next) => adminController.registerReportAudit(req, res, next));
+adminRouter.get('/financial/merchant/:id', (req, res, next) => adminController.getMerchantReport(req, res, next));
+adminRouter.get('/financial/merchant/:id/csv', (req, res, next) => adminController.exportMerchantCsv(req, res, next));
 

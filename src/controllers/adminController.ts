@@ -307,11 +307,44 @@ export class AdminController {
   }
 
   /**
+   * GET /api/admin/applications/:id
+   */
+  async getApplicationById(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const app = await prisma.application.findUnique({
+        where: { id },
+        include: {
+          _count: {
+            select: { payments: true, deliveries: true },
+          },
+        },
+      });
+
+      if (!app) {
+        res.status(404).json({ success: false, error: 'Aplicação não encontrada.' });
+        return;
+      }
+
+      const { apiKeyHash, ...safeApp } = app;
+      res.json({
+        success: true,
+        application: {
+          ...safeApp,
+          establishmentId: app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-'),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/admin/applications
    */
   async createApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { name, slug, webhookUrl, isCommissionExempt } = req.body;
+      const { name, slug, webhookUrl, isCommissionExempt, logoUrl, contactEmail, contactPhone } = req.body;
 
       if (!name || !slug) {
         res.status(400).json({ success: false, error: 'Nome e slug são obrigatórios.' });
@@ -350,6 +383,9 @@ export class AdminController {
           webhookSecret,
           isActive: true,
           isCommissionExempt: Boolean(isCommissionExempt),
+          logoUrl: logoUrl || null,
+          contactEmail: contactEmail || null,
+          contactPhone: contactPhone || null,
         },
       });
 
@@ -365,7 +401,7 @@ export class AdminController {
   async updateApplication(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const id = String(req.params.id);
-      const { name, webhookUrl, isActive, isCommissionExempt } = req.body;
+      const { name, webhookUrl, isActive, isCommissionExempt, logoUrl, contactEmail, contactPhone } = req.body;
 
       if (webhookUrl !== undefined && webhookUrl !== null && webhookUrl !== '' && !isSafeUrl(webhookUrl)) {
         res.status(400).json({
@@ -382,6 +418,9 @@ export class AdminController {
           ...(webhookUrl !== undefined ? { webhookUrl } : {}),
           ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
           ...(isCommissionExempt !== undefined ? { isCommissionExempt: Boolean(isCommissionExempt) } : {}),
+          ...(logoUrl !== undefined ? { logoUrl: logoUrl || null } : {}),
+          ...(contactEmail !== undefined ? { contactEmail: contactEmail || null } : {}),
+          ...(contactPhone !== undefined ? { contactPhone: contactPhone || null } : {}),
         },
       });
 
@@ -1157,6 +1196,54 @@ export class AdminController {
         audit,
         validationUrl: `https://pays.cjcdev.site/validar.html?codigo=${audit.code}`,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/admin/financial/merchant/:id
+   */
+  async getMerchantReport(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const { month, year } = req.query;
+
+      const report = await financialService.getMerchantSettlementReport(
+        id,
+        month ? parseInt(String(month), 10) : undefined,
+        year ? parseInt(String(year), 10) : undefined
+      );
+
+      res.json({
+        success: true,
+        report,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/admin/financial/merchant/:id/csv
+   */
+  async exportMerchantCsv(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = String(req.params.id);
+      const { month, year } = req.query;
+
+      const report = await financialService.getMerchantSettlementReport(
+        id,
+        month ? parseInt(String(month), 10) : undefined,
+        year ? parseInt(String(year), 10) : undefined
+      );
+
+      const csvContent = financialService.exportMerchantCsv(report);
+      const filename = `extrato-repasse-${report.application.slug}-${report.year}-${String(report.month).padStart(2, '0')}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.status(200).send(csvContent);
     } catch (error) {
       next(error);
     }

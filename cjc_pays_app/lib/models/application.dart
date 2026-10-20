@@ -7,6 +7,9 @@ class ApplicationModel {
   final String webhookSecret;
   final bool isActive;
   final bool isCommissionExempt;
+  final String? logoUrl;
+  final String? contactEmail;
+  final String? contactPhone;
   final DateTime createdAt;
   final int totalPayments;
   final int totalDeliveries;
@@ -20,6 +23,9 @@ class ApplicationModel {
     required this.webhookSecret,
     required this.isActive,
     this.isCommissionExempt = false,
+    this.logoUrl,
+    this.contactEmail,
+    this.contactPhone,
     required this.createdAt,
     required this.totalPayments,
     required this.totalDeliveries,
@@ -36,6 +42,9 @@ class ApplicationModel {
       webhookSecret: json['webhookSecret']?.toString() ?? '',
       isActive: json['isActive'] as bool? ?? true,
       isCommissionExempt: json['isCommissionExempt'] as bool? ?? false,
+      logoUrl: json['logoUrl']?.toString(),
+      contactEmail: json['contactEmail']?.toString(),
+      contactPhone: json['contactPhone']?.toString(),
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),

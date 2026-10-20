@@ -4,6 +4,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../models/financial_report.dart';
+import '../models/merchant_settlement_report.dart';
 
 class PdfGeneratorService {
   static final _currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$ ');
@@ -776,6 +777,281 @@ class PdfGeneratorService {
     await Printing.sharePdf(
       bytes: pdfBytes,
       filename: 'balancete-contabil-$cleanPeriod.pdf',
+    );
+  }
+
+  // ==================== EXTRATO DE REPASSE DO LOJISTA PARCEIRO ====================
+
+  /// Gera os bytes do PDF executivo do Extrato do Lojista Parceiro
+  static Future<Uint8List> generateMerchantSettlementPdf({
+    required MerchantSettlementReportModel report,
+  }) async {
+    final pdf = pw.Document(
+      title: 'Extrato de Repasse - ${report.application.name} - ${report.periodLabel}',
+      author: 'CJC Dev Pays',
+    );
+
+    final fontRegular = await PdfGoogleFonts.robotoRegular();
+    final fontBold = await PdfGoogleFonts.robotoBold();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        theme: pw.ThemeData.withFont(
+          base: fontRegular,
+          bold: fontBold,
+        ),
+        header: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      report.company.tradeName.isNotEmpty ? report.company.tradeName : 'CJC Dev Pays',
+                      style: pw.TextStyle(font: fontBold, fontSize: 15, color: PdfColors.blueGrey900),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      '${report.company.legalName} • CNPJ: ${report.company.cnpj.isNotEmpty ? report.company.cnpj : "00.000.000/0001-00"}',
+                      style: pw.TextStyle(font: fontRegular, fontSize: 8.5, color: PdfColors.grey700),
+                    ),
+                    if (report.company.address.isNotEmpty)
+                      pw.Text(
+                        '${report.company.address} • ${report.company.cityState}',
+                        style: pw.TextStyle(font: fontRegular, fontSize: 8, color: PdfColors.grey600),
+                      ),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      'EXTRATO DE REPASSE',
+                      style: pw.TextStyle(font: fontBold, fontSize: 13, color: PdfColors.cyan700),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      report.periodLabel,
+                      style: pw.TextStyle(font: fontBold, fontSize: 9, color: PdfColors.blueGrey900),
+                    ),
+                    pw.Text(
+                      'Emissão: ${_dateFormat.format(DateTime.now())}',
+                      style: pw.TextStyle(font: fontRegular, fontSize: 7.5, color: PdfColors.grey600),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            pw.Divider(color: PdfColors.cyan700, thickness: 1.5),
+            pw.SizedBox(height: 4),
+          ],
+        ),
+        footer: (context) => pw.Column(
+          children: [
+            pw.Divider(color: PdfColors.grey300, thickness: 0.8),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Documento de prestação de contas emitido por ${report.company.legalName}',
+                  style: pw.TextStyle(font: fontRegular, fontSize: 7.5, color: PdfColors.grey600),
+                ),
+                pw.Text(
+                  'Página ${context.pageNumber} de ${context.pagesCount}',
+                  style: pw.TextStyle(font: fontRegular, fontSize: 7.5, color: PdfColors.grey600),
+                ),
+              ],
+            ),
+          ],
+        ),
+        build: (context) => [
+          // Card de identificação da Loja Parceira
+          pw.Container(
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.grey100,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+              border: pw.Border.all(color: PdfColors.grey300),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Loja Parceira: ${report.application.name}',
+                      style: pw.TextStyle(font: fontBold, fontSize: 11, color: PdfColors.blueGrey900),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      'ID Estabelecimento: ${report.application.establishmentId}  •  Slug: ${report.application.slug}',
+                      style: pw.TextStyle(font: fontRegular, fontSize: 8.5, color: PdfColors.grey700),
+                    ),
+                    pw.Text(
+                      'Regime: ${report.application.isCommissionExempt ? "Isenta de Comissão CJC" : "Padrão com Intermediação"}',
+                      style: pw.TextStyle(font: fontBold, fontSize: 8, color: report.application.isCommissionExempt ? PdfColors.green800 : PdfColors.blueGrey800),
+                    ),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    if (report.application.contactEmail != null && report.application.contactEmail!.isNotEmpty)
+                      pw.Text(
+                        'E-mail: ${report.application.contactEmail}',
+                        style: pw.TextStyle(font: fontRegular, fontSize: 8, color: PdfColors.grey700),
+                      ),
+                    if (report.application.contactPhone != null && report.application.contactPhone!.isNotEmpty)
+                      pw.Text(
+                        'WhatsApp: ${report.application.contactPhone}',
+                        style: pw.TextStyle(font: fontRegular, fontSize: 8, color: PdfColors.grey700),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 12),
+
+          // Demonstrativo de Liquidação em Destaque
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.green50,
+              borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+              border: pw.Border.all(color: PdfColors.green700, width: 1.5),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+              children: [
+                _buildSettleStat('Faturamento Bruto', _currencyFormat.format(report.metrics.totalGross), fontBold, fontRegular, PdfColors.blue800),
+                _buildSettleStat('Custos Mercado Pago', '- ${_currencyFormat.format(report.metrics.totalMpFee)}', fontBold, fontRegular, PdfColors.red700),
+                _buildSettleStat('Taxa CJC Dev', '- ${_currencyFormat.format(report.metrics.totalCjcFee)}', fontBold, fontRegular, PdfColors.amber800),
+                _buildSettleStat('Líquido a Repassar', _currencyFormat.format(report.metrics.totalNetPayout), fontBold, fontRegular, PdfColors.green800, isHighlight: true),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 14),
+
+          // Tabela: Resumo por Meio de Pagamento
+          pw.Text(
+            'DEMONSTRATIVO POR MEIO DE PAGAMENTO',
+            style: pw.TextStyle(font: fontBold, fontSize: 9.5, color: PdfColors.blueGrey900),
+          ),
+          pw.SizedBox(height: 4),
+          pw.TableHelper.fromTextArray(
+            headers: ['Meio de Pagamento', 'Vendas', 'Faturamento Bruto', 'Custo MP', 'Taxa CJC', 'Líquido da Loja'],
+            data: report.byMethod.map((m) => [
+              m.label,
+              m.count.toString(),
+              _currencyFormat.format(m.gross),
+              '- ${_currencyFormat.format(m.mpFee)}',
+              '- ${_currencyFormat.format(m.cjcCommission)}',
+              _currencyFormat.format(m.netPayout),
+            ]).toList(),
+            headerStyle: pw.TextStyle(font: fontBold, fontSize: 7.5, color: PdfColors.blueGrey900),
+            cellStyle: pw.TextStyle(font: fontRegular, fontSize: 7.5),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+            cellAlignment: pw.Alignment.centerLeft,
+            cellAlignments: {
+              1: pw.Alignment.center,
+              2: pw.Alignment.centerRight,
+              3: pw.Alignment.centerRight,
+              4: pw.Alignment.centerRight,
+              5: pw.Alignment.centerRight,
+            },
+          ),
+          pw.SizedBox(height: 14),
+
+          // Tabela: Relação de Vendas Aprovadas
+          pw.Text(
+            'RELAÇÃO ANALÍTICA DE VENDAS APROVADAS (${report.metrics.approvedCount})',
+            style: pw.TextStyle(font: fontBold, fontSize: 9.5, color: PdfColors.blueGrey900),
+          ),
+          pw.SizedBox(height: 4),
+          if (report.transactions.isEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 16),
+              child: pw.Center(
+                child: pw.Text('Nenhuma venda aprovada registrada neste período.', style: pw.TextStyle(font: fontRegular, fontSize: 8.5, color: PdfColors.grey600)),
+              ),
+            )
+          else
+            pw.TableHelper.fromTextArray(
+              headers: ['Data/Hora', 'Pedido', 'Método', 'Valor Venda', 'Custo MP', 'Taxa CJC', 'Líquido', 'Cliente'],
+              data: report.transactions.map((tx) => [
+                _dateFormat.format(tx.createdAt),
+                tx.externalReference,
+                tx.paymentMethod,
+                _currencyFormat.format(tx.amount),
+                '- ${_currencyFormat.format(tx.mpFee)}',
+                '- ${_currencyFormat.format(tx.cjcCommission)}',
+                _currencyFormat.format(tx.netPayout),
+                tx.payerName ?? tx.payerEmail ?? 'Cliente Final',
+              ]).toList(),
+              headerStyle: pw.TextStyle(font: fontBold, fontSize: 7, color: PdfColors.blueGrey900),
+              cellStyle: pw.TextStyle(font: fontRegular, fontSize: 7),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+              cellAlignment: pw.Alignment.centerLeft,
+              cellAlignments: {
+                3: pw.Alignment.centerRight,
+                4: pw.Alignment.centerRight,
+                5: pw.Alignment.centerRight,
+                6: pw.Alignment.centerRight,
+              },
+            ),
+        ],
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  static pw.Widget _buildSettleStat(String label, String value, pw.Font fontBold, pw.Font fontRegular, PdfColor color, {bool isHighlight = false}) {
+    return pw.Column(
+      children: [
+        pw.Text(label.toUpperCase(), style: pw.TextStyle(font: fontRegular, fontSize: 6.5, color: PdfColors.grey700)),
+        pw.SizedBox(height: 2),
+        pw.Text(
+          value,
+          style: pw.TextStyle(
+            font: fontBold,
+            fontSize: isHighlight ? 12 : 9.5,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Dispara a impressão/PDF do extrato do lojista
+  static Future<void> printOrSaveMerchantPdf({
+    required MerchantSettlementReportModel report,
+  }) async {
+    final pdfBytes = await generateMerchantSettlementPdf(report: report);
+    final cleanSlug = report.application.slug.toLowerCase();
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdfBytes,
+      name: 'extrato-repasse-$cleanSlug-${report.year}-${report.month}.pdf',
+    );
+  }
+
+  /// Compartilha o PDF do extrato do lojista
+  static Future<void> shareMerchantPdf({
+    required MerchantSettlementReportModel report,
+  }) async {
+    final pdfBytes = await generateMerchantSettlementPdf(report: report);
+    final cleanSlug = report.application.slug.toLowerCase();
+    await Printing.sharePdf(
+      bytes: pdfBytes,
+      filename: 'extrato-repasse-$cleanSlug-${report.year}-${report.month}.pdf',
     );
   }
 }

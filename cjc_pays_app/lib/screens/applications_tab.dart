@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../constants/app_colors.dart';
 import '../models/application.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
+import 'application_detail_screen.dart';
 
 class ApplicationsTab extends StatefulWidget {
   const ApplicationsTab({super.key});
@@ -14,13 +13,10 @@ class ApplicationsTab extends StatefulWidget {
 
 class _ApplicationsTabState extends State<ApplicationsTab> {
   final _api = ApiService();
-  final _auth = AuthService();
 
   List<ApplicationModel> _apps = [];
   bool _isLoading = true;
   String? _errorMessage;
-  final Map<String, bool> _pingingMap = {};
-  final Map<String, String> _pingResultMap = {};
 
   @override
   void initState() {
@@ -50,59 +46,13 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
     }
   }
 
-  void _copyToClipboard(String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label copiado com sucesso!'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  void _copyEnvBlock(ApplicationModel app) {
-    final establishmentId = app.slug.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '-');
-    final envContent = '''# Gateway CJC Dev Pays (${app.name})
-CJC_PAYS_BASE_URL=${_auth.baseUrl}
-CJC_PAYS_API_KEY=${app.apiKey}
-CJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}
-ID_ESTABELECIMENTO=$establishmentId''';
-
-    _copyToClipboard(envContent, 'Bloco de variáveis .env');
-  }
-
-  Future<void> _pingApp(String appId) async {
-    setState(() {
-      _pingingMap[appId] = true;
-      _pingResultMap.remove(appId);
-    });
-
-    try {
-      final res = await _api.pingApplication(appId);
-      final latency = res['latencyMs'] ?? 0;
-      final msg = res['message'] ?? 'Conectividade OK (${latency}ms)';
-      if (!mounted) return;
-      setState(() {
-        _pingResultMap[appId] = msg;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _pingResultMap[appId] = 'Falha no ping: $e';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _pingingMap[appId] = false;
-        });
-      }
-    }
-  }
-
   // ==================== CREATE MODAL ====================
   void _showCreateDialog() {
     final nameCtrl = TextEditingController();
     final slugCtrl = TextEditingController();
+    final logoCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
     final webhookCtrl = TextEditingController();
     bool isAutoSlug = true;
     bool isCommissionExempt = false;
@@ -169,6 +119,41 @@ ID_ESTABELECIMENTO=$establishmentId''';
                 ),
                 const SizedBox(height: 14),
                 TextField(
+                  controller: logoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'URL do Logo da Loja (Opcional)',
+                    hintText: 'https://seusite.com/logo.png',
+                  ),
+                  keyboardType: TextInputType.url,
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: emailCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'E-mail do Responsável',
+                          hintText: 'dono@loja.com',
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: phoneCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'WhatsApp do Responsável',
+                          hintText: '(11) 99999-9999',
+                        ),
+                        keyboardType: TextInputType.phone,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                TextField(
                   controller: webhookCtrl,
                   decoration: const InputDecoration(
                     labelText: 'URL de Webhook (Opcional)',
@@ -202,6 +187,9 @@ ID_ESTABELECIMENTO=$establishmentId''';
                       await _api.createApplication(
                         name: name,
                         slug: slug,
+                        logoUrl: logoCtrl.text.trim().isNotEmpty ? logoCtrl.text.trim() : null,
+                        contactEmail: emailCtrl.text.trim().isNotEmpty ? emailCtrl.text.trim() : null,
+                        contactPhone: phoneCtrl.text.trim().isNotEmpty ? phoneCtrl.text.trim() : null,
                         webhookUrl: webhookCtrl.text.trim().isNotEmpty ? webhookCtrl.text.trim() : null,
                         isCommissionExempt: isCommissionExempt,
                       );
@@ -230,6 +218,9 @@ ID_ESTABELECIMENTO=$establishmentId''';
   // ==================== EDIT MODAL ====================
   void _showEditDialog(ApplicationModel app) {
     final nameCtrl = TextEditingController(text: app.name);
+    final logoCtrl = TextEditingController(text: app.logoUrl ?? '');
+    final emailCtrl = TextEditingController(text: app.contactEmail ?? '');
+    final phoneCtrl = TextEditingController(text: app.contactPhone ?? '');
     final webhookCtrl = TextEditingController(text: app.webhookUrl ?? '');
     bool isActive = app.isActive;
     bool isCommissionExempt = app.isCommissionExempt;
@@ -273,6 +264,41 @@ ID_ESTABELECIMENTO=$establishmentId''';
                 ),
                 const SizedBox(height: 14),
                 TextField(
+                  controller: logoCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'URL do Logo da Loja (Opcional)',
+                    hintText: 'https://seusite.com/logo.png',
+                  ),
+                  keyboardType: TextInputType.url,
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: emailCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'E-mail do Responsável',
+                          hintText: 'dono@loja.com',
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: phoneCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'WhatsApp do Responsável',
+                          hintText: '(11) 99999-9999',
+                        ),
+                        keyboardType: TextInputType.phone,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                TextField(
                   controller: webhookCtrl,
                   decoration: const InputDecoration(labelText: 'URL de Webhook'),
                   keyboardType: TextInputType.url,
@@ -304,6 +330,9 @@ ID_ESTABELECIMENTO=$establishmentId''';
                       await _api.updateApplication(
                         id: app.id,
                         name: nameCtrl.text.trim(),
+                        logoUrl: logoCtrl.text.trim(),
+                        contactEmail: emailCtrl.text.trim(),
+                        contactPhone: phoneCtrl.text.trim(),
                         webhookUrl: webhookCtrl.text.trim(),
                         isActive: isActive,
                         isCommissionExempt: isCommissionExempt,
@@ -328,118 +357,6 @@ ID_ESTABELECIMENTO=$establishmentId''';
         ),
       ),
     );
-  }
-
-  // ==================== DELETE MODAL ====================
-  Future<void> _handleDelete(ApplicationModel app) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Excluir Aplicação'),
-        content: Text('Deseja realmente excluir a aplicação "${app.name}" (${app.slug})? Esta ação não pode ser desfeita.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Excluir', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    try {
-      await _api.deleteApplication(app.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aplicação excluída com sucesso!'), backgroundColor: AppColors.success),
-      );
-      _fetchApps();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Falha ao excluir: $e'), backgroundColor: AppColors.danger),
-      );
-    }
-  }
-
-  // ==================== REGENERATE API KEY ====================
-  Future<void> _handleRegenerateKey(ApplicationModel app) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Rotacionar Chave de API'),
-        content: Text(
-          'Deseja gerar uma nova Chave de API para "${app.name}"? A chave atual deixará de funcionar imediatamente nas lojas clientes.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.warning),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Rotacionar Chave', style: TextStyle(color: Colors.black)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    try {
-      final newKey = await _api.regenerateApiKey(app.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Nova chave gerada: $newKey'), backgroundColor: AppColors.success),
-      );
-      _fetchApps();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Falha ao rotacionar chave: $e'), backgroundColor: AppColors.danger),
-      );
-    }
-  }
-
-  // ==================== CLEAR TRANSACTIONS ====================
-  Future<void> _handleClearTransactions(ApplicationModel app) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Limpar Transações'),
-        content: Text(
-          'Deseja zerar todas as ${app.totalPayments} transações e ${app.totalDeliveries} webhooks da aplicação "${app.name}"?',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Limpar Dados', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    try {
-      final msg = await _api.clearApplicationTransactions(app.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: AppColors.success),
-      );
-      _fetchApps();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Falha ao limpar transações: $e'), backgroundColor: AppColors.danger),
-      );
-    }
   }
 
   @override
@@ -486,10 +403,8 @@ ID_ESTABELECIMENTO=$establishmentId''';
     );
   }
 
+  /// Card compacto: Logo, Nome, Slug e Botão Visualizar
   Widget _buildAppCard(ApplicationModel app) {
-    final isPinging = _pingingMap[app.id] ?? false;
-    final pingResult = _pingResultMap[app.id];
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -500,10 +415,31 @@ ID_ESTABELECIMENTO=$establishmentId''';
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header (Name + Status + Menu Actions)
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Logo
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceAlt,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: app.logoUrl != null && app.logoUrl!.isNotEmpty
+                    ? Image.network(
+                        app.logoUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const Center(
+                          child: Text('🏢', style: TextStyle(fontSize: 22)),
+                        ),
+                      )
+                    : const Center(
+                        child: Text('🏢', style: TextStyle(fontSize: 22)),
+                      ),
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -518,44 +454,19 @@ ID_ESTABELECIMENTO=$establishmentId''';
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      app.slug,
+                      'slug: ${app.slug}',
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontFamily: 'monospace',
-                        fontSize: 11,
+                        fontSize: 12,
                       ),
                     ),
                   ],
                 ),
               ),
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  if (app.isCommissionExempt) ...[
-                    Container(
-                      margin: const EdgeInsets.only(right: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.successBg.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.shield_outlined, size: 12, color: AppColors.success),
-                          SizedBox(width: 4),
-                          Text(
-                            'Isenta',
-                            style: TextStyle(
-                              color: AppColors.success,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
@@ -571,283 +482,53 @@ ID_ESTABELECIMENTO=$establishmentId''';
                       ),
                     ),
                   ),
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, color: AppColors.textSecondary, size: 20),
-                    color: AppColors.surfaceAlt,
-                    onSelected: (val) {
-                      switch (val) {
-                        case 'edit':
-                          _showEditDialog(app);
-                          break;
-                        case 'regen_key':
-                          _handleRegenerateKey(app);
-                          break;
-                        case 'clear_tx':
-                          _handleClearTransactions(app);
-                          break;
-                        case 'delete':
-                          _handleDelete(app);
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit_rounded, size: 16, color: AppColors.primary),
-                            SizedBox(width: 8),
-                            Text('Editar Aplicação'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'regen_key',
-                        child: Row(
-                          children: [
-                            Icon(Icons.key_rounded, size: 16, color: AppColors.warning),
-                            SizedBox(width: 8),
-                            Text('Rotacionar API Key'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'clear_tx',
-                        child: Row(
-                          children: [
-                            Icon(Icons.cleaning_services_rounded, size: 16, color: AppColors.danger),
-                            SizedBox(width: 8),
-                            Text('Limpar Transações'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_forever_rounded, size: 16, color: AppColors.danger),
-                            SizedBox(width: 8),
-                            Text('Excluir Aplicação', style: TextStyle(color: AppColors.danger)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  if (app.isCommissionExempt) ...[
+                    const SizedBox(height: 4),
+                    const Text('🛡️ Isenta', style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold)),
+                  ],
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 14),
-
-          // Stats (Total Payments & Deliveries)
+          const SizedBox(height: 12),
+          const Divider(color: AppColors.border, height: 1),
+          const SizedBox(height: 10),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: _buildStatBox(
-                  'Pagamentos',
-                  app.totalPayments.toString(),
-                  Icons.payments_rounded,
-                ),
+              Text(
+                '💳 ${app.totalPayments} pagamentos • 🔀 ${app.totalDeliveries} webhooks',
+                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildStatBox(
-                  'Webhooks',
-                  app.totalDeliveries.toString(),
-                  Icons.send_rounded,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // API Key Box
-          _buildSecretBox('Chave de API (X-Api-Key)', app.apiKey),
-          const SizedBox(height: 8),
-
-          // Webhook Secret Box
-          _buildSecretBox('Segredo HMAC (Webhook)', app.webhookSecret),
-          const SizedBox(height: 8),
-
-          // Webhook URL Box
-          if (app.webhookUrl != null && app.webhookUrl!.isNotEmpty) ...[
-            _buildUrlBox('Endpoint Webhook Receptor', app.webhookUrl!),
-            const SizedBox(height: 10),
-          ],
-
-          // Quick Action Buttons Row: Ping & Copy .env
-          Row(
-            children: [
-              if (app.webhookUrl != null && app.webhookUrl!.isNotEmpty)
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.textSecondary),
+                    onPressed: () => _showEditDialog(app),
+                    tooltip: 'Editar Aplicação',
+                  ),
+                  const SizedBox(width: 4),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: const Color(0xFF0F172A),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    onPressed: isPinging ? null : () => _pingApp(app.id),
-                    icon: isPinging
-                        ? const SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.bolt_rounded, size: 16),
-                    label: Text(
-                      isPinging ? 'Testando...' : 'Ping Webhook',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ),
-              if (app.webhookUrl != null && app.webhookUrl!.isNotEmpty)
-                const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textPrimary,
-                    side: const BorderSide(color: AppColors.border),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () => _copyEnvBlock(app),
-                  icon: const Icon(Icons.copy_all_rounded, size: 16, color: AppColors.secondary),
-                  label: const Text('Copiar .env', style: TextStyle(fontSize: 12)),
-                ),
-              ),
-            ],
-          ),
-
-          if (pingResult != null) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceAlt,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      pingResult,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textPrimary),
-                    ),
+                    icon: const Icon(Icons.visibility_rounded, size: 16),
+                    label: const Text('Visualizar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ApplicationDetailScreen(application: app),
+                        ),
+                      ).then((_) => _fetchApps());
+                    },
                   ),
                 ],
               ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatBox(String label, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceAlt,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: AppColors.primary),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSecretBox(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
-            onPressed: () => _copyToClipboard(value, label),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUrlBox(String label, String url) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
-                const SizedBox(height: 2),
-                Text(
-                  url,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    color: AppColors.primaryLight,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
-            onPressed: () => _copyToClipboard(url, label),
           ),
         ],
       ),

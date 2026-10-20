@@ -434,13 +434,228 @@
             </div>
           </section>
 
-          <!-- Cards das Aplicações (CRUD) -->
+          <!-- Cards das Aplicações (Cards Compactos com Logo, Nome, Slug e Visualizar) -->
           <section class="section-block">
             <div id="crud-apps-container" class="crud-apps-grid">
               <!-- Renderizado dinamicamente via app.js -->
               <div class="card empty-state">Carregando aplicações...</div>
             </div>
           </section>
+        </div>
+
+        <!-- ==================== VIEW 3.1: DETALHES DA APLICAÇÃO & EXTRATO DO LOJISTA ==================== -->
+        <div id="application-detail-view" class="view-panel" style="display: none;">
+          <!-- Topo da tela de detalhes com botão Voltar -->
+          <section class="page-header" style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-back-to-apps" style="display: inline-flex; align-items: center; gap: 6px;">
+                <span>◀</span> Voltar para Aplicações
+              </button>
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <div id="app-detail-logo-container" class="app-detail-avatar">
+                  🏢
+                </div>
+                <div>
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <h1 class="page-title" id="app-detail-name" style="margin-bottom: 0;">Nome da Aplicação</h1>
+                    <span id="app-detail-exempt-badge" class="badge" style="display: none; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🛡️ Isenta de Comissão</span>
+                    <span id="app-detail-status-badge" class="badge badge-approved">Ativa</span>
+                  </div>
+                  <p class="page-subtitle" style="margin-top: 4px;">
+                    Slug: <code id="app-detail-slug" style="font-size: 0.8rem; color: var(--accent-cyan);">slug</code> •
+                    ID Estabelecimento: <strong id="app-detail-estab-id" style="color: var(--accent-cyan); font-family: var(--font-mono);">ESTAB</strong>
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="page-header-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-warning btn-sm" id="btn-detail-clear-tx" title="Limpar transações desta aplicação">
+                <span>🧹</span> Limpar Transações
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-detail-edit-app">
+                <span>✏️</span> Editar
+              </button>
+              <button type="button" class="btn btn-danger btn-sm" id="btn-detail-delete-app">
+                <span>🗑️</span> Excluir
+              </button>
+            </div>
+          </section>
+
+          <!-- Grid de Conteúdo: Credenciais à esquerda e Extrato à direita -->
+          <div class="app-detail-layout-grid">
+            <!-- Coluna 1: Informações Técnicas & Credenciais -->
+            <div class="app-detail-column">
+              <div class="card" style="padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+                <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
+                  <span>🔑</span> Credenciais & Integração
+                </h3>
+
+                <!-- Chave de API -->
+                <div class="crud-field-box">
+                  <span class="crud-field-label">Chave de API (X-Api-Key)</span>
+                  <div class="input-action-group">
+                    <input type="password" id="detail-key-input" class="input-control" readonly>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-detail-toggle-key" title="Mostrar/Ocultar Chave">👁️</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-detail-copy-key" title="Copiar Chave">📋</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-detail-regen-key" title="Regenerar Chave">🔄</button>
+                  </div>
+                </div>
+
+                <!-- Segredo HMAC -->
+                <div class="crud-field-box">
+                  <span class="crud-field-label">Segredo HMAC (X-CJC-Signature)</span>
+                  <div class="input-action-group">
+                    <div class="code-secret-box" id="detail-secret-box" style="font-family: var(--font-mono); font-size: 0.8rem; background: var(--bg-surface-elevated); padding: 8px 12px; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; border: 1px solid var(--border-subtle);"></div>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-detail-copy-secret" title="Copiar Segredo HMAC">📋</button>
+                  </div>
+                </div>
+
+                <!-- Endpoint de Webhook -->
+                <div class="crud-field-box">
+                  <span class="crud-field-label">Endpoint de Webhook (Fan-Out)</span>
+                  <div class="input-action-group">
+                    <input type="url" id="detail-webhook-input" class="input-control" placeholder="https://meusite.com/webhook.php">
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-detail-save-webhook" title="Salvar Webhook">💾</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-detail-ping-webhook" title="Testar Webhook (Ping)">📡</button>
+                  </div>
+                </div>
+
+                <!-- Configuração .env -->
+                <div class="crud-field-box crud-env-box" style="margin-top: 4px;">
+                  <div class="crud-env-header">
+                    <span class="crud-field-label crud-env-label">Configuração .env desta Loja</span>
+                    <button type="button" class="btn btn-primary btn-sm btn-copy-env" id="btn-detail-copy-env">
+                      📋 Copiar .env
+                    </button>
+                  </div>
+                  <pre class="crud-env-pre" id="detail-env-pre"></pre>
+                </div>
+
+                <!-- Informações do Responsável -->
+                <div class="crud-field-box" style="margin-top: 6px; padding: 14px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+                  <span class="crud-field-label" style="margin-bottom: 8px;">Dados do Responsável pela Loja</span>
+                  <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                      <span style="color: var(--text-muted);">📧 E-mail:</span>
+                      <strong id="detail-contact-email" style="color: var(--text-primary);">-</strong>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                      <span style="color: var(--text-muted);">📱 WhatsApp:</span>
+                      <span id="detail-contact-phone-container">
+                        <strong id="detail-contact-phone" style="color: var(--text-primary);">-</strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Coluna 2: Extrato de Repasse do Lojista -->
+            <div class="app-detail-column">
+              <div class="card" style="padding: 22px; display: flex; flex-direction: column; gap: 18px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
+                      <span>📑</span> Extrato de Repasse do Lojista
+                    </h3>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin: 3px 0 0 0;">
+                      Prestação de contas transparente exclusiva desta aplicação parceira.
+                    </p>
+                  </div>
+
+                  <!-- Filtro de Período do Extrato -->
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <select id="merchant-report-month" class="select-control month-select" style="min-width: 120px;">
+                      <option value="1">Janeiro</option>
+                      <option value="2">Fevereiro</option>
+                      <option value="3">Março</option>
+                      <option value="4">Abril</option>
+                      <option value="5">Maio</option>
+                      <option value="6">Junho</option>
+                      <option value="7">Julho</option>
+                      <option value="8">Agosto</option>
+                      <option value="9">Setembro</option>
+                      <option value="10">Outubro</option>
+                      <option value="11">Novembro</option>
+                      <option value="12">Dezembro</option>
+                    </select>
+                    <select id="merchant-report-year" class="select-control year-select" style="min-width: 85px;">
+                      <option value="2026">2026</option>
+                      <option value="2025">2025</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-merchant-report" title="Atualizar dados do extrato">
+                      🔄
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Cards de Resumo Financeiro do Lojista -->
+                <div class="merchant-kpis-grid">
+                  <div class="merchant-kpi-card">
+                    <span class="merchant-kpi-label">Faturamento Bruto</span>
+                    <span class="merchant-kpi-value" id="merchant-kpi-gross">R$ 0,00</span>
+                    <span class="merchant-kpi-sub" id="merchant-kpi-sales-count">0 vendas aprovadas</span>
+                  </div>
+
+                  <div class="merchant-kpi-card">
+                    <span class="merchant-kpi-label">Custos Mercado Pago</span>
+                    <span class="merchant-kpi-value" style="color: #f87171;" id="merchant-kpi-mp-fee">R$ 0,00</span>
+                    <span class="merchant-kpi-sub">Taxa direta de adquirência</span>
+                  </div>
+
+                  <div class="merchant-kpi-card">
+                    <span class="merchant-kpi-label">Taxa CJC Dev Pays</span>
+                    <span class="merchant-kpi-value" style="color: #fbbf24;" id="merchant-kpi-cjc-fee">R$ 0,00</span>
+                    <span class="merchant-kpi-sub" id="merchant-kpi-cjc-sub">Intermediação tecnológica</span>
+                  </div>
+
+                  <div class="merchant-kpi-card merchant-kpi-highlight">
+                    <span class="merchant-kpi-label">Líquido a Repassar</span>
+                    <span class="merchant-kpi-value" style="color: #34d399;" id="merchant-kpi-net-payout">R$ 0,00</span>
+                    <span class="merchant-kpi-sub" style="color: #a7f3d0;">Valor líquido final da loja</span>
+                  </div>
+                </div>
+
+                <!-- Ações de Exportação e Disparo via WhatsApp -->
+                <div class="merchant-actions-bar" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button type="button" class="btn btn-primary btn-sm" id="btn-print-merchant-pdf" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <span>📄</span> Baixar Extrato em PDF
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-export-merchant-csv" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <span>📊</span> Baixar Planilha CSV
+                  </button>
+                  <button type="button" class="btn btn-sm" id="btn-send-merchant-whatsapp" style="display: inline-flex; align-items: center; gap: 6px; background: #25D366; color: #ffffff; border: none; font-weight: 600;">
+                    <span>💬</span> Enviar Extrato via WhatsApp
+                  </button>
+                </div>
+
+                <!-- Tabela de Vendas Aprovadas do Lojista -->
+                <div class="table-card" style="margin-top: 6px;">
+                  <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Data / Hora</th>
+                          <th>Pedido Loja</th>
+                          <th>Método</th>
+                          <th>Valor Bruto</th>
+                          <th>Custo MP</th>
+                          <th>Taxa CJC</th>
+                          <th>Líquido Loja</th>
+                          <th>Cliente</th>
+                        </tr>
+                      </thead>
+                      <tbody id="merchant-report-tbody">
+                        <tr>
+                          <td colspan="8" class="table-empty-cell">Carregando extrato do lojista...</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ==================== VIEW 4: FILA DE WEBHOOKS ==================== -->
@@ -1283,6 +1498,45 @@
             </div>
           </div>
 
+          <!-- Logo da Aplicação -->
+          <div class="field-group">
+            <label class="field-label" for="new-app-logo">URL do Logo da Aplicação (Opcional)</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <input 
+                type="url" 
+                id="new-app-logo" 
+                class="input-control" 
+                placeholder="https://meusite.com/logo.png"
+                style="flex: 1;"
+              >
+              <div id="new-app-logo-preview" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; overflow: hidden; flex-shrink: 0;">
+                🏢
+              </div>
+            </div>
+          </div>
+
+          <!-- Contatos do Responsável -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="field-group">
+              <label class="field-label" for="new-app-email">E-mail do Responsável</label>
+              <input 
+                type="email" 
+                id="new-app-email" 
+                class="input-control" 
+                placeholder="responsavel@loja.com"
+              >
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="new-app-phone">WhatsApp do Responsável</label>
+              <input 
+                type="tel" 
+                id="new-app-phone" 
+                class="input-control" 
+                placeholder="(11) 99999-9999"
+              >
+            </div>
+          </div>
+
           <div class="field-group">
             <label class="field-label" for="new-app-webhook">URL de Webhook (Opcional)</label>
             <input 
@@ -1338,6 +1592,45 @@
               class="input-control" 
               required
             >
+          </div>
+
+          <!-- Logo da Aplicação -->
+          <div class="field-group">
+            <label class="field-label" for="edit-app-logo">URL do Logo da Aplicação (Opcional)</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <input 
+                type="url" 
+                id="edit-app-logo" 
+                class="input-control" 
+                placeholder="https://meusite.com/logo.png"
+                style="flex: 1;"
+              >
+              <div id="edit-app-logo-preview" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; overflow: hidden; flex-shrink: 0;">
+                🏢
+              </div>
+            </div>
+          </div>
+
+          <!-- Contatos do Responsável -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="field-group">
+              <label class="field-label" for="edit-app-email">E-mail do Responsável</label>
+              <input 
+                type="email" 
+                id="edit-app-email" 
+                class="input-control" 
+                placeholder="responsavel@loja.com"
+              >
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="edit-app-phone">WhatsApp do Responsável</label>
+              <input 
+                type="tel" 
+                id="edit-app-phone" 
+                class="input-control" 
+                placeholder="(11) 99999-9999"
+              >
+            </div>
           </div>
 
           <div class="field-group">

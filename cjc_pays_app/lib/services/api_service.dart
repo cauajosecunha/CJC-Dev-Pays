@@ -6,6 +6,7 @@ import '../constants/app_constants.dart';
 import '../models/application.dart';
 import '../models/fee_settings.dart';
 import '../models/financial_report.dart';
+import '../models/merchant_settlement_report.dart';
 import '../models/kpi_metrics.dart';
 import '../models/payment.dart';
 import '../models/user.dart';
@@ -313,12 +314,29 @@ class ApiService {
 
   // ==================== CRUD DE APLICAÇÕES ====================
 
+  /// Obtém uma aplicação específica por ID
+  Future<ApplicationModel> getApplication(String id) async {
+    try {
+      final response = await http
+          .get(_uri('/api/admin/applications/$id'), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return ApplicationModel.fromJson(data['application'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
   /// Cadastra uma nova aplicação cliente
   Future<ApplicationModel> createApplication({
     required String name,
     required String slug,
     String? webhookUrl,
     bool isCommissionExempt = false,
+    String? logoUrl,
+    String? contactEmail,
+    String? contactPhone,
   }) async {
     try {
       final response = await http
@@ -330,6 +348,9 @@ class ApiService {
               'slug': slug.trim().toLowerCase(),
               if (webhookUrl != null && webhookUrl.trim().isNotEmpty) 'webhookUrl': webhookUrl.trim(),
               'isCommissionExempt': isCommissionExempt,
+              if (logoUrl != null && logoUrl.trim().isNotEmpty) 'logoUrl': logoUrl.trim(),
+              if (contactEmail != null && contactEmail.trim().isNotEmpty) 'contactEmail': contactEmail.trim(),
+              if (contactPhone != null && contactPhone.trim().isNotEmpty) 'contactPhone': contactPhone.trim(),
             }),
           )
           .timeout(AppConstants.connectTimeout);
@@ -348,6 +369,9 @@ class ApiService {
     String? webhookUrl,
     bool? isActive,
     bool? isCommissionExempt,
+    String? logoUrl,
+    String? contactEmail,
+    String? contactPhone,
   }) async {
     try {
       final payload = <String, dynamic>{};
@@ -355,6 +379,9 @@ class ApiService {
       if (webhookUrl != null) payload['webhookUrl'] = webhookUrl.trim();
       if (isActive != null) payload['isActive'] = isActive;
       if (isCommissionExempt != null) payload['isCommissionExempt'] = isCommissionExempt;
+      if (logoUrl != null) payload['logoUrl'] = logoUrl.trim().isEmpty ? null : logoUrl.trim();
+      if (contactEmail != null) payload['contactEmail'] = contactEmail.trim().isEmpty ? null : contactEmail.trim();
+      if (contactPhone != null) payload['contactPhone'] = contactPhone.trim().isEmpty ? null : contactPhone.trim();
 
       final response = await http
           .put(
@@ -366,6 +393,52 @@ class ApiService {
 
       final data = _processResponse(response) as Map<String, dynamic>;
       return ApplicationModel.fromJson(data['application'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Obtém o Extrato de Repasse do Lojista Parceiro
+  Future<MerchantSettlementReportModel> getMerchantSettlementReport(
+    String applicationId, {
+    int? month,
+    int? year,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (month != null) query['month'] = month;
+      if (year != null) query['year'] = year;
+
+      final response = await http
+          .get(_uri('/api/admin/financial/merchant/$applicationId', query), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return MerchantSettlementReportModel.fromJson(data['report'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Baixa os bytes do CSV do Extrato do Lojista
+  Future<List<int>> getMerchantSettlementCsvBytes(
+    String applicationId, {
+    int? month,
+    int? year,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (month != null) query['month'] = month;
+      if (year != null) query['year'] = year;
+
+      final response = await http
+          .get(_uri('/api/admin/financial/merchant/$applicationId/csv', query), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return response.bodyBytes;
+      }
+      throw ApiException('Falha ao baixar CSV do lojista.');
     } on SocketException {
       throw ApiException('Sem conexão com o servidor.');
     }
