@@ -384,9 +384,9 @@ export class AdminController {
 
       const buffer = Buffer.from(base64Data, 'base64');
 
-      // Limite máximo de 5MB
-      if (buffer.length > 5 * 1024 * 1024) {
-        res.status(400).json({ success: false, error: 'O arquivo de imagem excede o tamanho máximo permitido de 5MB.' });
+      // Limite máximo de 10MB
+      if (buffer.length > 10 * 1024 * 1024) {
+        res.status(400).json({ success: false, error: 'O arquivo de imagem excede o tamanho máximo permitido de 10MB.' });
         return;
       }
 

@@ -2078,6 +2078,60 @@ class CJCPaysApp {
   }
 
   // ==================== UPLOAD DE LOGO DA APLICAÇÃO ====================
+  async optimizeImage(file, maxWidth = 512, maxHeight = 512) {
+    if (file.type === 'image/svg+xml') {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const rawData = e.target?.result;
+        if (!rawData) {
+          resolve(null);
+          return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let { width, height } = img;
+            if (width > maxWidth || height > maxHeight) {
+              const ratio = Math.min(maxWidth / width, maxHeight / height);
+              width = Math.round(width * ratio);
+              height = Math.round(height * ratio);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(rawData);
+              return;
+            }
+
+            ctx.drawImage(img, 0, 0, width, height);
+            const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            const optimized = canvas.toDataURL(mime, 0.92);
+            resolve(optimized);
+          } catch {
+            resolve(rawData);
+          }
+        };
+        img.onerror = () => resolve(rawData);
+        img.src = rawData;
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+  }
+
   async handleLogoFileUpload(file, previewEl, hiddenInputEl, statusEl, removeBtnEl) {
     if (!file) return;
 
@@ -2087,53 +2141,49 @@ class CJCPaysApp {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      this.showToast('A imagem excede o tamanho máximo de 5MB.', 'warning');
+    if (file.size > 10 * 1024 * 1024) {
+      this.showToast('A imagem excede o tamanho máximo de 10MB.', 'warning');
       return;
     }
 
-    if (statusEl) statusEl.innerText = 'Carregando e enviando imagem...';
+    if (statusEl) statusEl.innerText = 'Processando e enviando imagem...';
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64Data = e.target?.result;
-      if (previewEl && base64Data) {
+    try {
+      const base64Data = await this.optimizeImage(file, 512, 512);
+      if (!base64Data) {
+        this.showToast('Erro ao processar imagem.', 'warning');
+        if (statusEl) statusEl.innerText = 'Erro ao processar.';
+        return;
+      }
+
+      if (previewEl) {
         previewEl.innerHTML = `<img src="${base64Data}" style="width: 100%; height: 100%; object-fit: cover;">`;
       }
 
-      try {
-        const res = await fetch('/api/admin/applications/upload-logo', {
-          method: 'POST',
-          headers: this.getHeaders(),
-          body: JSON.stringify({
-            fileData: base64Data,
-            fileName: file.name,
-          }),
-        });
+      const res = await fetch('/api/admin/applications/upload-logo', {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          fileData: base64Data,
+          fileName: file.name,
+        }),
+      });
 
-        const data = await res.json();
-        if (data.success && data.logoUrl) {
-          if (hiddenInputEl) hiddenInputEl.value = data.logoUrl;
-          if (statusEl) statusEl.innerText = file.name;
-          if (removeBtnEl) removeBtnEl.style.display = 'inline-flex';
-          this.showToast('Logo enviado com sucesso!', 'success');
-        } else {
-          this.showToast(data.error || 'Falha ao processar upload da imagem.', 'warning');
-          if (statusEl) statusEl.innerText = 'Falha no envio da imagem.';
-        }
-      } catch (err) {
-        console.error('Erro no upload de logo:', err);
-        this.showToast('Erro de comunicação com o servidor no upload.', 'warning');
-        if (statusEl) statusEl.innerText = 'Erro ao enviar imagem.';
+      const data = await res.json();
+      if (data.success && data.logoUrl) {
+        if (hiddenInputEl) hiddenInputEl.value = data.logoUrl;
+        if (statusEl) statusEl.innerText = file.name;
+        if (removeBtnEl) removeBtnEl.style.display = 'inline-flex';
+        this.showToast('Logo enviado com sucesso!', 'success');
+      } else {
+        this.showToast(data.error || 'Falha ao processar upload da imagem.', 'warning');
+        if (statusEl) statusEl.innerText = 'Falha no envio da imagem.';
       }
-    };
-
-    reader.onerror = () => {
-      this.showToast('Erro ao ler arquivo selecionado.', 'warning');
-      if (statusEl) statusEl.innerText = 'Erro ao ler arquivo.';
-    };
-
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Erro no upload de logo:', err);
+      this.showToast('Erro de comunicação com o servidor no upload.', 'warning');
+      if (statusEl) statusEl.innerText = 'Erro ao enviar imagem.';
+    }
   }
 
   // ==================== MODAL CRIAR APLICAÇÃO ====================

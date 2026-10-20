@@ -66,8 +66,15 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+// Parser de JSON com suporte a uploads de até 15MB na rota de logo
+app.use((req, res, next) => {
+  if (req.originalUrl && req.originalUrl.includes('/upload-logo')) {
+    express.json({ limit: '15mb' })(req, res, next);
+  } else {
+    express.json({ limit: '1mb' })(req, res, next);
+  }
+});
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // ==================== CACHE BUSTING AUTOMÁTICO ====================
 interface CachedAsset {
