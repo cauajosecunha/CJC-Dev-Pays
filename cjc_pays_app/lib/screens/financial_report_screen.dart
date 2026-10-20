@@ -1,10 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../constants/app_colors.dart';
 import '../models/application.dart';
 import '../models/financial_report.dart';
 import '../services/api_service.dart';
+import '../services/pdf_generator_service.dart';
 
 class FinancialReportScreen extends StatefulWidget {
   const FinancialReportScreen({super.key});
@@ -90,11 +95,101 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
     _loadReport();
   }
 
-  Future<void> _exportCsv() async {
+  Future<void> _exportPdf({bool shareDirectly = false}) async {
+    if (_report == null) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Gerando planilha CSV contábil...'),
-        duration: Duration(seconds: 1),
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Text(shareDirectly
+                ? 'Preparando PDF para compartilhamento...'
+                : 'Gerando documento contábil em PDF...'),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      String? auditCode;
+      String? validationUrl;
+
+      // Registra código oficial de auditoria no backend para rastreabilidade
+      try {
+        String appName = 'Consolidado Geral (Todas as Aplicações)';
+        if (_selectedAppId != 'ALL') {
+          for (final a in _applications) {
+            if (a.id == _selectedAppId) {
+              appName = a.name;
+              break;
+            }
+          }
+        }
+
+        final auditRes = await _api.registerReportAudit(
+          periodLabel: _report!.periodLabel,
+          applicationId: _selectedAppId == 'ALL' ? null : _selectedAppId,
+          applicationName: appName,
+          grossVolume: _report!.kpis.totalGrossVolume,
+          mpFeeVolume: _report!.kpis.totalMpFees,
+          commissionVolume: _report!.kpis.totalCjcCommission,
+          netPayoutVolume: _report!.kpis.totalNetPayout,
+          transactionsCount: _report!.kpis.approvedCount,
+        );
+
+        final audit = auditRes['audit'] as Map<String, dynamic>?;
+        auditCode = audit?['code'] as String?;
+        validationUrl = auditRes['validationUrl'] as String?;
+      } catch (auditErr) {
+        debugPrint('Aviso ao registrar auditoria no backend: $auditErr');
+      }
+
+      if (shareDirectly) {
+        await PdfGeneratorService.sharePdf(
+          report: _report!,
+          auditCode: auditCode,
+          validationUrl: validationUrl,
+        );
+      } else {
+        await PdfGeneratorService.printOrSavePdf(
+          report: _report!,
+          auditCode: auditCode,
+          validationUrl: validationUrl,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Falha ao processar PDF: $e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportCsv({bool shareDirectly = true}) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Baixando planilha contábil CSV...'),
+          ],
+        ),
+        duration: const Duration(seconds: 1),
       ),
     );
 
@@ -106,72 +201,25 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
         paymentMethod: _selectedMethod == 'ALL' ? null : _selectedMethod,
       );
 
-      if (!mounted) return;
+      final tempDir = await getTemporaryDirectory();
+      final cleanPeriod = (_report?.periodLabel ?? 'periodo')
+          .replaceAll(' ', '_')
+          .replaceAll('/', '-')
+          .toLowerCase();
+      final file = File('${tempDir.path}/balancete_contabil_$cleanPeriod.csv');
+      await file.writeAsString(csv, encoding: utf8);
 
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: const Row(
-            children: [
-              Icon(Icons.table_chart_rounded, color: AppColors.primary),
-              SizedBox(width: 10),
-              Text('Planilha CSV Contábil', style: TextStyle(fontSize: 16)),
-            ],
+      if (shareDirectly) {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path, mimeType: 'text/csv')],
+            text: 'Balancete Financeiro & Contábil - ${_report?.periodLabel ?? ''}',
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'A planilha foi gerada no formato brasileiro (UTF-8 com BOM e delimitador ponto e vírgula ";") compatível com Microsoft Excel e Google Sheets.',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border),
-                ),
-                constraints: const BoxConstraints(maxHeight: 180),
-                child: SingleChildScrollView(
-                  child: Text(
-                    csv.split('\n').take(12).join('\n'),
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 10,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Fechar'),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.black),
-              label: const Text('Copiar Planilha', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: csv));
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ Planilha CSV copiada para a área de transferência!'),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      );
+        );
+      } else {
+        if (!mounted) return;
+        _showCsvPreviewDialog(csv, file.path);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -183,6 +231,217 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
     }
   }
 
+  void _showCsvPreviewDialog(String csv, String filePath) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Row(
+          children: [
+            Icon(Icons.table_chart_rounded, color: AppColors.primary),
+            SizedBox(width: 10),
+            Text('Planilha CSV Contábil', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'A planilha foi gerada com codificação UTF-8 e delimitador ";", compatível com Microsoft Excel e Google Sheets.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
+              ),
+              constraints: const BoxConstraints(maxHeight: 180),
+              child: SingleChildScrollView(
+                child: Text(
+                  csv.split('\n').take(12).join('\n'),
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 10,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fechar'),
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.copy_rounded, size: 16),
+            label: const Text('Copiar'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: csv));
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✅ Planilha CSV copiada para a área de transferência!'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.share_rounded, size: 16, color: Colors.black),
+            label: const Text('Compartilhar CSV', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () {
+              Navigator.pop(ctx);
+              SharePlus.instance.share(
+                ShareParams(
+                  files: [XFile(filePath, mimeType: 'text/csv')],
+                  text: 'Balancete Financeiro & Contábil - ${_report?.periodLabel ?? ''}',
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showExportBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withAlpha(30),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.file_download_rounded, color: AppColors.primary, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Exportar Relatório Financeiro',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Período: ${_report?.periodLabel ?? 'Atual'}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                tileColor: AppColors.surfaceAlt,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withAlpha(30),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.picture_as_pdf_rounded, color: Colors.blueAccent),
+                ),
+                title: const Text('Visualizar e Salvar PDF (A4)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Abre o pré-visualizador oficial com opção nativa "Salvar como PDF"'),
+                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _exportPdf(shareDirectly: false);
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                tileColor: AppColors.surfaceAlt,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withAlpha(30),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.share_rounded, color: Colors.greenAccent),
+                ),
+                title: const Text('Compartilhar PDF (.pdf)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Envia o arquivo PDF diretamente por WhatsApp, E-mail ou Nuvem'),
+                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _exportPdf(shareDirectly: true);
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                tileColor: AppColors.surfaceAlt,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withAlpha(30),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.table_chart_rounded, color: Colors.orangeAccent),
+                ),
+                title: const Text('Compartilhar Planilha CSV (.csv)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Envia o arquivo .csv real compatível com Microsoft Excel e Google Sheets'),
+                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _exportCsv(shareDirectly: true);
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                tileColor: AppColors.surfaceAlt,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withAlpha(30),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.preview_rounded, color: Colors.purpleAccent),
+                ),
+                title: const Text('Prévia e Copiar Dados CSV', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Exibe trecho da planilha com botão de cópia para a área de transferência'),
+                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _exportCsv(shareDirectly: false);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -190,9 +449,14 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
         title: const Text('Financeiro & Contábil'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary),
+            tooltip: 'Imprimir / Salvar PDF (A4)',
+            onPressed: () => _exportPdf(shareDirectly: false),
+          ),
+          IconButton(
             icon: const Icon(Icons.file_download_outlined, color: AppColors.primary),
-            tooltip: 'Exportar Planilha CSV',
-            onPressed: _exportCsv,
+            tooltip: 'Opções de Exportação (PDF / CSV)',
+            onPressed: _showExportBottomSheet,
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -366,6 +630,44 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
                         _loadReport();
                       }
                     },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(color: AppColors.border, height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Colors.black),
+                    label: const Text(
+                      'PDF Oficial',
+                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => _exportPdf(shareDirectly: false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.file_download_rounded, size: 16, color: AppColors.primary),
+                    label: const Text(
+                      'Exportar...',
+                      style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: _showExportBottomSheet,
                   ),
                 ),
               ],

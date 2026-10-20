@@ -666,4 +666,42 @@ class ApiService {
       throw ApiException('Sem conexão com o servidor.');
     }
   }
+
+  /// Registra auditoria pública de relatório financeiro emitido
+  Future<Map<String, dynamic>> registerReportAudit({
+    required String periodLabel,
+    String? applicationId,
+    String? applicationName,
+    required double grossVolume,
+    required double mpFeeVolume,
+    required double commissionVolume,
+    required double netPayoutVolume,
+    int? transactionsCount,
+    String? issuedBy,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            _uri('/api/admin/financial/audit/register'),
+            headers: _headers,
+            body: jsonEncode({
+              'periodLabel': periodLabel,
+              'applicationId': applicationId,
+              'applicationName': applicationName,
+              'grossVolume': grossVolume,
+              'mpFeeVolume': mpFeeVolume,
+              'commissionVolume': commissionVolume,
+              'netPayoutVolume': netPayoutVolume,
+              'transactionsCount': transactionsCount ?? 0,
+              'issuedBy': issuedBy ?? 'App Mobile CJC Dev Pays',
+            }),
+          )
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return data;
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
 }

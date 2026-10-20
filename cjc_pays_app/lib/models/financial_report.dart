@@ -10,6 +10,7 @@ class FinancialReportModel {
   final List<AppFinancialModel> byApplication;
   final List<MethodFinancialModel> byMethod;
   final List<FinancialTransactionModel> transactions;
+  final CompanyReportModel? company;
 
   FinancialReportModel({
     required this.periodLabel,
@@ -23,6 +24,7 @@ class FinancialReportModel {
     required this.byApplication,
     required this.byMethod,
     required this.transactions,
+    this.company,
   });
 
   factory FinancialReportModel.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,9 @@ class FinancialReportModel {
       transactions: (json['transactions'] as List<dynamic>? ?? [])
           .map((item) => FinancialTransactionModel.fromJson(item as Map<String, dynamic>))
           .toList(),
+      company: json['company'] != null
+          ? CompanyReportModel.fromJson(json['company'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
@@ -252,3 +257,45 @@ class FinancialTransactionModel {
     );
   }
 }
+
+class CompanyReportModel {
+  final String legalName;
+  final String tradeName;
+  final String cnpj;
+  final String stateTaxId;
+  final String municipalTaxId;
+  final String address;
+  final String cityState;
+  final String zipCode;
+  final String email;
+  final String phone;
+
+  CompanyReportModel({
+    required this.legalName,
+    required this.tradeName,
+    required this.cnpj,
+    required this.stateTaxId,
+    required this.municipalTaxId,
+    required this.address,
+    required this.cityState,
+    required this.zipCode,
+    required this.email,
+    required this.phone,
+  });
+
+  factory CompanyReportModel.fromJson(Map<String, dynamic> json) {
+    return CompanyReportModel(
+      legalName: json['legalName'] as String? ?? 'CJC Dev Soluções Tecnológicas',
+      tradeName: json['tradeName'] as String? ?? 'CJC Dev Pays',
+      cnpj: json['cnpj'] as String? ?? '',
+      stateTaxId: json['stateTaxId'] as String? ?? '',
+      municipalTaxId: json['municipalTaxId'] as String? ?? '',
+      address: json['address'] as String? ?? '',
+      cityState: json['cityState'] as String? ?? '',
+      zipCode: json['zipCode'] as String? ?? '',
+      email: json['email'] as String? ?? 'financeiro@cjcdev.com.br',
+      phone: json['phone'] as String? ?? '',
+    );
+  }
+}
+
