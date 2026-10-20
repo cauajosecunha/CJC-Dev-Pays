@@ -1,14 +1,14 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import '../constants/app_colors.dart';
 import '../models/application.dart';
 import '../models/financial_report.dart';
 import '../services/api_service.dart';
+import '../services/file_download_service.dart';
 import '../services/pdf_generator_service.dart';
 
 class FinancialReportScreen extends StatefulWidget {
@@ -95,7 +95,8 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
     _loadReport();
   }
 
-  Future<void> _exportPdf({bool shareDirectly = false}) async {
+  /// Baixa o relatório contábil em PDF oficial idêntico ao site
+  Future<void> _downloadPdf({bool shareDirectly = false}) async {
     if (_report == null) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -110,7 +111,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
             const SizedBox(width: 12),
             Text(shareDirectly
                 ? 'Preparando PDF para compartilhamento...'
-                : 'Gerando documento contábil em PDF...'),
+                : 'Gerando Relatório Contábil Oficial em PDF...'),
           ],
         ),
         duration: const Duration(seconds: 2),
@@ -121,7 +122,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
       String? auditCode;
       String? validationUrl;
 
-      // Registra código oficial de auditoria no backend para rastreabilidade
+      // 1. Registra código oficial de auditoria no backend para rastreabilidade
       try {
         String appName = 'Consolidado Geral (Todas as Aplicações)';
         if (_selectedAppId != 'ALL') {
@@ -151,34 +152,55 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
         debugPrint('Aviso ao registrar auditoria no backend: $auditErr');
       }
 
+      // 2. Compila o documento A4 exatamente como no site
+      final pdfBytes = await PdfGeneratorService.generateAccountingPdf(
+        report: _report!,
+        auditCode: auditCode,
+        validationUrl: validationUrl,
+      );
+
+      // 3. Salva no celular com o mesmo padrão de nome do site
+      final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final filename = 'cjc-dev-pays-relatorio-financeiro-$dateStr.pdf';
+      final file = await FileDownloadService.saveFileToDevice(
+        filename: filename,
+        bytes: pdfBytes,
+      );
+
+      if (!mounted) return;
+
       if (shareDirectly) {
-        await PdfGeneratorService.sharePdf(
-          report: _report!,
-          auditCode: auditCode,
-          validationUrl: validationUrl,
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path, mimeType: 'application/pdf')],
+            text: 'Relatório Financeiro & Contábil CJC Dev Pays ($filename)',
+          ),
         );
       } else {
-        await PdfGeneratorService.printOrSavePdf(
-          report: _report!,
-          auditCode: auditCode,
-          validationUrl: validationUrl,
+        _showDownloadSuccessDialog(
+          title: 'Relatório PDF Baixado',
+          filename: filename,
+          filePath: file.path,
+          isPdf: true,
+          pdfBytes: pdfBytes,
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Falha ao processar PDF: $e'),
+          content: Text('Falha ao baixar PDF: $e'),
           backgroundColor: AppColors.danger,
         ),
       );
     }
   }
 
-  Future<void> _exportCsv({bool shareDirectly = true}) async {
+  /// Baixa a planilha CSV oficial do servidor idêntica à do site
+  Future<void> _downloadCsv({bool shareDirectly = false}) async {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
+      const SnackBar(
+        content: Row(
           children: [
             SizedBox(
               width: 16,
@@ -186,14 +208,15 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
             ),
             SizedBox(width: 12),
-            Text('Baixando planilha contábil CSV...'),
+            Text('Baixando planilha CSV do servidor...'),
           ],
         ),
-        duration: const Duration(seconds: 1),
+        duration: Duration(seconds: 1),
       ),
     );
 
     try {
+      // 1. Obtém a planilha gerada no servidor
       final csv = await _api.downloadFinancialCsv(
         month: _selectedMonth,
         year: _selectedYear,
@@ -201,46 +224,63 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
         paymentMethod: _selectedMethod == 'ALL' ? null : _selectedMethod,
       );
 
-      final tempDir = await getTemporaryDirectory();
-      final cleanPeriod = (_report?.periodLabel ?? 'periodo')
-          .replaceAll(' ', '_')
-          .replaceAll('/', '-')
-          .toLowerCase();
-      final file = File('${tempDir.path}/balancete_contabil_$cleanPeriod.csv');
-      await file.writeAsString(csv, encoding: utf8);
+      // 2. Salva no dispositivo com o mesmo padrão de nome do site
+      final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final filename = 'cjc-dev-pays-relatorio-financeiro-$dateStr.csv';
+      final file = await FileDownloadService.saveFileToDevice(
+        filename: filename,
+        bytes: utf8.encode(csv),
+      );
+
+      if (!mounted) return;
 
       if (shareDirectly) {
         await SharePlus.instance.share(
           ShareParams(
             files: [XFile(file.path, mimeType: 'text/csv')],
-            text: 'Balancete Financeiro & Contábil - ${_report?.periodLabel ?? ''}',
+            text: 'Planilha Contábil CJC Dev Pays ($filename)',
           ),
         );
       } else {
-        if (!mounted) return;
-        _showCsvPreviewDialog(csv, file.path);
+        _showDownloadSuccessDialog(
+          title: 'Planilha CSV Baixada',
+          filename: filename,
+          filePath: file.path,
+          isPdf: false,
+          rawCsv: csv,
+        );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Falha ao exportar CSV: $e'),
+          content: Text('Falha ao baixar CSV: $e'),
           backgroundColor: AppColors.danger,
         ),
       );
     }
   }
 
-  void _showCsvPreviewDialog(String csv, String filePath) {
+  void _showDownloadSuccessDialog({
+    required String title,
+    required String filename,
+    required String filePath,
+    required bool isPdf,
+    Uint8List? pdfBytes,
+    String? rawCsv,
+  }) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.table_chart_rounded, color: AppColors.primary),
-            SizedBox(width: 10),
-            Text('Planilha CSV Contábil', style: TextStyle(fontSize: 16)),
+            Icon(
+              isPdf ? Icons.picture_as_pdf_rounded : Icons.table_chart_rounded,
+              color: isPdf ? Colors.redAccent : AppColors.primary,
+            ),
+            const SizedBox(width: 10),
+            Text(title, style: const TextStyle(fontSize: 16)),
           ],
         ),
         content: Column(
@@ -248,10 +288,10 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'A planilha foi gerada com codificação UTF-8 e delimitador ";", compatível com Microsoft Excel e Google Sheets.',
+              'Arquivo baixado com sucesso e salvo no armazenamento:',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -259,16 +299,38 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppColors.border),
               ),
-              constraints: const BoxConstraints(maxHeight: 180),
-              child: SingleChildScrollView(
-                child: Text(
-                  csv.split('\n').take(12).join('\n'),
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 10,
-                    color: AppColors.textMuted,
+              child: Row(
+                children: [
+                  Icon(
+                    isPdf ? Icons.description_rounded : Icons.grid_on_rounded,
+                    color: AppColors.primary,
+                    size: 26,
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          filename,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          filePath.contains('Download') ? '📁 Pasta Downloads do celular' : '📁 Armazenamento local',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -278,30 +340,46 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Fechar'),
           ),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.copy_rounded, size: 16),
-            label: const Text('Copiar'),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: csv));
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('✅ Planilha CSV copiada para a área de transferência!'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-          ),
+          if (isPdf && pdfBytes != null)
+            OutlinedButton.icon(
+              icon: const Icon(Icons.print_rounded, size: 16),
+              label: const Text('Visualizar / Imprimir'),
+              onPressed: () {
+                Navigator.pop(ctx);
+                Printing.layoutPdf(
+                  onLayout: (format) async => pdfBytes,
+                  name: filename,
+                );
+              },
+            ),
+          if (!isPdf && rawCsv != null)
+            OutlinedButton.icon(
+              icon: const Icon(Icons.copy_rounded, size: 16),
+              label: const Text('Copiar'),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: rawCsv));
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('✅ Planilha CSV copiada para a área de transferência!'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              },
+            ),
           ElevatedButton.icon(
             icon: const Icon(Icons.share_rounded, size: 16, color: Colors.black),
-            label: const Text('Compartilhar CSV', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            label: Text(
+              isPdf ? 'Compartilhar' : 'Abrir / Compartilhar',
+              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+            ),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () {
               Navigator.pop(ctx);
               SharePlus.instance.share(
                 ShareParams(
-                  files: [XFile(filePath, mimeType: 'text/csv')],
-                  text: 'Balancete Financeiro & Contábil - ${_report?.periodLabel ?? ''}',
+                  files: [XFile(filePath, mimeType: isPdf ? 'application/pdf' : 'text/csv')],
+                  text: 'Relatório Financeiro & Contábil ($filename)',
                 ),
               );
             },
@@ -311,7 +389,8 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
     );
   }
 
-  void _showExportBottomSheet() {
+  /// Exibe o diálogo para o usuário escolher entre PDF e CSV ao clicar na seta de baixar
+  void _showDownloadFormatDialog() {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -333,14 +412,14 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
                       color: AppColors.primary.withAlpha(30),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.file_download_rounded, color: AppColors.primary, size: 22),
+                    child: const Icon(Icons.download_rounded, color: AppColors.primary, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Exportar Relatório Financeiro',
+                        'Baixar Relatório Financeiro',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       Text(
@@ -351,88 +430,66 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: Text(
+                  'Escolha o formato do arquivo para baixar no seu aparelho:',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                ),
+              ),
+              const SizedBox(height: 8),
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 tileColor: AppColors.surfaceAlt,
                 leading: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withAlpha(30),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.redAccent.withAlpha(25),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.picture_as_pdf_rounded, color: Colors.blueAccent),
+                  child: const Icon(Icons.picture_as_pdf_rounded, color: Colors.redAccent, size: 24),
                 ),
-                title: const Text('Visualizar e Salvar PDF (A4)', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Abre o pré-visualizador oficial com opção nativa "Salvar como PDF"'),
-                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                title: const Text(
+                  'Baixar Relatório em PDF (.pdf)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Demonstrativo contábil oficial A4 (idêntico ao site), com DRE, KPIs e QR Code de autenticidade',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _exportPdf(shareDirectly: false);
+                  _downloadPdf();
                 },
               ),
               const SizedBox(height: 10),
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 tileColor: AppColors.surfaceAlt,
                 leading: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.green.withAlpha(30),
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.greenAccent.withAlpha(25),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.share_rounded, color: Colors.greenAccent),
+                  child: const Icon(Icons.table_chart_rounded, color: Colors.greenAccent, size: 24),
                 ),
-                title: const Text('Compartilhar PDF (.pdf)', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Envia o arquivo PDF diretamente por WhatsApp, E-mail ou Nuvem'),
-                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                title: const Text(
+                  'Baixar Planilha em CSV (.csv)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Planilha oficial exportada pelo servidor compatível com Microsoft Excel e Google Sheets',
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _exportPdf(shareDirectly: true);
-                },
-              ),
-              const SizedBox(height: 10),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                tileColor: AppColors.surfaceAlt,
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withAlpha(30),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.table_chart_rounded, color: Colors.orangeAccent),
-                ),
-                title: const Text('Compartilhar Planilha CSV (.csv)', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Envia o arquivo .csv real compatível com Microsoft Excel e Google Sheets'),
-                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _exportCsv(shareDirectly: true);
-                },
-              ),
-              const SizedBox(height: 10),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                tileColor: AppColors.surfaceAlt,
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.withAlpha(30),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.preview_rounded, color: Colors.purpleAccent),
-                ),
-                title: const Text('Prévia e Copiar Dados CSV', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Exibe trecho da planilha com botão de cópia para a área de transferência'),
-                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _exportCsv(shareDirectly: false);
+                  _downloadCsv();
                 },
               ),
             ],
@@ -449,14 +506,9 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
         title: const Text('Financeiro & Contábil'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary),
-            tooltip: 'Imprimir / Salvar PDF (A4)',
-            onPressed: () => _exportPdf(shareDirectly: false),
-          ),
-          IconButton(
             icon: const Icon(Icons.file_download_outlined, color: AppColors.primary),
-            tooltip: 'Opções de Exportação (PDF / CSV)',
-            onPressed: _showExportBottomSheet,
+            tooltip: 'Baixar Relatório (PDF / CSV)',
+            onPressed: _showDownloadFormatDialog,
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -643,7 +695,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Colors.black),
                     label: const Text(
-                      'PDF Oficial',
+                      'Baixar PDF',
                       style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -651,15 +703,15 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: () => _exportPdf(shareDirectly: false),
+                    onPressed: _downloadPdf,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    icon: const Icon(Icons.file_download_rounded, size: 16, color: AppColors.primary),
+                    icon: const Icon(Icons.table_chart_rounded, size: 16, color: AppColors.primary),
                     label: const Text(
-                      'Exportar...',
+                      'Baixar CSV',
                       style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -667,7 +719,7 @@ class _FinancialReportScreenState extends State<FinancialReportScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: _showExportBottomSheet,
+                    onPressed: _downloadCsv,
                   ),
                 ),
               ],
