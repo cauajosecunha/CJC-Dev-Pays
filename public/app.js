@@ -47,17 +47,27 @@ class CJCPaysApp {
       if (isValid) {
         this.showAppShell();
       } else {
-        this.showLogin();
+        this.showLogin(true);
       }
     } else {
-      this.showLogin();
+      this.showLogin(true);
     }
   }
 
   // ==================== CONTROLE DE TELAS & SESSÃO ====================
-  showLogin() {
+  showLogin(saveRedirect = false, rawPath = null) {
+    const candidatePath = rawPath || window.location.pathname;
+    if (saveRedirect && candidatePath !== '/login' && candidatePath !== '/') {
+      sessionStorage.setItem('cjc_redirect_after_login', candidatePath + window.location.search);
+    }
+
     document.getElementById('login-view').style.display = 'flex';
     document.getElementById('app-shell').style.display = 'none';
+
+    document.title = 'Acesso Administrativo — CJC Dev Pays';
+    if (window.location.pathname !== '/login') {
+      window.history.replaceState({ viewId: 'login-view' }, '', '/login');
+    }
 
     const emailInput = document.getElementById('login-email');
     const passwordInput = document.getElementById('login-password');
@@ -80,7 +90,7 @@ class CJCPaysApp {
     }
   }
 
-  showAppShell() {
+  showAppShell(targetUrl = null) {
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('app-shell').style.display = 'flex';
 
@@ -107,7 +117,15 @@ class CJCPaysApp {
     }
 
     this.setupSSE();
-    this.navigate(this.currentView);
+
+    // Roteia para a URL salva ou processa rota atual
+    const redirectUrl = targetUrl || sessionStorage.getItem('cjc_redirect_after_login');
+    if (redirectUrl) {
+      sessionStorage.removeItem('cjc_redirect_after_login');
+      this.handleRouteFromUrl(true, redirectUrl);
+    } else {
+      this.handleRouteFromUrl(false);
+    }
   }
 
   async validateSession() {
@@ -132,9 +150,10 @@ class CJCPaysApp {
 
   logout() {
     this.clearSession();
+    sessionStorage.removeItem('cjc_redirect_after_login');
     this.closeDrawer();
     this.showToast('Sessão encerrada com sucesso.', 'info');
-    this.showLogin();
+    this.showLogin(false);
   }
 
   getHeaders() {
@@ -155,7 +174,79 @@ class CJCPaysApp {
     document.getElementById('drawer-overlay')?.classList.remove('active');
   }
 
-  navigate(viewId) {
+  // ==================== ROTEAMENTO SPA & HISTORY API ====================
+  parseRoute(pathname) {
+    let path = (pathname || '/').replace(/\/+$/, '') || '/';
+
+    // Redirecionamentos amigáveis para Visão Geral
+    if (path === '/' || path === '/painel' || path === '/painel/' || path === '/dashboard' || path === '/painel/dashboard') {
+      return { viewId: 'dashboard-view', param: null, path: '/painel/visao-geral' };
+    }
+    if (path === '/painel/visao-geral') {
+      return { viewId: 'dashboard-view', param: null, path };
+    }
+    if (path === '/painel/transacoes' || path === '/painel/pagamentos') {
+      return { viewId: 'payments-view', param: null, path: '/painel/transacoes' };
+    }
+    if (path === '/painel/aplicacoes') {
+      return { viewId: 'applications-view', param: null, path };
+    }
+
+    // Rota dinâmica: /painel/aplicacoes/:id
+    const appDetailMatch = path.match(/^\/painel\/aplicacoes\/([a-zA-Z0-9_-]+)$/);
+    if (appDetailMatch) {
+      return { viewId: 'application-detail-view', param: appDetailMatch[1], path };
+    }
+
+    if (path === '/painel/financeiro' || path === '/painel/contabil') {
+      return { viewId: 'financial-view', param: null, path: '/painel/financeiro' };
+    }
+    if (path === '/painel/webhooks') {
+      return { viewId: 'webhooks-view', param: null, path };
+    }
+    if (path === '/painel/usuarios' || path === '/painel/administradores') {
+      return { viewId: 'users-view', param: null, path: '/painel/usuarios' };
+    }
+    if (path === '/painel/taxas' || path === '/painel/comissoes') {
+      return { viewId: 'fees-view', param: null, path: '/painel/taxas' };
+    }
+    if (path === '/painel/empresa' || path === '/painel/fiscal') {
+      return { viewId: 'company-view', param: null, path: '/painel/empresa' };
+    }
+    if (path === '/login') {
+      return { viewId: 'login-view', param: null, path: '/login' };
+    }
+
+    return { viewId: 'dashboard-view', param: null, path: '/painel/visao-geral' };
+  }
+
+  async handleRouteFromUrl(pushHistory = false, customPath = null) {
+    const rawPath = customPath || window.location.pathname;
+    const route = this.parseRoute(rawPath);
+
+    // Se NÃO estiver logado:
+    if (!this.token) {
+      this.showLogin(true, rawPath);
+      return;
+    }
+
+    // Se ESTIVER logado e tentou ir para /login: redireciona para visão geral
+    if (route.viewId === 'login-view') {
+      this.navigate('dashboard-view', false);
+      return;
+    }
+
+    // Se for detalhe de aplicação dinâmica
+    if (route.viewId === 'application-detail-view' && route.param) {
+      await this.openApplicationDetail(route.param, pushHistory);
+      return;
+    }
+
+    // Se for qualquer outra view
+    this.navigate(route.viewId, pushHistory, route.param);
+  }
+
+  navigate(viewId, pushHistory = true, extraParam = null) {
     this.currentView = viewId;
 
     // Atualiza visibilidade dos painéis
@@ -169,21 +260,43 @@ class CJCPaysApp {
       item.classList.toggle('active', item.getAttribute('data-view') === viewId);
     });
 
-    // Atualiza tag no Topbar
-    const titles = {
-      'dashboard-view': 'Visão Geral',
-      'payments-view': 'Transações',
-      'applications-view': 'Aplicações & Chaves',
-      'application-detail-view': 'Detalhes da Aplicação',
-      'financial-view': 'Financeiro & Contábil',
-      'webhooks-view': 'Fila de Webhooks',
-      'users-view': 'Administradores',
-      'fees-view': 'Taxas & Comissões',
-      'company-view': 'Dados Fiscais & Empresa',
+    // Mapeamento de Títulos e Rotas Canônicas
+    const routeConfig = {
+      'dashboard-view': { path: '/painel/visao-geral', title: 'Visão Geral' },
+      'payments-view': { path: '/painel/transacoes', title: 'Transações' },
+      'applications-view': { path: '/painel/aplicacoes', title: 'Aplicações & Chaves' },
+      'application-detail-view': {
+        path: `/painel/aplicacoes/${extraParam || this.currentDetailAppId || ''}`,
+        title: 'Detalhes da Aplicação',
+      },
+      'financial-view': { path: '/painel/financeiro', title: 'Financeiro & Contábil' },
+      'webhooks-view': { path: '/painel/webhooks', title: 'Fila de Webhooks' },
+      'users-view': { path: '/painel/usuarios', title: 'Administradores' },
+      'fees-view': { path: '/painel/taxas', title: 'Taxas & Comissões' },
+      'company-view': { path: '/painel/empresa', title: 'Dados Fiscais & Empresa' },
     };
+
+    const currentConfig = routeConfig[viewId] || { path: '/painel/visao-geral', title: 'Central de Pagamentos' };
+
+    // Atualiza Topbar
     const tag = document.getElementById('topbar-current-page-tag');
     if (tag) {
-      tag.innerText = titles[viewId] || 'Central de Pagamentos';
+      tag.innerText = currentConfig.title;
+    }
+    document.title = `${currentConfig.title} — CJC Dev Pays`;
+
+    // Atualiza URL no navegador usando HTML5 History API
+    const targetUrl = currentConfig.path;
+    if (targetUrl && !targetUrl.endsWith('/painel/aplicacoes/')) {
+      if (pushHistory) {
+        if (window.location.pathname !== targetUrl) {
+          window.history.pushState({ viewId, extraParam }, '', targetUrl);
+        }
+      } else {
+        if (window.location.pathname !== targetUrl) {
+          window.history.replaceState({ viewId, extraParam }, '', targetUrl);
+        }
+      }
     }
 
     this.closeDrawer();
@@ -211,8 +324,8 @@ class CJCPaysApp {
     }
   }
 
-  navigateTo(viewId) {
-    return this.navigate(viewId);
+  navigateTo(viewId, pushHistory = true, extraParam = null) {
+    return this.navigate(viewId, pushHistory, extraParam);
   }
 
   // ==================== BIND DE EVENTOS ====================
@@ -268,6 +381,22 @@ class CJCPaysApp {
       btn.addEventListener('click', () => {
         const view = btn.getAttribute('data-view');
         if (view) this.navigate(view);
+      });
+    });
+
+    // Navegação nativa do navegador (Botões Voltar e Avançar)
+    window.addEventListener('popstate', () => {
+      this.handleRouteFromUrl(false);
+    });
+
+    // Clique nas marcas/logos leva para a Visão Geral
+    document.querySelectorAll('.brand-group').forEach((brand) => {
+      brand.style.cursor = 'pointer';
+      brand.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (this.token) {
+          this.navigate('dashboard-view');
+        }
       });
     });
 
@@ -764,7 +893,9 @@ class CJCPaysApp {
         localStorage.setItem('cjc_admin_user', JSON.stringify(this.user));
 
         this.showToast(`Bem-vindo, ${data.user.name || data.user.email}!`, 'success');
-        this.showAppShell();
+        const redirect = sessionStorage.getItem('cjc_redirect_after_login');
+        sessionStorage.removeItem('cjc_redirect_after_login');
+        this.showAppShell(redirect);
       } else {
         if (alertBox && alertText) {
           alertText.innerText = data.error || 'Credenciais inválidas.';
@@ -1176,7 +1307,13 @@ class CJCPaysApp {
   }
 
   // ==================== TELA DE DETALHES DA APLICAÇÃO ====================
-  async openApplicationDetail(appId) {
+  async openApplicationDetail(appId, pushHistory = true) {
+    if (!appId) {
+      this.navigate('applications-view', pushHistory);
+      return;
+    }
+
+    this.currentDetailAppId = appId;
     let app = this.applicationsCache?.find((a) => a.id === appId);
 
     if (!app) {
@@ -1193,6 +1330,7 @@ class CJCPaysApp {
 
     if (!app) {
       this.showToast('Aplicação não encontrada.', 'warning');
+      this.navigate('applications-view', false);
       return;
     }
 
@@ -1271,8 +1409,9 @@ class CJCPaysApp {
     const yearSelect = document.getElementById('merchant-report-year');
     if (yearSelect) yearSelect.value = String(now.getFullYear());
 
-    // Navega para a view de detalhes
-    this.navigate('application-detail-view');
+    // Navega para a view de detalhes com URL e histórico
+    this.navigate('application-detail-view', pushHistory, app.id);
+    document.title = `${app.name} (Detalhes) — CJC Dev Pays`;
 
     // Carrega o extrato do lojista parceiro
     await this.loadMerchantReport(app.id);
