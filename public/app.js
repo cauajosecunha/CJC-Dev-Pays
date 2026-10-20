@@ -773,16 +773,22 @@ class CJCPaysApp {
       if (val) this.copyToClipboard(val);
     });
 
-    document.getElementById('btn-detail-clear-tx')?.addEventListener('click', () => {
-      if (this.currentDetailAppId) this.clearApplicationTransactions(this.currentDetailAppId, true);
+    document.getElementById('btn-detail-clear-tx')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = this.currentDetailAppId || e.currentTarget?.getAttribute('data-app-id');
+      if (id) this.clearApplicationTransactions(id, true);
     });
 
-    document.getElementById('btn-detail-edit-app')?.addEventListener('click', () => {
-      if (this.currentDetailAppId) this.openEditAppModal(this.currentDetailAppId);
+    document.getElementById('btn-detail-edit-app')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = this.currentDetailAppId || e.currentTarget?.getAttribute('data-app-id');
+      if (id) this.openEditAppModal(id);
     });
 
-    document.getElementById('btn-detail-delete-app')?.addEventListener('click', () => {
-      if (this.currentDetailAppId) this.deleteApplication(this.currentDetailAppId, true);
+    document.getElementById('btn-detail-delete-app')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const id = this.currentDetailAppId || e.currentTarget?.getAttribute('data-app-id');
+      if (id) this.deleteApplication(id, true);
     });
 
     // Controles do Extrato do Lojista
@@ -1331,6 +1337,13 @@ class CJCPaysApp {
         const data = await res.json();
         if (data.success && data.application) {
           app = data.application;
+          if (!this.applicationsCache) this.applicationsCache = [];
+          const idx = this.applicationsCache.findIndex((a) => a.id === app.id);
+          if (idx >= 0) {
+            this.applicationsCache[idx] = app;
+          } else {
+            this.applicationsCache.push(app);
+          }
         }
       } catch (err) {
         console.error('Erro ao buscar aplicação:', err);
@@ -1344,6 +1357,11 @@ class CJCPaysApp {
     }
 
     this.currentDetailAppId = app.id;
+
+    // Vincula ID da aplicação aos botões de ação rápida
+    document.getElementById('btn-detail-edit-app')?.setAttribute('data-app-id', app.id);
+    document.getElementById('btn-detail-delete-app')?.setAttribute('data-app-id', app.id);
+    document.getElementById('btn-detail-clear-tx')?.setAttribute('data-app-id', app.id);
 
     // Atualiza cabeçalho da tela de detalhes
     const logoBox = document.getElementById('app-detail-logo-container');
@@ -2070,17 +2088,59 @@ class CJCPaysApp {
   }
 
   // ==================== MODAL EDITAR APLICAÇÃO ====================
-  openEditAppModal(appId) {
-    const app = this.applicationsCache?.find((a) => a.id === appId);
-    if (!app) return;
+  async openEditAppModal(appId) {
+    const targetId = appId || this.currentDetailAppId || document.getElementById('btn-detail-edit-app')?.getAttribute('data-app-id');
+    if (!targetId) {
+      this.showToast('ID da aplicação não identificado.', 'warning');
+      return;
+    }
 
-    document.getElementById('edit-app-id').value = app.id;
-    document.getElementById('edit-app-name').value = app.name;
-    document.getElementById('edit-app-logo').value = app.logoUrl || '';
-    document.getElementById('edit-app-email').value = app.contactEmail || '';
-    document.getElementById('edit-app-phone').value = app.contactPhone || '';
-    document.getElementById('edit-app-webhook').value = app.webhookUrl || '';
-    document.getElementById('edit-app-active').checked = Boolean(app.isActive);
+    let app = this.applicationsCache?.find((a) => a.id === targetId);
+    if (!app) {
+      try {
+        const res = await fetch(`/api/admin/applications/${targetId}`, { headers: this.getHeaders() });
+        const data = await res.json();
+        if (data.success && data.application) {
+          app = data.application;
+          if (!this.applicationsCache) this.applicationsCache = [];
+          const idx = this.applicationsCache.findIndex((a) => a.id === app.id);
+          if (idx >= 0) {
+            this.applicationsCache[idx] = app;
+          } else {
+            this.applicationsCache.push(app);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao buscar aplicação para edição:', err);
+      }
+    }
+
+    if (!app) {
+      this.showToast('Aplicação não encontrada para edição.', 'warning');
+      return;
+    }
+
+    const idInput = document.getElementById('edit-app-id');
+    if (idInput) idInput.value = app.id;
+
+    const nameInput = document.getElementById('edit-app-name');
+    if (nameInput) nameInput.value = app.name || '';
+
+    const logoInput = document.getElementById('edit-app-logo');
+    if (logoInput) logoInput.value = app.logoUrl || '';
+
+    const emailInput = document.getElementById('edit-app-email');
+    if (emailInput) emailInput.value = app.contactEmail || '';
+
+    const phoneInput = document.getElementById('edit-app-phone');
+    if (phoneInput) phoneInput.value = app.contactPhone || '';
+
+    const webhookInput = document.getElementById('edit-app-webhook');
+    if (webhookInput) webhookInput.value = app.webhookUrl || '';
+
+    const activeCheckbox = document.getElementById('edit-app-active');
+    if (activeCheckbox) activeCheckbox.checked = Boolean(app.isActive);
+
     const exemptCheckbox = document.getElementById('edit-app-exempt-commission');
     if (exemptCheckbox) exemptCheckbox.checked = Boolean(app.isCommissionExempt);
 
@@ -2094,7 +2154,7 @@ class CJCPaysApp {
     }
 
     this.openModal('modal-edit-app');
-    document.getElementById('edit-app-name')?.focus();
+    nameInput?.focus();
   }
 
   async handleEditApp() {
@@ -2155,14 +2215,17 @@ class CJCPaysApp {
   }
 
   async deleteApplication(appId, isFromDetail = false) {
-    const targetApp = this.applicationsCache?.find((a) => a.id === appId);
-    const appName = targetApp ? targetApp.name : 'esta aplicação';
+    const targetId = appId || this.currentDetailAppId || document.getElementById('btn-detail-delete-app')?.getAttribute('data-app-id');
+    if (!targetId) return;
+
+    const targetApp = this.applicationsCache?.find((a) => a.id === targetId);
+    const appName = targetApp ? targetApp.name : (document.getElementById('app-detail-name')?.innerText || 'esta aplicação');
 
     const confirmDelete = confirm(`Tem certeza que deseja excluir a aplicação "${appName}"?\n\nTodas as chaves e registros associados serão removidos.`);
     if (!confirmDelete) return;
 
     try {
-      const res = await fetch(`/api/admin/applications/${appId}`, {
+      const res = await fetch(`/api/admin/applications/${targetId}`, {
         method: 'DELETE',
         headers: this.getHeaders(),
       });
@@ -2184,8 +2247,11 @@ class CJCPaysApp {
   }
 
   async clearApplicationTransactions(appId, isFromDetail = false) {
-    const targetApp = this.applicationsCache?.find((a) => a.id === appId);
-    const appName = targetApp ? targetApp.name : 'esta aplicação';
+    const targetId = appId || this.currentDetailAppId || document.getElementById('btn-detail-clear-tx')?.getAttribute('data-app-id');
+    if (!targetId) return;
+
+    const targetApp = this.applicationsCache?.find((a) => a.id === targetId);
+    const appName = targetApp ? targetApp.name : (document.getElementById('app-detail-name')?.innerText || 'esta aplicação');
     const paymentsCount = targetApp?._count?.payments || 0;
     const deliveriesCount = targetApp?._count?.deliveries || 0;
 
@@ -2197,7 +2263,7 @@ class CJCPaysApp {
     if (!confirmClear) return;
 
     try {
-      const res = await fetch(`/api/admin/applications/${appId}/transactions`, {
+      const res = await fetch(`/api/admin/applications/${targetId}/transactions`, {
         method: 'DELETE',
         headers: this.getHeaders(),
       });
@@ -2209,7 +2275,7 @@ class CJCPaysApp {
         await this.loadApplicationsCRUD();
         this.loadMetrics();
         if (isFromDetail) {
-          await this.loadMerchantReport(appId);
+          await this.loadMerchantReport(targetId);
         }
       } else {
         this.showToast(data?.error || `Falha ao limpar transações.`, 'warning');
