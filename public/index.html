@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=2.3.0">
+  <link rel="stylesheet" href="/styles.css?v=2.4.0">
 </head>
 <body>
 
@@ -446,19 +446,19 @@
         <!-- ==================== VIEW 3.1: DETALHES DA APLICAÇÃO & EXTRATO DO LOJISTA ==================== -->
         <div id="application-detail-view" class="view-panel" style="display: none;">
           <!-- Topo da tela de detalhes com botão Voltar -->
-          <section class="page-header" style="margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+          <section class="page-header app-detail-page-header" style="margin-bottom: 20px;">
+            <div class="app-detail-header-top">
               <button type="button" class="btn btn-secondary btn-sm" id="btn-back-to-apps" style="display: inline-flex; align-items: center; gap: 6px;">
                 <span>◀</span> Voltar para Aplicações
               </button>
-              <div style="display: flex; align-items: center; gap: 14px;">
+              <div class="app-detail-brand-row">
                 <div id="app-detail-logo-container" class="app-detail-avatar">
                   🏢
                 </div>
-                <div>
-                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <div class="app-detail-title-col">
+                  <div class="app-detail-title-row">
                     <h1 class="page-title" id="app-detail-name" style="margin-bottom: 0;">Nome da Aplicação</h1>
-                    <span id="app-detail-exempt-badge" class="badge" style="display: none; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🛡️ Isenta de Comissão</span>
+                    <span id="app-detail-exempt-badge" class="badge" style="display: none; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">🛡️ Isenta</span>
                     <span id="app-detail-status-badge" class="badge badge-approved">Ativa</span>
                   </div>
                   <p class="page-subtitle" style="margin-top: 4px;">
@@ -468,7 +468,7 @@
                 </div>
               </div>
             </div>
-            <div class="page-header-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div class="page-header-actions app-detail-actions">
               <button type="button" class="btn btn-warning btn-sm" id="btn-detail-clear-tx" title="Limpar transações desta aplicação">
                 <span>🧹</span> Limpar Transações
               </button>
@@ -553,7 +553,7 @@
             <!-- Coluna 2: Extrato de Repasse do Lojista -->
             <div class="app-detail-column">
               <div class="card" style="padding: 22px; display: flex; flex-direction: column; gap: 18px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div class="merchant-filter-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                   <div>
                     <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
                       <span>📑</span> Extrato de Repasse do Lojista
@@ -564,8 +564,8 @@
                   </div>
 
                   <!-- Filtro de Período do Extrato -->
-                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <select id="merchant-report-month" class="select-control month-select" style="min-width: 120px;">
+                  <div class="merchant-filter-controls" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <select id="merchant-report-month" class="select-control month-select" style="min-width: 110px;">
                       <option value="1">Janeiro</option>
                       <option value="2">Fevereiro</option>
                       <option value="3">Março</option>
@@ -579,7 +579,7 @@
                       <option value="11">Novembro</option>
                       <option value="12">Dezembro</option>
                     </select>
-                    <select id="merchant-report-year" class="select-control year-select" style="min-width: 85px;">
+                    <select id="merchant-report-year" class="select-control year-select" style="min-width: 80px;">
                       <option value="2026">2026</option>
                       <option value="2025">2025</option>
                     </select>
@@ -1837,6 +1837,6 @@
   <!-- Toast Container -->
   <div class="toast-stack" id="toast-container" aria-live="polite"></div>
 
-  <script src="/app.js?v=2.3.0"></script>
+  <script src="/app.js?v=2.4.0"></script>
 </body>
 </html>

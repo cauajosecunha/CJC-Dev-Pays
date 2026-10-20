@@ -2890,6 +2890,228 @@ code {
   color: var(--text-muted);
 }
 
+.app-detail-header-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.app-detail-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.app-detail-title-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.app-detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ==================== RESPONSIVIDADE MOBILE: DETALHES DA APLICAÇÃO & EXTRATO ==================== */
+@media (max-width: 768px) {
+  #application-detail-view {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    gap: 16px;
+  }
+
+  /* Cabeçalho da tela de detalhes no mobile */
+  #application-detail-view .page-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .app-detail-header-top {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  #btn-back-to-apps {
+    width: 100% !important;
+    justify-content: center !important;
+    height: 38px !important;
+    font-size: 0.85rem !important;
+  }
+
+  .app-detail-brand-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  .app-detail-avatar {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    border-radius: 12px !important;
+    font-size: 1.4rem !important;
+  }
+
+  #app-detail-name {
+    font-size: 1.15rem !important;
+    line-height: 1.25 !important;
+    word-break: break-word !important;
+  }
+
+  .app-detail-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  #btn-detail-clear-tx {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  #btn-detail-edit-app,
+  #btn-detail-delete-app {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Layout em coluna única fluida */
+  .app-detail-layout-grid {
+    grid-template-columns: 100% !important;
+    gap: 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .app-detail-column {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .app-detail-column .card {
+    padding: 16px 12px !important;
+    border-radius: var(--radius-md) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* KPIs do Lojista: 2 colunas perfeitas no mobile */
+  .merchant-kpis-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .merchant-kpi-card {
+    padding: 12px 10px !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .merchant-kpi-label {
+    font-size: 0.65rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .merchant-kpi-value {
+    font-size: 1.15rem !important;
+    word-break: break-all !important;
+  }
+
+  .merchant-kpi-sub {
+    font-size: 0.65rem !important;
+  }
+
+  /* Filtro de Mês/Ano do Extrato */
+  .merchant-filter-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .merchant-filter-controls {
+    display: flex !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  .merchant-filter-controls .select-control {
+    flex: 1 !important;
+    min-width: 0 !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* Barra de Ações: PDF, CSV, WhatsApp */
+  .merchant-actions-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .merchant-actions-bar .btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 10px 14px !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* Tabela de Vendas Aprovadas do Extrato */
+  #application-detail-view .table-responsive {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+  }
+
+  #application-detail-view .data-table {
+    min-width: 650px !important;
+  }
+
+  /* Cards Compactos da Lista de Aplicações */
+  .app-compact-grid {
+    grid-template-columns: 100% !important;
+    gap: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .app-compact-card {
+    padding: 14px 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
 
 
 
