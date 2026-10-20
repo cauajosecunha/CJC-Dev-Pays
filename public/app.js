@@ -211,6 +211,10 @@ class CJCPaysApp {
     }
   }
 
+  navigateTo(viewId) {
+    return this.navigate(viewId);
+  }
+
   // ==================== BIND DE EVENTOS ====================
   bindEvents() {
     // Login
@@ -594,7 +598,19 @@ class CJCPaysApp {
 
     // Navegação e Ações da Tela de Detalhes da Aplicação
     document.getElementById('btn-back-to-apps')?.addEventListener('click', () => {
-      this.navigateTo('applications-view');
+      this.navigate('applications-view');
+    });
+
+    // Delegação de eventos dinâmica para os Cards de Aplicação (Visualizar)
+    document.getElementById('applications-cards-container')?.addEventListener('click', (e) => {
+      const viewBtn = e.target.closest('.btn-view-app, [data-action="view-app"]');
+      if (viewBtn) {
+        e.preventDefault();
+        const id = viewBtn.getAttribute('data-app-id');
+        if (id) {
+          this.openApplicationDetail(id);
+        }
+      }
     });
 
     document.getElementById('btn-detail-toggle-key')?.addEventListener('click', () => {
@@ -1140,7 +1156,9 @@ class CJCPaysApp {
             </span>
             <button 
               type="button" 
-              class="btn btn-primary btn-sm" 
+              class="btn btn-primary btn-sm btn-view-app" 
+              data-action="view-app"
+              data-app-id="${app.id}"
               onclick="app.openApplicationDetail('${app.id}')"
               style="display: inline-flex; align-items: center; gap: 6px;"
             >
@@ -1254,7 +1272,7 @@ class CJCPaysApp {
     if (yearSelect) yearSelect.value = String(now.getFullYear());
 
     // Navega para a view de detalhes
-    this.navigateTo('application-detail-view');
+    this.navigate('application-detail-view');
 
     // Carrega o extrato do lojista parceiro
     await this.loadMerchantReport(app.id);
@@ -1985,7 +2003,7 @@ class CJCPaysApp {
         this.showToast(`Aplicação '${appName}' excluída com sucesso!`, 'info');
         await this.loadApplicationsCRUD();
         if (isFromDetail) {
-          this.navigateTo('applications-view');
+          this.navigate('applications-view');
         }
       } else {
         this.showToast(data.error || 'Falha ao excluir aplicação.', 'warning');
