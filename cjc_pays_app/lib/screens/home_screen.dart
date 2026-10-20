@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../services/auth_service.dart';
 import 'applications_tab.dart';
+import 'company_settings_screen.dart';
 import 'dashboard_tab.dart';
 import 'fees_settings_screen.dart';
 import 'financial_report_screen.dart';
@@ -153,6 +154,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const FinancialReportScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.business_rounded, color: AppColors.primary),
+                title: const Text('Dados Fiscais & Empresa'),
+                subtitle: const Text('Razão Social, CNPJ e cabeçalho dos relatórios', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CompanySettingsScreen()),
                   );
                 },
               ),

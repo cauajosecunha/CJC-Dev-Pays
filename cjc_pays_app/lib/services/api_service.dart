@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
 import '../models/application.dart';
+import '../models/company_settings.dart';
 import '../models/fee_settings.dart';
 import '../models/financial_report.dart';
 import '../models/merchant_settlement_report.dart';
@@ -309,6 +311,62 @@ class ApiService {
       return _processResponse(response) as Map<String, dynamic>;
     } on SocketException {
       throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Converte URLs relativas (/uploads/...) em URLs absolutas utilizando o baseUrl do servidor ativo
+  String? resolveImageUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return null;
+    final trimmed = url.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final base = _auth.baseUrl.replaceAll(RegExp(r'/+$'), '');
+    if (trimmed.startsWith('/')) {
+      return '$base$trimmed';
+    }
+    return '$base/$trimmed';
+  }
+
+  /// Faz upload de logo de aplicação diretamente para o servidor (/api/admin/applications/upload-logo)
+  Future<String> uploadLogo({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    try {
+      final ext = filename.toLowerCase().split('.').last;
+      String mimeType = 'image/png';
+      if (ext == 'jpg' || ext == 'jpeg') {
+        mimeType = 'image/jpeg';
+      } else if (ext == 'webp') {
+        mimeType = 'image/webp';
+      } else if (ext == 'svg') {
+        mimeType = 'image/svg+xml';
+      } else if (ext == 'gif') {
+        mimeType = 'image/gif';
+      }
+
+      final base64Data = base64Encode(bytes);
+      final dataUrl = 'data:$mimeType;base64,$base64Data';
+
+      final response = await http
+          .post(
+            _uri('/api/admin/applications/upload-logo'),
+            headers: _headers,
+            body: jsonEncode({'fileData': dataUrl}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      final logoUrl = data['logoUrl']?.toString();
+      if (logoUrl == null || logoUrl.isEmpty) {
+        throw ApiException('Servidor não retornou a URL da imagem.');
+      }
+      return logoUrl;
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor ao enviar o logo.');
+    } on TimeoutException {
+      throw ApiException('Tempo esgotado ao enviar o logo da aplicação.');
     }
   }
 
@@ -664,6 +722,40 @@ class ApiService {
 
       final data = _processResponse(response) as Map<String, dynamic>;
       return FeeSettingsModel.fromJson(data['settings'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  // ==================== CONFIGURAÇÃO FISCAL E DADOS DA EMPRESA ====================
+
+  /// Obtém as configurações fiscais e cadastrais da empresa
+  Future<CompanySettingsModel> getCompanySettings() async {
+    try {
+      final response = await http
+          .get(_uri('/api/admin/settings/company'), headers: _headers)
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return CompanySettingsModel.fromJson(data['settings'] as Map<String, dynamic>);
+    } on SocketException {
+      throw ApiException('Sem conexão com o servidor.');
+    }
+  }
+
+  /// Salva as configurações fiscais e cadastrais da empresa
+  Future<CompanySettingsModel> updateCompanySettings(CompanySettingsModel settings) async {
+    try {
+      final response = await http
+          .put(
+            _uri('/api/admin/settings/company'),
+            headers: _headers,
+            body: jsonEncode(settings.toJson()),
+          )
+          .timeout(AppConstants.connectTimeout);
+
+      final data = _processResponse(response) as Map<String, dynamic>;
+      return CompanySettingsModel.fromJson(data['settings'] as Map<String, dynamic>);
     } on SocketException {
       throw ApiException('Sem conexão com o servidor.');
     }

@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_colors.dart';
 import '../models/application.dart';
 import '../models/merchant_settlement_report.dart';
 import '../services/api_service.dart';
 import '../services/file_download_service.dart';
 import '../services/pdf_generator_service.dart';
+import '../widgets/app_logo_image.dart';
+import '../widgets/logo_upload_field.dart';
 
 class ApplicationDetailScreen extends StatefulWidget {
   final ApplicationModel application;
@@ -255,6 +258,30 @@ class _ApplicationDetailScreenState extends State<ApplicationDetailScreen> {
     }
   }
 
+  Future<void> _launchEmail(String email) async {
+    final uri = Uri.parse('mailto:$email');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      debugPrint('Erro ao abrir e-mail: $e');
+    }
+  }
+
+  Future<void> _launchWhatsApp(String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    final fullPhone = cleanPhone.startsWith('55') ? cleanPhone : '55$cleanPhone';
+    final uri = Uri.parse('https://wa.me/$fullPhone');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('Erro ao abrir WhatsApp: $e');
+    }
+  }
+
   void _showEditAppModal() {
     final nameCtrl = TextEditingController(text: _app.name);
     final logoCtrl = TextEditingController(text: _app.logoUrl ?? '');
@@ -302,14 +329,7 @@ class _ApplicationDetailScreenState extends State<ApplicationDetailScreen> {
                   decoration: const InputDecoration(labelText: 'Nome da Aplicação'),
                 ),
                 const SizedBox(height: 14),
-                TextField(
-                  controller: logoCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'URL do Logo da Loja (Opcional)',
-                    hintText: 'https://seusite.com/logo.png',
-                  ),
-                  keyboardType: TextInputType.url,
-                ),
+                LogoUploadField(controller: logoCtrl),
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -454,47 +474,113 @@ class _ApplicationDetailScreenState extends State<ApplicationDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(_app.name),
-        backgroundColor: AppColors.surface,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: _showEditAppModal,
-            tooltip: 'Editar Aplicação',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              _refreshApp();
-              _loadMerchantReport();
-            },
-            tooltip: 'Atualizar',
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await _refreshApp();
-          await _loadMerchantReport();
-        },
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildAppHeaderCard(),
-              const SizedBox(height: 16),
-              _buildCredentialsCard(),
-              const SizedBox(height: 16),
-              _buildMerchantReportCard(),
-              const SizedBox(height: 16),
-              _buildActionsFooter(),
-              const SizedBox(height: 32),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text(_app.name),
+          backgroundColor: AppColors.surface,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: _showEditAppModal,
+              tooltip: 'Editar Aplicação',
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                _refreshApp();
+                _loadMerchantReport();
+              },
+              tooltip: 'Atualizar',
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (val) {
+                if (val == 'clear') {
+                  _clearTransactions();
+                } else if (val == 'delete') {
+                  _deleteApp();
+                }
+              },
+              itemBuilder: (ctx) => [
+                const PopupMenuItem(
+                  value: 'clear',
+                  child: Row(
+                    children: [
+                      Icon(Icons.cleaning_services_outlined, size: 18, color: AppColors.warning),
+                      SizedBox(width: 10),
+                      Text('Limpar Testes', style: TextStyle(color: AppColors.warning, fontSize: 13)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_forever_outlined, size: 18, color: AppColors.danger),
+                      SizedBox(width: 10),
+                      Text('Excluir Aplicação', style: TextStyle(color: AppColors.danger, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+          bottom: const TabBar(
+            indicatorColor: AppColors.primary,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textSecondary,
+            tabs: [
+              Tab(icon: Icon(Icons.receipt_long_rounded, size: 18), text: 'Extrato do Lojista'),
+              Tab(icon: Icon(Icons.vpn_key_outlined, size: 18), text: 'Credenciais & API'),
             ],
           ),
+        ),
+        body: TabBarView(
+          children: [
+            // Aba 1: Extrato do Lojista
+            RefreshIndicator(
+              onRefresh: () async {
+                await _refreshApp();
+                await _loadMerchantReport();
+              },
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildAppHeaderCard(),
+                    const SizedBox(height: 16),
+                    _buildMerchantReportCard(),
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            ),
+
+            // Aba 2: Credenciais & Integração
+            RefreshIndicator(
+              onRefresh: () async {
+                await _refreshApp();
+              },
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildAppHeaderCard(),
+                    const SizedBox(height: 16),
+                    _buildCredentialsCard(),
+                    const SizedBox(height: 16),
+                    _buildActionsFooter(),
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -505,112 +591,161 @@ class _ApplicationDetailScreenState extends State<ApplicationDetailScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Logo da Aplicação
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: _app.logoUrl != null && _app.logoUrl!.isNotEmpty
-                ? Image.network(
-                    _app.logoUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Center(
-                      child: Text('🏢', style: TextStyle(fontSize: 24)),
-                    ),
-                  )
-                : const Center(
-                    child: Text('🏢', style: TextStyle(fontSize: 24)),
-                  ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Row(
+            children: [
+              // Logo da Aplicação com resolução automática de URL
+              AppLogoImage(
+                logoUrl: _app.logoUrl,
+                size: 58,
+                borderRadius: 14,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        _app.name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _app.name,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
                         ),
-                      ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _app.isActive ? AppColors.successBg.withValues(alpha: 0.5) : AppColors.dangerBg.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: _app.isActive ? AppColors.success : AppColors.danger,
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            _app.isActive ? 'Ativa' : 'Inativa',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _app.isActive ? AppColors.success : AppColors.danger,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _app.isActive ? AppColors.successBg.withValues(alpha: 0.5) : AppColors.dangerBg.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: _app.isActive ? AppColors.success : AppColors.danger,
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Text(
-                        _app.isActive ? 'Ativa' : 'Inativa',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _app.isActive ? AppColors.success : AppColors.danger,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'slug: ${_app.slug}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
+                    const SizedBox(height: 4),
                     Text(
-                      'Estab: ${_app.slug.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '-')}',
+                      'slug: ${_app.slug}',
                       style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
+                        fontSize: 12,
                         fontFamily: 'monospace',
+                        color: AppColors.textSecondary,
                       ),
                     ),
-                    if (_app.isCommissionExempt) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.successBg.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Text(
+                          'Estab: ${_app.slug.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '-')}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                            fontFamily: 'monospace',
+                          ),
                         ),
-                        child: const Text(
-                          '🛡️ Isenta de Comissão',
-                          style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
+                        if (_app.isCommissionExempt) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.successBg.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+                            ),
+                            child: const Text(
+                              '🛡️ Isenta de Comissão',
+                              style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
+              ),
+            ],
+          ),
+          if ((_app.contactEmail != null && _app.contactEmail!.isNotEmpty) ||
+              (_app.contactPhone != null && _app.contactPhone!.isNotEmpty)) ...[
+            const SizedBox(height: 12),
+            const Divider(color: AppColors.border, height: 1),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (_app.contactEmail != null && _app.contactEmail!.isNotEmpty)
+                  InkWell(
+                    onTap: () => _launchEmail(_app.contactEmail!),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceAlt,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.email_outlined, size: 14, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            _app.contactEmail!,
+                            style: const TextStyle(fontSize: 11, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (_app.contactPhone != null && _app.contactPhone!.isNotEmpty)
+                  InkWell(
+                    onTap: () => _launchWhatsApp(_app.contactPhone!),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF25D366).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.chat_bubble_outline, size: 14, color: Color(0xFF25D366)),
+                          const SizedBox(width: 6),
+                          Text(
+                            _app.contactPhone!,
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF25D366), fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );

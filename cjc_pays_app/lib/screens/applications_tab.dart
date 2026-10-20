@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../models/application.dart';
 import '../services/api_service.dart';
+import '../widgets/app_logo_image.dart';
+import '../widgets/logo_upload_field.dart';
 import 'application_detail_screen.dart';
 
 class ApplicationsTab extends StatefulWidget {
@@ -118,14 +120,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                   onChanged: (_) => isAutoSlug = false,
                 ),
                 const SizedBox(height: 14),
-                TextField(
-                  controller: logoCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'URL do Logo da Loja (Opcional)',
-                    hintText: 'https://seusite.com/logo.png',
-                  ),
-                  keyboardType: TextInputType.url,
-                ),
+                LogoUploadField(controller: logoCtrl),
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -263,14 +258,7 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
                   decoration: const InputDecoration(labelText: 'Nome da Aplicação'),
                 ),
                 const SizedBox(height: 14),
-                TextField(
-                  controller: logoCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'URL do Logo da Loja (Opcional)',
-                    hintText: 'https://seusite.com/logo.png',
-                  ),
-                  keyboardType: TextInputType.url,
-                ),
+                LogoUploadField(controller: logoCtrl),
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -418,26 +406,10 @@ class _ApplicationsTabState extends State<ApplicationsTab> {
           Row(
             children: [
               // Logo
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceAlt,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: app.logoUrl != null && app.logoUrl!.isNotEmpty
-                    ? Image.network(
-                        app.logoUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Center(
-                          child: Text('🏢', style: TextStyle(fontSize: 22)),
-                        ),
-                      )
-                    : const Center(
-                        child: Text('🏢', style: TextStyle(fontSize: 22)),
-                      ),
+              AppLogoImage(
+                logoUrl: app.logoUrl,
+                size: 48,
+                borderRadius: 12,
               ),
               const SizedBox(width: 14),
               Expanded(
