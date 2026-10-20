@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { prisma } from '../lib/prisma.js';
 import { config } from '../config/env.js';
 import { metricsService } from '../services/metricsService.js';
@@ -333,6 +335,79 @@ export class AdminController {
           ...safeApp,
           establishmentId: app.slug.toUpperCase().replace(/[^A-Z0-9]/g, '-'),
         },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/admin/applications/upload-logo
+   * Upload de arquivo de imagem para o logo da aplicação (Base64)
+   */
+  async uploadLogo(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { fileData } = req.body;
+
+      if (!fileData || typeof fileData !== 'string') {
+        res.status(400).json({ success: false, error: 'Arquivo de imagem não fornecido.' });
+        return;
+      }
+
+      // Validação de Data URL Base64: data:image/png;base64,...
+      const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) {
+        res.status(400).json({ success: false, error: 'Formato de imagem inválido. Envie um arquivo de imagem válido.' });
+        return;
+      }
+
+      const mimeType = matches[1].toLowerCase();
+      const base64Data = matches[2];
+
+      const allowedMimes: Record<string, string> = {
+        'image/png': '.png',
+        'image/jpeg': '.jpg',
+        'image/jpg': '.jpg',
+        'image/webp': '.webp',
+        'image/svg+xml': '.svg',
+        'image/gif': '.gif',
+      };
+
+      const ext = allowedMimes[mimeType];
+      if (!ext) {
+        res.status(400).json({
+          success: false,
+          error: 'Formato não suportado. Por favor, utilize uma imagem PNG, JPG, WebP, SVG ou GIF.',
+        });
+        return;
+      }
+
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      // Limite máximo de 5MB
+      if (buffer.length > 5 * 1024 * 1024) {
+        res.status(400).json({ success: false, error: 'O arquivo de imagem excede o tamanho máximo permitido de 5MB.' });
+        return;
+      }
+
+      const uploadsDir = path.resolve(process.cwd(), 'public/uploads/logos');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+      const safeFileName = `logo-${uniqueSuffix}${ext}`;
+      const filePath = path.join(uploadsDir, safeFileName);
+
+      fs.writeFileSync(filePath, buffer);
+
+      const logoUrl = `/uploads/logos/${safeFileName}`;
+      logger.info(`[ADMIN] Logo de aplicação salvo em: ${logoUrl} (${(buffer.length / 1024).toFixed(1)} KB)`);
+
+      res.json({
+        success: true,
+        logoUrl,
+        message: 'Logo da aplicação enviado com sucesso!',
       });
     } catch (error) {
       next(error);

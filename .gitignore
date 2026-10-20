@@ -33,3 +33,8 @@ logs/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Uploads de Aplicações
+public/uploads/logos/*
+!public/uploads/logos/.gitkeep
+

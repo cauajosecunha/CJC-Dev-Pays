@@ -1580,19 +1580,30 @@
             </div>
           </div>
 
-          <!-- Logo da Aplicação -->
+          <!-- Logo da Aplicação (Upload de Imagem) -->
           <div class="field-group">
-            <label class="field-label" for="new-app-logo">URL do Logo da Aplicação (Opcional)</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
-              <input 
-                type="url" 
-                id="new-app-logo" 
-                class="input-control" 
-                placeholder="https://meusite.com/logo.png"
-                style="flex: 1;"
-              >
-              <div id="new-app-logo-preview" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; overflow: hidden; flex-shrink: 0;">
+            <label class="field-label">Logo da Aplicação (Upload)</label>
+            <div class="logo-upload-wrapper">
+              <div id="new-app-logo-preview" class="logo-upload-preview">
                 🏢
+              </div>
+              <div class="logo-upload-controls">
+                <input 
+                  type="file" 
+                  id="new-app-logo-file" 
+                  accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,image/gif" 
+                  style="display: none;"
+                >
+                <input type="hidden" id="new-app-logo">
+                <div class="logo-upload-btn-row">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-upload-new-logo">
+                    <span>📁</span> Selecionar Imagem
+                  </button>
+                  <button type="button" class="btn btn-danger btn-sm" id="btn-remove-new-logo" style="display: none;" title="Remover Logo">
+                    <span>🗑️</span> Remover
+                  </button>
+                </div>
+                <span class="logo-upload-hint" id="new-app-logo-status">PNG, JPG, WebP ou SVG (máx. 5MB)</span>
               </div>
             </div>
           </div>
@@ -1676,19 +1687,30 @@
             >
           </div>
 
-          <!-- Logo da Aplicação -->
+          <!-- Logo da Aplicação (Upload de Imagem) -->
           <div class="field-group">
-            <label class="field-label" for="edit-app-logo">URL do Logo da Aplicação (Opcional)</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
-              <input 
-                type="url" 
-                id="edit-app-logo" 
-                class="input-control" 
-                placeholder="https://meusite.com/logo.png"
-                style="flex: 1;"
-              >
-              <div id="edit-app-logo-preview" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; overflow: hidden; flex-shrink: 0;">
+            <label class="field-label">Logo da Aplicação (Upload)</label>
+            <div class="logo-upload-wrapper">
+              <div id="edit-app-logo-preview" class="logo-upload-preview">
                 🏢
+              </div>
+              <div class="logo-upload-controls">
+                <input 
+                  type="file" 
+                  id="edit-app-logo-file" 
+                  accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,image/gif" 
+                  style="display: none;"
+                >
+                <input type="hidden" id="edit-app-logo">
+                <div class="logo-upload-btn-row">
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-upload-edit-logo">
+                    <span>📁</span> Alterar Imagem
+                  </button>
+                  <button type="button" class="btn btn-danger btn-sm" id="btn-remove-edit-logo" style="display: none;" title="Remover Logo">
+                    <span>🗑️</span> Remover
+                  </button>
+                </div>
+                <span class="logo-upload-hint" id="edit-app-logo-status">PNG, JPG, WebP ou SVG (máx. 5MB)</span>
               </div>
             </div>
           </div>

@@ -512,12 +512,74 @@ class CJCPaysApp {
       this.handleCreateApp();
     });
 
+    // Upload de Logo: Criar Aplicação
+    document.getElementById('btn-upload-new-logo')?.addEventListener('click', () => {
+      document.getElementById('new-app-logo-file')?.click();
+    });
+
+    document.getElementById('new-app-logo-file')?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        this.handleLogoFileUpload(
+          file,
+          document.getElementById('new-app-logo-preview'),
+          document.getElementById('new-app-logo'),
+          document.getElementById('new-app-logo-status'),
+          document.getElementById('btn-remove-new-logo')
+        );
+      }
+    });
+
+    document.getElementById('btn-remove-new-logo')?.addEventListener('click', () => {
+      const fileInput = document.getElementById('new-app-logo-file');
+      if (fileInput) fileInput.value = '';
+      const hiddenInput = document.getElementById('new-app-logo');
+      if (hiddenInput) hiddenInput.value = '';
+      const preview = document.getElementById('new-app-logo-preview');
+      if (preview) preview.innerHTML = '🏢';
+      const statusEl = document.getElementById('new-app-logo-status');
+      if (statusEl) statusEl.innerText = 'PNG, JPG, WebP ou SVG (máx. 5MB)';
+      const removeBtn = document.getElementById('btn-remove-new-logo');
+      if (removeBtn) removeBtn.style.display = 'none';
+    });
+
     // Modal Editar Aplicação
     document.getElementById('btn-close-edit-modal')?.addEventListener('click', () => this.closeModal('modal-edit-app'));
     document.getElementById('btn-cancel-edit-app')?.addEventListener('click', () => this.closeModal('modal-edit-app'));
     document.getElementById('form-edit-app')?.addEventListener('submit', (e) => {
       e.preventDefault();
       this.handleEditApp();
+    });
+
+    // Upload de Logo: Editar Aplicação
+    document.getElementById('btn-upload-edit-logo')?.addEventListener('click', () => {
+      document.getElementById('edit-app-logo-file')?.click();
+    });
+
+    document.getElementById('edit-app-logo-file')?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        this.handleLogoFileUpload(
+          file,
+          document.getElementById('edit-app-logo-preview'),
+          document.getElementById('edit-app-logo'),
+          document.getElementById('edit-app-logo-status'),
+          document.getElementById('btn-remove-edit-logo')
+        );
+      }
+    });
+
+    document.getElementById('btn-remove-edit-logo')?.addEventListener('click', () => {
+      const fileInput = document.getElementById('edit-app-logo-file');
+      if (fileInput) fileInput.value = '';
+      const hiddenInput = document.getElementById('edit-app-logo');
+      if (hiddenInput) hiddenInput.value = '';
+      const preview = document.getElementById('edit-app-logo-preview');
+      if (preview) preview.innerHTML = '🏢';
+      const statusEl = document.getElementById('edit-app-logo-status');
+      if (statusEl) statusEl.innerText = 'Logo removido (salve para confirmar)';
+      const removeBtn = document.getElementById('btn-remove-edit-logo');
+      if (removeBtn) removeBtn.style.display = 'none';
     });
 
     // Eventos da Fila de Webhooks
@@ -2015,6 +2077,65 @@ class CJCPaysApp {
     window.open(waUrl, '_blank');
   }
 
+  // ==================== UPLOAD DE LOGO DA APLICAÇÃO ====================
+  async handleLogoFileUpload(file, previewEl, hiddenInputEl, statusEl, removeBtnEl) {
+    if (!file) return;
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      this.showToast('Formato de arquivo inválido. Escolha PNG, JPG, WebP, SVG ou GIF.', 'warning');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      this.showToast('A imagem excede o tamanho máximo de 5MB.', 'warning');
+      return;
+    }
+
+    if (statusEl) statusEl.innerText = 'Carregando e enviando imagem...';
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64Data = e.target?.result;
+      if (previewEl && base64Data) {
+        previewEl.innerHTML = `<img src="${base64Data}" style="width: 100%; height: 100%; object-fit: cover;">`;
+      }
+
+      try {
+        const res = await fetch('/api/admin/applications/upload-logo', {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({
+            fileData: base64Data,
+            fileName: file.name,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.success && data.logoUrl) {
+          if (hiddenInputEl) hiddenInputEl.value = data.logoUrl;
+          if (statusEl) statusEl.innerText = file.name;
+          if (removeBtnEl) removeBtnEl.style.display = 'inline-flex';
+          this.showToast('Logo enviado com sucesso!', 'success');
+        } else {
+          this.showToast(data.error || 'Falha ao processar upload da imagem.', 'warning');
+          if (statusEl) statusEl.innerText = 'Falha no envio da imagem.';
+        }
+      } catch (err) {
+        console.error('Erro no upload de logo:', err);
+        this.showToast('Erro de comunicação com o servidor no upload.', 'warning');
+        if (statusEl) statusEl.innerText = 'Erro ao enviar imagem.';
+      }
+    };
+
+    reader.onerror = () => {
+      this.showToast('Erro ao ler arquivo selecionado.', 'warning');
+      if (statusEl) statusEl.innerText = 'Erro ao ler arquivo.';
+    };
+
+    reader.readAsDataURL(file);
+  }
+
   // ==================== MODAL CRIAR APLICAÇÃO ====================
   openCreateAppModal() {
     const form = document.getElementById('form-create-app');
@@ -2028,6 +2149,18 @@ class CJCPaysApp {
 
     const preview = document.getElementById('new-app-logo-preview');
     if (preview) preview.innerHTML = '🏢';
+
+    const logoInput = document.getElementById('new-app-logo');
+    if (logoInput) logoInput.value = '';
+
+    const fileInput = document.getElementById('new-app-logo-file');
+    if (fileInput) fileInput.value = '';
+
+    const statusEl = document.getElementById('new-app-logo-status');
+    if (statusEl) statusEl.innerText = 'PNG, JPG, WebP ou SVG (máx. 5MB)';
+
+    const removeBtn = document.getElementById('btn-remove-new-logo');
+    if (removeBtn) removeBtn.style.display = 'none';
 
     this.openModal('modal-create-app');
     document.getElementById('new-app-name')?.focus();
@@ -2145,11 +2278,20 @@ class CJCPaysApp {
     if (exemptCheckbox) exemptCheckbox.checked = Boolean(app.isCommissionExempt);
 
     const preview = document.getElementById('edit-app-logo-preview');
+    const statusEl = document.getElementById('edit-app-logo-status');
+    const removeBtn = document.getElementById('btn-remove-edit-logo');
+    const fileInput = document.getElementById('edit-app-logo-file');
+    if (fileInput) fileInput.value = '';
+
     if (preview) {
       if (app.logoUrl) {
         preview.innerHTML = `<img src="${this.escapeHtml(app.logoUrl)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='🏢';">`;
+        if (statusEl) statusEl.innerText = 'Logo atual cadastrado';
+        if (removeBtn) removeBtn.style.display = 'inline-flex';
       } else {
         preview.innerHTML = '🏢';
+        if (statusEl) statusEl.innerText = 'PNG, JPG, WebP ou SVG (máx. 5MB)';
+        if (removeBtn) removeBtn.style.display = 'none';
       }
     }
 

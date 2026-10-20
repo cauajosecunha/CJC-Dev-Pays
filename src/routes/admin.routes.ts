@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { adminController } from '../controllers/adminController.js';
 import { sseStreamHandler } from '../controllers/sseController.js';
 import { adminAuth } from '../middlewares/adminAuth.js';
@@ -26,6 +26,9 @@ adminRouter.get('/payments/:id', (req, res, next) => adminController.getPaymentD
 adminRouter.post('/payments/:id/refund', (req, res, next) => adminController.refundPayment(req, res, next));
 
 // Gestão de aplicações clientes
+adminRouter.post('/applications/upload-logo', express.json({ limit: '10mb' }), (req, res, next) =>
+  adminController.uploadLogo(req, res, next)
+);
 adminRouter.get('/applications', (req, res, next) => adminController.getApplications(req, res, next));
 adminRouter.get('/applications/:id', (req, res, next) => adminController.getApplicationById(req, res, next));
 adminRouter.post('/applications', (req, res, next) => adminController.createApplication(req, res, next));
