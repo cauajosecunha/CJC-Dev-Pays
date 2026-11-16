@@ -1269,7 +1269,7 @@ export class AdminController {
       res.json({
         success: true,
         audit,
-        validationUrl: `https://pays.cjcdev.site/validar.html?codigo=${audit.code}`,
+        validationUrl: `${config.apiBaseUrl.replace(/\/+$/, '')}/validar.html?codigo=${audit.code}`,
       });
     } catch (error) {
       next(error);

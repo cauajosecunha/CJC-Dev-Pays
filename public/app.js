@@ -1468,7 +1468,7 @@ class CJCPaysApp {
 
     const envPre = document.getElementById('detail-env-pre');
     if (envPre) {
-      envPre.innerText = `CJC_PAYS_BASE_URL=https://pays.cjcdev.site\nCJC_PAYS_API_KEY=${app.apiKey}\nCJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}`;
+      envPre.innerText = `CJC_PAYS_BASE_URL=${window.location.origin}\nCJC_PAYS_API_KEY=${app.apiKey}\nCJC_PAYS_WEBHOOK_SECRET=${app.webhookSecret}`;
     }
 
     // Contatos do responsável
@@ -2498,7 +2498,7 @@ class CJCPaysApp {
           const envPre = document.getElementById('detail-env-pre');
           const secretBox = document.getElementById('detail-secret-box');
           if (envPre && secretBox) {
-            envPre.innerText = `CJC_PAYS_BASE_URL=https://pays.cjcdev.site\nCJC_PAYS_API_KEY=${data.apiKey}\nCJC_PAYS_WEBHOOK_SECRET=${secretBox.innerText}`;
+            envPre.innerText = `CJC_PAYS_BASE_URL=${window.location.origin}\nCJC_PAYS_API_KEY=${data.apiKey}\nCJC_PAYS_WEBHOOK_SECRET=${secretBox.innerText}`;
           }
         }
       } else {
@@ -2716,9 +2716,7 @@ class CJCPaysApp {
   }
 
   copyEnvSnippet(apiKey, webhookSecret) {
-    const origin = window.location.origin.includes('localhost')
-      ? 'https://pays.cjcdev.site'
-      : window.location.origin;
+    const origin = window.location.origin;
     const content = `CJC_PAYS_BASE_URL=${origin}\nCJC_PAYS_API_KEY=${apiKey}\nCJC_PAYS_WEBHOOK_SECRET=${webhookSecret}`;
     this.copyToClipboard(content);
     this.showToast('Configuração .env copiada para a área de transferência!', 'success');
@@ -4656,7 +4654,7 @@ class CJCPaysApp {
         <div class="header-doc-badge">Documento Oficial Auditado</div>
         <div><strong>Autenticação:</strong> <span class="font-mono" style="color: #0284c7; font-weight: 700;">${docId}</span></div>
         <div><strong>Emissão:</strong> ${emissionDateStr} às ${emissionTimeStr}</div>
-        <div><strong>Validação:</strong> <a href="https://pays.cjcdev.site/validar.html?codigo=${encodeURIComponent(docId)}" target="_blank" style="color: #0284c7; text-decoration: none; font-weight: 600;">pays.cjcdev.site/validar.html</a></div>
+        <div><strong>Validação:</strong> <a href="${window.location.origin}/validar.html?codigo=${encodeURIComponent(docId)}" target="_blank" style="color: #0284c7; text-decoration: none; font-weight: 600;">${window.location.host}/validar.html</a></div>
       </div>
     </header>
 
@@ -4892,7 +4890,7 @@ class CJCPaysApp {
         </div>
       </div>
       <div class="report-bottom-bar">
-        <div>Central ${comp.tradeName || 'CJC Dev Pays'} • Validação Pública: <a href="https://pays.cjcdev.site/validar.html?codigo=${encodeURIComponent(docId)}" target="_blank" style="color: #0284c7; text-decoration: none;">https://pays.cjcdev.site/validar.html?codigo=${docId}</a></div>
+        <div>Central ${comp.tradeName || 'CJC Dev Pays'} • Validação Pública: <a href="${window.location.origin}/validar.html?codigo=${encodeURIComponent(docId)}" target="_blank" style="color: #0284c7; text-decoration: none;">${window.location.origin}/validar.html?codigo=${docId}</a></div>
         <div>Página gerada em ${emissionDateStr} às ${emissionTimeStr} • Autenticação: ${docId}</div>
       </div>
     </div>

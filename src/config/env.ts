@@ -24,38 +24,33 @@ if (isProduction && (!jwtSecret || jwtSecret === 'cjc_dev_pays_super_secret_jwt_
   console.warn('⚠️ [AVISO DE SEGURANÇA] JWT_SECRET não configurado ou utilizando valor padrão em produção. Recomenda-se definir um segredo forte no .env!');
 }
 
-// Configuração de origens permitidas para CORS
-const envOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
-  : [];
+// Configuração de portas e URL base
+const port = parseInt(process.env.PORT || '4020', 10);
+const rawApiBaseUrl = (process.env.API_BASE_URL || `http://localhost:${port}`).trim();
+const apiBaseUrl = rawApiBaseUrl.replace(/\/+$/, '');
 
-// Adiciona dinamicamente a origem de API_BASE_URL se estiver configurada
-const dynamicOrigins: string[] = [];
-if (process.env.API_BASE_URL) {
-  try {
-    const parsed = new URL(process.env.API_BASE_URL);
-    dynamicOrigins.push(parsed.origin);
-  } catch {
-    // Ignora formato inválido
-  }
+// Origem canônica para CORS derivada estritamente da API_BASE_URL configurada
+let apiOrigin = apiBaseUrl;
+try {
+  apiOrigin = new URL(apiBaseUrl).origin;
+} catch {
+  apiOrigin = `http://localhost:${port}`;
 }
 
-const defaultOrigins = [
-  'https://pays.cjcdev.site',
-  'https://paysteste.cjcdev.site',
-  'http://localhost:4020',
-  'http://127.0.0.1:4020',
-  'http://localhost:4021',
-  'http://127.0.0.1:4021',
-  ...dynamicOrigins,
-];
-const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+// Origens permitidas: estritamente a origem de API_BASE_URL + loopback local na porta configurada
+const allowedOrigins = Array.from(
+  new Set([
+    apiOrigin,
+    `http://localhost:${port}`,
+    `http://127.0.0.1:${port}`,
+  ])
+);
 
 export const config = {
   appName: process.env.APP_NAME || 'Pays',
-  port: parseInt(process.env.PORT || '4020', 10),
+  port,
   nodeEnv: process.env.NODE_ENV || 'development',
-  apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:4020',
+  apiBaseUrl,
   allowedOrigins,
   jwtSecret: jwtSecret || 'cjc_dev_pays_super_secret_jwt_token_2026',
 

@@ -61,6 +61,14 @@ export interface MPPaymentResult {
 class MercadoPagoService {
   private client: AxiosInstance;
 
+  private getWebhookFallbackUrl(): string | undefined {
+    const base = (config.apiBaseUrl || '').replace(/\/+$/, '');
+    if (!base || base.includes('localhost') || base.includes('127.0.0.1')) {
+      return undefined;
+    }
+    return `${base}/api/webhooks/mercadopago`;
+  }
+
   constructor() {
     this.client = axios.create({
       baseURL: 'https://api.mercadopago.com',
@@ -117,7 +125,10 @@ class MercadoPagoService {
         if (!input.notificationUrl.includes('localhost') && !input.notificationUrl.includes('127.0.0.1')) {
           payload.notification_url = input.notificationUrl;
         } else {
-          payload.notification_url = 'https://pays.cjcdev.site/api/webhooks/mercadopago';
+          const fallback = this.getWebhookFallbackUrl();
+          if (fallback) {
+            payload.notification_url = fallback;
+          }
         }
       }
 
@@ -196,7 +207,10 @@ class MercadoPagoService {
         if (!input.notificationUrl.includes('localhost') && !input.notificationUrl.includes('127.0.0.1')) {
           payload.notification_url = input.notificationUrl;
         } else {
-          payload.notification_url = 'https://pays.cjcdev.site/api/webhooks/mercadopago';
+          const fallback = this.getWebhookFallbackUrl();
+          if (fallback) {
+            payload.notification_url = fallback;
+          }
         }
       }
 
