@@ -19,6 +19,10 @@ const publicPath = path.resolve(__dirname, '../public');
 
 export const app = express();
 
+// Configura o Express para confiar no proxy reverso imediato (Cloudflare / Nginx)
+// Essencial para extração correta de req.ip e conformidade com express-rate-limit
+app.set('trust proxy', 1);
+
 // Middlewares essenciais de segurança e parse
 app.use(
   helmet({

@@ -13,12 +13,13 @@ await initDatabase();
 await expirationService.processPendingExpirations();
 
 const server = app.listen(config.port, () => {
+  const baseUrl = config.apiBaseUrl || `http://localhost:${config.port}`;
   logger.success(`🚀 CJC-Dev-Pays rodando com sucesso na porta ${config.port}!`);
   logger.info(`📍 Modo Mercado Pago: ${config.mpSandbox ? '🟡 SANDBOX (Testes)' : '🟢 PRODUÇÃO (Live)'}`);
   logger.info(`📍 MP Public Key ativa: ${config.mpPublicKey ? config.mpPublicKey.substring(0, 15) + '...' : '(não configurada)'}`);
-  logger.info(`📍 Painel Web: http://localhost:${config.port}`);
-  logger.info(`📍 Webhook MP Único: http://localhost:${config.port}/api/webhooks/mercadopago`);
-  logger.info(`📍 API Base: http://localhost:${config.port}/api/v1`);
+  logger.info(`📍 Painel Web: ${baseUrl}`);
+  logger.info(`📍 Webhook MP Único: ${baseUrl}/api/webhooks/mercadopago`);
+  logger.info(`📍 API Base: ${baseUrl}/api/v1`);
 });
 
 // Loop periódico em background para reprocessar webhooks que falharam e expirar Pix pendentes (a cada 30 segundos)
