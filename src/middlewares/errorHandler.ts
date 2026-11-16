@@ -22,6 +22,14 @@ export function errorHandler(
     return;
   }
 
+  if (err?.message && err.message.includes('CORS')) {
+    res.status(403).json({
+      success: false,
+      error: err.message,
+    });
+    return;
+  }
+
   const statusCode = err.status || err.statusCode || 500;
   const isProduction = process.env.NODE_ENV === 'production';
 

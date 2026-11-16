@@ -28,10 +28,26 @@ if (isProduction && (!jwtSecret || jwtSecret === 'cjc_dev_pays_super_secret_jwt_
 const envOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
   : [];
+
+// Adiciona dinamicamente a origem de API_BASE_URL se estiver configurada
+const dynamicOrigins: string[] = [];
+if (process.env.API_BASE_URL) {
+  try {
+    const parsed = new URL(process.env.API_BASE_URL);
+    dynamicOrigins.push(parsed.origin);
+  } catch {
+    // Ignora formato inválido
+  }
+}
+
 const defaultOrigins = [
   'https://pays.cjcdev.site',
+  'https://paysteste.cjcdev.site',
   'http://localhost:4020',
   'http://127.0.0.1:4020',
+  'http://localhost:4021',
+  'http://127.0.0.1:4021',
+  ...dynamicOrigins,
 ];
 const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 

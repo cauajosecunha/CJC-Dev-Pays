@@ -55,11 +55,15 @@ app.use(
   cors({
     origin: (origin, callback) => {
       // Permite requisições sem origin (ex: server-to-server, curl) ou presentes na whitelist
-      if (!origin || config.allowedOrigins.includes(origin) || config.nodeEnv !== 'production') {
-        callback(null, true);
-      } else {
-        callback(new Error('Origem bloqueada pela política de CORS do CJC Dev Pays.'));
+      if (!origin || config.nodeEnv !== 'production') {
+        return callback(null, true);
       }
+      const cleanOrigin = origin.replace(/\/+$/, '');
+      const isAllowed = config.allowedOrigins.some((o) => o.replace(/\/+$/, '') === cleanOrigin);
+      if (isAllowed) {
+        return callback(null, true);
+      }
+      callback(new Error(`Origem bloqueada pela política de CORS do CJC Dev Pays: ${origin}`));
     },
     credentials: true,
   })
