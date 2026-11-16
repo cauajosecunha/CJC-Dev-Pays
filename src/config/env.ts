@@ -36,7 +36,7 @@ const defaultOrigins = [
 const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 
 export const config = {
-  appName: process.env.APP_NAME || 'cjc-dev-pays',
+  appName: process.env.APP_NAME || 'Pays',
   port: parseInt(process.env.PORT || '4020', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:4020',

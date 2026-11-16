@@ -28,7 +28,7 @@ function parseEnv(filePath) {
 }
 
 const rootEnv = parseEnv(path.resolve(__dirname, '.env'));
-const appName = rootEnv.APP_NAME || process.env.APP_NAME || 'cjc-dev-pays';
+const appName = rootEnv.APP_NAME || process.env.APP_NAME || 'Pays';
 
 module.exports = {
   apps: [
