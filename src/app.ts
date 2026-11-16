@@ -1,4 +1,5 @@
 import express from 'express';
+import { config } from './config/env.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
@@ -15,8 +16,6 @@ import { logger } from './lib/logger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publicPath = path.resolve(__dirname, '../public');
-
-import { config } from './config/env.js';
 
 export const app = express();
 

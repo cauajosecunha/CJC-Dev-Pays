@@ -1,11 +1,17 @@
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Carrega estritamente o .env da raiz do projeto forçando sobrescrita de variáveis cacheadas pelo PM2/shell
-const envPath = path.resolve(__dirname, '../../.env');
+
+// Carrega estritamente o .env físico da raiz forçando sobrescrita (override: true)
+// para impedir que o daemon do PM2 utilize variáveis legadas em cache de memória
+const envPathCwd = path.resolve(process.cwd(), '.env');
+const envPathRelative = path.resolve(__dirname, '../../.env');
+const envPath = fs.existsSync(envPathCwd) ? envPathCwd : envPathRelative;
+
 dotenv.config({ path: envPath, override: true });
 
 const isSandbox = String(process.env.MP_SANDBOX || '').trim().toLowerCase() === 'true';
@@ -30,6 +36,7 @@ const defaultOrigins = [
 const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 
 export const config = {
+  appName: process.env.APP_NAME || 'cjc-dev-pays',
   port: parseInt(process.env.PORT || '4020', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:4020',

@@ -1,5 +1,5 @@
-import { app } from './app.js';
 import { config } from './config/env.js';
+import { app } from './app.js';
 import { logger } from './lib/logger.js';
 import { webhookDispatcher } from './services/webhookDispatcher.js';
 import { expirationService } from './services/expirationService.js';
